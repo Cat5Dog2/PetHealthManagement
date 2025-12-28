@@ -1,259 +1,305 @@
 # ペット健康管理アプリ 基本設計書
 
-* 文書名：ペット健康管理アプリ 基本設計書
-* バージョン：1.0
-* 作成日：2025-12-07
-* 作成者：Cat5Dog2
-* 想定読者：開発者本人、レビュー担当者
+- 文書名：ペット健康管理アプリ 基本設計書
+- バージョン：1.0
+- 作成日：2025-12-27
+- 作成者：Cat5Dog2
+- 想定読者：開発者本人、レビュー担当者
 
 ---
 
 ## 1. 前提・対象範囲
 
-### 1.1 前提
+### 1.1 前提（要件との整合）
+- 前提要件：**「ペット健康管理アプリ 要件定義書 v1.0」**
+- 未ログインユーザーは機能画面へアクセスできず、ログイン画面へリダイレクト（Cookie 認証の既定動作）。
+- 公開（`IsPublic`）は「**ログイン済みユーザー同士のみ共有**」（未ログイン公開は行わない）。
+- 画像は **`wwwroot` 外**に保存し、認可付きエンドポイント **`GET /images/{id}`** 経由で配信（デフォルト画像のみ静的配信）。
+- 健康ログの日時は **`RecordedAt`（`DateTimeOffset(+09:00)`）** を採用。
+- ペットの公開状態 `IsPublic` の既定値は **true（公開）**。
 
-* 要件は「ペット健康管理アプリ 要件定義書 v1.0」を前提とする。
-* 実装技術
-  * .NET 10 (LTS) / ASP.NET Core MVC
-  * C# 14
-  * Entity Framework Core 10
-  * ASP.NET Core Identity
+### 1.2 実装技術
+- .NET 10 (LTS) / ASP.NET Core MVC
+- C# 14
+- Entity Framework Core 10
+- ASP.NET Core Identity
 
-### 1.2 本書の範囲
+### 1.3 対象プラットフォーム・インフラ
+- 開発環境：Windows
+- Web サーバ：Kestrel
+- 通信：HTTPS（TLS）
+  - 開発：`dotnet dev-certs https` を利用
+- DB：RDB（EF Core + マイグレーション）
+- 画像ストレージ：ファイルシステム（`StorageRoot` 配下、`wwwroot` 外）
+- 機密情報（ConnectionStrings / StorageRoot 等）
+  - ユーザーシークレット / 環境変数で管理（リポジトリへはコミットしない）
 
-* アプリ全体構成（レイヤ・プロジェクト構成）の概要
-* コントローラ・URL・画面構成
-* ドメインモデル（エンティティ）と DB マッピング概要
-* アクセス制御（認証・認可・所有者チェック）
-* 画像保存方式・命名規約
-* 入力バリデーション方針
-* 削除（カスケード）設計
+### 1.4 本書の範囲
+- 画面/URL/Controller、ViewModel、DB設計（実装イメージ）、画像アップロード・保存・配信、削除フロー、バリデーション、エラー/ログ方針。
+- UI の色・レイアウトの細部、E2E テスト設計は対象外。
 
 ---
 
 ## 2. システム構成・アーキテクチャ
 
 ### 2.1 レイヤ構成
-
-個人開発・ポートフォリオ用途のため、下記のシンプルな 3 レイヤ構成とする。
-
-* Presentation レイヤ
-  * ASP.NET Core MVC（Controllers / Views / ViewModels）
-* Application レイヤ
-  * サービスクラス（ビジネスロジック）
-  * 画像保存サービス、削除サービスなど
-* Infrastructure / Data レイヤ
-  * Entity Framework Core によるリポジトリ的役割（DbContext）
-  * ASP.NET Core Identity の永続化
+- Presentation：MVC（Controller / View / ViewModel）
+- Application：ユースケース（サービスクラス）
+- Domain：エンティティ（EF Core）
+- Infrastructure：DB（RDB）、画像ストレージ（ファイルシステム：将来 Blob へ差替え可能）
 
 ### 2.2 プロジェクト構成（案）
-
-1 プロジェクト構成（Web アプリ単体）とし、名前空間で論理分割する。
-
-* プロジェクト：`PetHealthManager`
-  * `/Controllers`
-    * `HomeController`
-    * `MyPageController`
-    * `PetsController`
-    * `HealthLogsController`
-    * `ScheduleItemsController`
-    * `VisitsController`
-    * `AccountController`（Identity 拡張部分）
-    * `Admin/UsersController`（Areas/Admin）
-  * `/Areas/Admin/Controllers`
-  * `/Models`
-    * エンティティ（EF Core 用）
-  * `/ViewModels`
-    * 画面毎の ViewModel
-  * `/Services`
-    * `IImageStorageService`
-    * `FileSystemImageStorageService`
-    * `IUserDataDeletionService`
-    * `UserDataDeletionService`
-    * 所有者チェック用ヘルパなど
-  * `/Data`
-    * `ApplicationDbContext`（Identity + アプリエンティティ）
-  * `/Views`
-    * 各 Controller の Views
-  * `/wwwroot`
-    * `/images/default`
-    * `/upload/images/profile`
-    * `/upload/images/pet`
-    * `/upload/images/healthlog`
-    * `/upload/images/visit`
+- `/Controllers`
+  - `HomeController`
+  - `MyPageController`
+  - `PetsController`
+  - `HealthLogsController`
+  - `ScheduleItemsController`
+  - `VisitsController`
+  - `ImagesController`
+  - `AccountController`（プロフィール/削除などの拡張）
+- `/Areas/Admin/Controllers`
+  - `UsersController`
+- `/Models`（EF Core エンティティ）
+- `/ViewModels`（画面ごとの DTO）
+- `/Services`
+  - `IImageService`（検証/加工/容量判定/DB連携）
+  - `IImageStorageService`（保存/取得/削除：ファイルシステム実装）
+  - `IUserDataDeletionService`（ユーザー削除）
+  - `AuthorizationHelper`（所有者チェック・参照元辿り）
+- `/wwwroot/images/default`（デフォルト画像のみ）
+- `/Data`
+  - `ApplicationDbContext`（Identity + アプリテーブル）
 
 ---
 
 ## 3. URL・コントローラ設計
 
 ### 3.1 主な URL 一覧
+| 機能 | HTTP | URL | Controller / Action | 認可 |
+|---|---:|---|---|---|
+| トップ | GET | `/` | `HomeController.Index` | 匿名可 |
+| MyPage | GET | `/MyPage` | `MyPageController.Index` | 認証必須 |
+| プロフィール編集 | GET/POST | `/Account/EditProfile` | `AccountController.EditProfile` | 認証必須 |
+| パスワード変更 | GET/POST | `/Account/Manage/ChangePassword` | Identity 標準 | 認証必須 |
+| アカウント削除（確認） | GET | `/Account/Delete` | `AccountController.Delete` | 認証必須 |
+| アカウント削除（実行） | POST | `/Account/DeleteConfirmed` | `AccountController.DeleteConfirmed` | 認証必須 |
+| ペット一覧（公開検索） | GET | `/Pets` | `PetsController.Index` | 認証必須 |
+| ペット詳細 | GET | `/Pets/Details/{id}` | `PetsController.Details` | 認証必須 |
+| ペット作成 | GET/POST | `/Pets/Create` | `PetsController.Create` | 認証必須 |
+| ペット編集 | GET/POST | `/Pets/Edit/{id}` | `PetsController.Edit` | 認証必須 |
+| ペット削除 | POST | `/Pets/Delete/{id}` | `PetsController.Delete` | 認証必須（所有者のみ） |
+| 健康ログ一覧 | GET | `/HealthLogs?petId={id}` | `HealthLogsController.Index` | 認証必須（所有者のみ） |
+| 健康ログ作成 | GET/POST | `/HealthLogs/Create?petId={id}` | `HealthLogsController.Create` | 認証必須（所有者のみ） |
+| 健康ログ編集 | GET/POST | `/HealthLogs/Edit/{id}` | `HealthLogsController.Edit` | 認証必須（所有者のみ） |
+| 健康ログ削除 | POST | `/HealthLogs/Delete/{id}` | `HealthLogsController.Delete` | 認証必須（所有者のみ） |
+| 予定一覧 | GET | `/ScheduleItems?petId={id}` | `ScheduleItemsController.Index` | 認証必須（所有者のみ） |
+| 予定作成 | GET/POST | `/ScheduleItems/Create?petId={id}` | `ScheduleItemsController.Create` | 認証必須（所有者のみ） |
+| 予定編集 | GET/POST | `/ScheduleItems/Edit/{id}` | `ScheduleItemsController.Edit` | 認証必須（所有者のみ） |
+| 予定削除 | POST | `/ScheduleItems/Delete/{id}` | `ScheduleItemsController.Delete` | 認証必須（所有者のみ） |
+| 通院履歴一覧 | GET | `/Visits?petId={id}` | `VisitsController.Index` | 認証必須（所有者のみ） |
+| 通院履歴作成 | GET/POST | `/Visits/Create?petId={id}` | `VisitsController.Create` | 認証必須（所有者のみ） |
+| 通院履歴編集 | GET/POST | `/Visits/Edit/{id}` | `VisitsController.Edit` | 認証必須（所有者のみ） |
+| 通院履歴削除 | POST | `/Visits/Delete/{id}` | `VisitsController.Delete` | 認証必須（所有者のみ） |
+| 画像配信（統一） | GET | `/images/{id}` | `ImagesController.Get` | 認証必須 |
 
-| 機能           | HTTP     | URL パターン                            | Controller / Action                     |
-| ------------ | -------- | ----------------------------------- | --------------------------------------- |
-| トップページ       | GET      | `/`                                 | `HomeController.Index`                  |
-| MyPage 表示    | GET      | `/MyPage`                           | `MyPageController.Index`                |
-| プロフィール編集表示   | GET      | `/Account/EditProfile`              | `AccountController.EditProfile`         |
-| プロフィール編集POST | POST     | `/Account/EditProfile`              | `AccountController.EditProfile`         |
-| アカウント削除画面    | GET      | `/Account/Delete`                   | `AccountController.Delete`              |
-| アカウント削除実行    | POST     | `/Account/DeleteConfirmed`          | `AccountController.DeleteConfirmed`     |
-| 全ペット一覧       | GET      | `/Pets`                             | `PetsController.Index`                  |
-| ペット詳細        | GET      | `/Pets/Details/{id}`                | `PetsController.Details`                |
-| ペット登録画面      | GET      | `/Pets/Create`                      | `PetsController.Create`                 |
-| ペット登録実行      | POST     | `/Pets/Create`                      | `PetsController.Create`                 |
-| ペット編集画面      | GET      | `/Pets/Edit/{id}`                   | `PetsController.Edit`                   |
-| ペット編集実行      | POST     | `/Pets/Edit/{id}`                   | `PetsController.Edit`                   |
-| ペット削除確認      | GET      | `/Pets/Delete/{id}`                 | `PetsController.Delete`                 |
-| ペット削除実行      | POST     | `/Pets/DeleteConfirmed/{id}`        | `PetsController.DeleteConfirmed`        |
-| 健康ログ一覧       | GET      | `/HealthLogs?petId={petId}`         | `HealthLogsController.Index`            |
-| 健康ログ詳細（任意）   | GET      | `/HealthLogs/Details/{id}`          | `HealthLogsController.Details`          |
-| 健康ログ登録       | GET      | `/HealthLogs/Create?petId={petId}`  | `HealthLogsController.Create`           |
-| 健康ログ登録 POST  | POST     | `/HealthLogs/Create`                | `HealthLogsController.Create`           |
-| 健康ログ編集       | GET      | `/HealthLogs/Edit/{id}`             | `HealthLogsController.Edit`             |
-| 健康ログ編集 POST  | POST     | `/HealthLogs/Edit/{id}`             | `HealthLogsController.Edit`             |
-| 健康ログ削除       | GET      | `/HealthLogs/Delete/{id}`           | `HealthLogsController.Delete`           |
-| 健康ログ削除 POST  | POST     | `/HealthLogs/DeleteConfirmed/{id}`  | `HealthLogsController.DeleteConfirmed`  |
-| 予定一覧         | GET      | `/ScheduleItems?petId={petId}`      | `ScheduleItemsController.Index`         |
-| 予定登録/編集/削除   | GET/POST | `/ScheduleItems/...`                | 同上                                      |
-| 通院履歴一覧       | GET      | `/Visits?petId={petId}`             | `VisitsController.Index`                |
-| 通院履歴登録/編集/削除 | GET/POST | `/Visits/...`                       | 同上                                      |
-| 管理者：ユーザー一覧   | GET      | `/Admin/Users`                      | `Admin.UsersController.Index`           |
-| 管理者：ユーザー削除確認 | GET      | `/Admin/Users/Delete/{id}`          | `Admin.UsersController.Delete`          |
-| 管理者：ユーザー削除実行 | POST     | `/Admin/Users/DeleteConfirmed/{id}` | `Admin.UsersController.DeleteConfirmed` |
-
-※ ログイン／ログアウト／パスワード変更は Identity の標準エンドポイントを利用。
+### 3.2 管理者（Admin Area）
+| 機能 | HTTP | URL | Controller / Action | 認可 |
+|---|---:|---|---|---|
+| ユーザー一覧 | GET | `/Admin/Users` | `Areas.Admin.UsersController.Index` | Admin |
+| ユーザー削除 | POST | `/Admin/Users/Delete/{id}` | `Areas.Admin.UsersController.Delete` | Admin |
 
 ---
 
 ## 4. 画面設計（概要）
 
-### 4.1 MyPage 画面
+### 4.1 MyPage（/MyPage）
+- 自分のプロフィール（表示名、メール、アバター）を表示
+- 自分のペット一覧（自分のみ）を表示
+- アバター/ペット画像は `/images/{id}` またはデフォルト画像を表示
 
-* View：`Views/MyPage/Index.cshtml`
-* ViewModel：`MyPageViewModel`
+### 4.2 ペット一覧（/Pets）
+- 10件/ページ
+- ソート：`UpdatedAt` 降順（なければ `CreatedAt` 降順）
+- 検索条件：名前キーワード（部分一致）、種別（10択、未指定=ALL）
+- 表示対象：
+  - 自分のペット（公開/非公開問わず）
+  - 他ユーザーの公開ペット（`IsPublic=true`）
 
+### 4.3 ペット詳細（/Pets/Details/{id}）
+- 自分のペット：常に閲覧可
+- 他ユーザーのペット：`IsPublic=true` の場合のみ閲覧可（`IsPublic=false` は 404）
+- オーナーのみ：編集/削除、健康ログ/予定/通院履歴への導線を表示
+
+### 4.4 健康ログ（/HealthLogs）
+- 所有者のみアクセス可（非所有者は 403）
+- 一覧：`RecordedAt` 降順、10件/ページ
+- 登録・編集：`RecordedAt` 必須（`DateTimeOffset +09:00`）
+- 画像：最大10枚（既存＋追加の合算）、ユーザー合計100MB制限、EXIF除去+向き正規化
+
+### 4.5 予定（/ScheduleItems）
+- 所有者のみアクセス可（非所有者は 403）
+- 一覧：`DueDate` 昇順、10件/ページ
+- 種別（`Type`）は固定値推奨：`Vaccine` / `Medicine` / `Visit` / `Other`
+- `IsDone`（完了フラグ）の切り替えを提供（一覧上のトグル or 編集画面）
+
+### 4.6 通院履歴（/Visits）
+- 所有者のみアクセス可（非所有者は 403）
+- 一覧：`VisitDate` 降順、10件/ページ
+- 画像：最大10枚（既存＋追加の合算）、ユーザー合計100MB制限
+
+### 4.7 管理者（/Admin/Users）
+- Admin のみアクセス可
+- ユーザー一覧表示、ユーザー削除（関連データ＋画像含む）
+- Admin でも他ユーザーの健康ログ等を「閲覧できる」特権は持たない（削除操作のみ）
+
+---
+
+## 5. ViewModel 設計（例）
+
+### 5.1 共通：Species（種別）コードと表示名
+- 入力・検索・保存は **内部値（固定文字列）**
+- 表示は内部値→表示名へ変換（表示名変更があっても内部値は変えない）
+
+| 表示名 | 内部値 |
+|---|---|
+| 犬 | `DOG` |
+| 猫 | `CAT` |
+| ハムスター・モルモット | `HAMSTER_GUINEA_PIG` |
+| うさぎ | `RABBIT` |
+| その他の哺乳類 | `OTHER_MAMMAL` |
+| 小鳥 | `BIRD` |
+| お魚 | `FISH` |
+| 亀 | `TURTLE` |
+| 爬虫類・両生類 | `REPTILE_AMPHIBIAN` |
+| 昆虫 | `INSECT` |
+
+> 変換は `SpeciesCatalog`（Dictionary）としてアプリ側に固定実装。
+
+### 5.2 MyPage
 ```csharp
 public class MyPageViewModel
 {
     public string DisplayName { get; set; }
     public string Email { get; set; }
-    public string AvatarUrl { get; set; } // 実際に表示するパス（デフォルト適用済）
-    public List<MyPetSummaryViewModel> Pets { get; set; }
+    public string AvatarUrl { get; set; } // /images/{id} or /images/default/...
+    public List<MyPetSummaryViewModel> Pets { get; set; } = new();
 }
 
 public class MyPetSummaryViewModel
 {
     public int PetId { get; set; }
     public string Name { get; set; }
-    public string Species { get; set; }
+    public string SpeciesLabel { get; set; }
     public string PhotoUrl { get; set; }
     public bool IsPublic { get; set; }
 }
 ```
 
-* 主な表示要素
-
-  * ユーザー表示名、メールアドレス、プロフィール画像
-  * 自ペット一覧（カード表示）
-  * ボタン／リンク
-    * プロフィール編集
-    * パスワード変更
-    * アカウント削除
-    * ペットを登録
-
-### 4.2 ペット一覧画面（/Pets/Index）
-
-* ViewModel：`PetSearchViewModel`, `PetListItemViewModel`
-
+### 5.3 ペット検索
 ```csharp
 public class PetSearchViewModel
 {
-    public string NameKeyword { get; set; }
-    public string SpeciesFilter { get; set; } // "All", "Dog", "Cat", "Other"
-    public List<PetListItemViewModel> Pets { get; set; }
+    public string? NameKeyword { get; set; }
+    public string SpeciesFilter { get; set; } = "ALL"; // ALL or DOG/CAT/...
+    public int Page { get; set; } = 1;
+    public int PageSize { get; set; } = 10;
+    public int TotalCount { get; set; }
+    public List<PetListItemViewModel> Pets { get; set; } = new();
 }
 
 public class PetListItemViewModel
 {
     public int PetId { get; set; }
     public string Name { get; set; }
-    public string Species { get; set; }
-    public string Breed { get; set; }
+    public string SpeciesLabel { get; set; }
+    public string? Breed { get; set; }
     public string OwnerDisplayName { get; set; }
     public string PhotoUrl { get; set; }
-    public bool IsOwner { get; set; }
     public bool IsPublic { get; set; }
+    public bool IsOwner { get; set; }
 }
 ```
 
-* 表示方針
-  * IsPublic = true の他人ペット＋自分のペット全てを対象に検索
-  * 所有者自身のペットは公開状態に関わらず表示
-
-### 4.3 ペット詳細画面（/Pets/Details/{id}）
-
-* ViewModel：`PetDetailsViewModel`
-
+### 5.4 健康ログ編集（画像あり）
 ```csharp
-public class PetDetailsViewModel
+public class HealthLogEditViewModel
 {
+    public int? HealthLogId { get; set; } // Create は null
     public int PetId { get; set; }
-    public string Name { get; set; }
-    public string Species { get; set; }
-    public string Breed { get; set; }
-    public string Sex { get; set; }
-    public DateTime? BirthDate { get; set; }
-    public DateTime? AdoptedDate { get; set; }
-    public string PhotoUrl { get; set; }
-    public string OwnerDisplayName { get; set; }
-    public bool IsPublic { get; set; }
-    public bool IsOwner { get; set; }
+    public DateTimeOffset RecordedAt { get; set; } // 必須（+09:00）
+
+    public double? WeightKg { get; set; }
+    public int? FoodAmountGram { get; set; }
+    public int? WalkMinutes { get; set; }
+    public string? StoolCondition { get; set; }
+    public string? Note { get; set; }
+
+    public List<ImageItemViewModel> ExistingImages { get; set; } = new();
+    public IFormFile[]? NewFiles { get; set; } // 追加
+    public Guid[]? DeleteImageIds { get; set; } // 削除対象
+}
+
+public class ImageItemViewModel
+{
+    public Guid ImageId { get; set; }
+    public string Url { get; set; } // /images/{id}
+    public int SortOrder { get; set; }
 }
 ```
 
-* オーナーの場合のみ表示するリンク
-  * 健康ログ一覧
-  * 予定一覧
-  * 通院履歴一覧
-  * 編集・削除ボタン
-
-### 4.4 健康ログ一覧・登録画面（例）
-
-* 一覧：`HealthLogsController.Index`
-  * 入力：`petId`
-  * 表示：日付、体重、食事量、散歩時間、排せつ状態、メモ（概要）、画像の有無
-* 登録：`HealthLogsController.Create`
-  * 入力項目
-    * 日付（必須）
-    * 体重（任意・数値）
-    * 食事量（任意・数値）
-    * 散歩時間（任意・数値）
-    * 排せつ状態（任意・文字列）
-    * メモ（任意・文字列）
-    * 画像ファイル（複数選択可）
-
-同様に、予定・通院履歴画面も要件定義書の項目に沿って ViewModel を定義する。
+### 5.5 通院履歴編集（画像あり）
+- 健康ログと同様に `ExistingImages/NewFiles/DeleteImageIds` を持つ
 
 ---
 
-## 5. ドメインモデル / DB 設計（概要）
+## 6. 認可・ステータスコード方針
 
-### 5.1 エンティティクラス
+### 6.1 未ログイン
+- 機能画面：ログインへリダイレクト（Cookie 認証の既定動作）
+- 画像：`GET /images/{id}` もログインへリダイレクト（`[Authorize]`）
 
-#### 5.1.1 ApplicationUser
+### 6.2 ログイン済み：404（存在秘匿）
+- 他人の非公開ペット（`IsPublic=false`）：404
+- 画像：非許可の場合は 404（存在秘匿）
 
-* Identity のユーザーに以下を追加。
+### 6.3 ログイン済み：403（所有者チェック NG）
+- 健康ログ/通院履歴/予定：所有者以外は 403（要件方針）
 
+---
+
+## 7. ドメインモデル / DB 設計（概要）
+
+### 7.1 リレーション（要約）
+- ApplicationUser (1) - (N) Pet  
+- Pet (1) - (N) HealthLog  
+- Pet (1) - (N) ScheduleItem  
+- Pet (1) - (N) Visit  
+- HealthLog (1) - (N) HealthLogImage - (1) ImageAsset  
+- Visit (1) - (N) VisitImage - (1) ImageAsset  
+- ApplicationUser (1) - (N) ImageAsset（OwnerId）
+
+### 7.2 エンティティ（実装イメージ）
+
+#### ApplicationUser（Identity 拡張）
 ```csharp
 public class ApplicationUser : IdentityUser
 {
-    public string DisplayName { get; set; } // Max 50, Required
-    public string AvatarPath { get; set; }  // 相対パス or null
-    public ICollection<Pet> Pets { get; set; }
+    // UI 入力は任意だが、保存時はデフォルト値で埋める（空文字を許可しない想定）
+    public string DisplayName { get; set; } // Max 50
+
+    public Guid? AvatarImageId { get; set; }
+    public ImageAsset? AvatarImage { get; set; }
+
+    // ユーザー合計容量（100MB）
+    public long UsedImageBytes { get; set; }
+
+    // 同時更新対策（推奨）
+    public byte[] RowVersion { get; set; } // [Timestamp]
 }
 ```
 
-#### 5.1.2 Pet
-
+#### Pet
 ```csharp
 public class Pet
 {
@@ -261,24 +307,24 @@ public class Pet
     public string OwnerId { get; set; }
     public ApplicationUser Owner { get; set; }
 
-    public string Name { get; set; }      // Required, Max 50
-    public string Species { get; set; }   // Required, Max 50
-    public string Breed { get; set; }     // Optional, Max 100
-    public string Sex { get; set; }       // Optional, Max 10
+    public string Name { get; set; }          // Max 50
+    public string SpeciesCode { get; set; }   // 固定コード（DOG など）
+    public string? Breed { get; set; }        // Max 100
+    public string? Sex { get; set; }          // Max 10
     public DateTime? BirthDate { get; set; }
     public DateTime? AdoptedDate { get; set; }
 
-    public string PhotoPath { get; set; } // 相対パス or null
-    public bool IsPublic { get; set; }    // default true
+    public bool IsPublic { get; set; }        // default true
 
-    public ICollection<HealthLog> HealthLogs { get; set; }
-    public ICollection<ScheduleItem> ScheduleItems { get; set; }
-    public ICollection<Visit> Visits { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+
+    public Guid? PhotoImageId { get; set; }
+    public ImageAsset? PhotoImage { get; set; }
 }
 ```
 
-#### 5.1.3 HealthLog / HealthLogImage
-
+#### HealthLog / HealthLogImage（日時は RecordedAt）
 ```csharp
 public class HealthLog
 {
@@ -286,14 +332,18 @@ public class HealthLog
     public int PetId { get; set; }
     public Pet Pet { get; set; }
 
-    public DateTime Date { get; set; }
+    public DateTimeOffset RecordedAt { get; set; } // +09:00
+
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+
     public double? WeightKg { get; set; }        // 0.0〜200.0
     public int? FoodAmountGram { get; set; }     // 0〜5000
     public int? WalkMinutes { get; set; }        // 0〜1440
-    public string StoolCondition { get; set; }   // Max 100
-    public string Note { get; set; }             // Max 1000
+    public string? StoolCondition { get; set; }  // Max 100
+    public string? Note { get; set; }            // Max 1000
 
-    public ICollection<HealthLogImage> Images { get; set; }
+    public ICollection<HealthLogImage> Images { get; set; } = new List<HealthLogImage>();
 }
 
 public class HealthLogImage
@@ -302,13 +352,14 @@ public class HealthLogImage
     public int HealthLogId { get; set; }
     public HealthLog HealthLog { get; set; }
 
-    public string ImagePath { get; set; } // /upload/images/healthlog/xxxx.jpg
+    public Guid ImageId { get; set; }
+    public ImageAsset Image { get; set; }
+
     public int SortOrder { get; set; }
 }
 ```
 
-#### 5.1.4 ScheduleItem
-
+#### ScheduleItem（DueDate + IsDone）
 ```csharp
 public class ScheduleItem
 {
@@ -317,15 +368,17 @@ public class ScheduleItem
     public Pet Pet { get; set; }
 
     public DateTime DueDate { get; set; }
-    public string Type { get; set; }   // Max 20
-    public string Title { get; set; }  // Max 100
-    public string Note { get; set; }   // Max 500
+    public string Type { get; set; }    // 固定値推奨: Vaccine/Medicine/Visit/Other
+    public string Title { get; set; }   // Max 100
+    public string? Note { get; set; }   // Max 500
     public bool IsDone { get; set; }
+
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
 }
 ```
 
-#### 5.1.5 Visit / VisitImage
-
+#### Visit / VisitImage（要件に合わせて最小構成）
 ```csharp
 public class Visit
 {
@@ -334,12 +387,15 @@ public class Visit
     public Pet Pet { get; set; }
 
     public DateTime VisitDate { get; set; }
-    public string ClinicName { get; set; }   // Max 100
-    public string Diagnosis { get; set; }    // Max 500
-    public string Prescription { get; set; } // Max 500
-    public string Note { get; set; }         // Max 1000
+    public string? ClinicName { get; set; }     // Max 100
+    public string? Diagnosis { get; set; }      // Max 500
+    public string? Prescription { get; set; }   // Max 500
+    public string? Note { get; set; }           // Max 1000
 
-    public ICollection<VisitImage> Images { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+
+    public ICollection<VisitImage> Images { get; set; } = new List<VisitImage>();
 }
 
 public class VisitImage
@@ -348,152 +404,118 @@ public class VisitImage
     public int VisitId { get; set; }
     public Visit Visit { get; set; }
 
-    public string ImagePath { get; set; } // /upload/images/visit/xxxx.jpg
+    public Guid ImageId { get; set; }
+    public ImageAsset Image { get; set; }
+
     public int SortOrder { get; set; }
 }
 ```
 
-### 5.2 テーブル命名とマッピング
-
-* ApplicationUser → `AspNetUsers`（Identity 標準テーブルに列追加）
-* Pet → `Pets`
-* HealthLog → `HealthLogs`
-* HealthLogImage → `HealthLogImages`
-* ScheduleItem → `ScheduleItems`
-* Visit → `Visits`
-* VisitImage → `VisitImages`
-
-FK は EF Core の規約に従いつつ、`OnDelete(DeleteBehavior.Cascade)` を適宜設定。
-ユーザー削除時はアプリケーション側で明示的に関連データ削除を行う（後述）。
-
----
-
-## 6. アクセス制御・認可設計
-
-### 6.1 認証
-
-* ASP.NET Core Identity による Cookie 認証
-* `[Authorize]` 属性により、未ログインユーザーのアクセスを制御
-  * 例：`[Authorize]` を MyPage／Pets／HealthLogs／ScheduleItems／Visits／Admin エリアに付与
-
-### 6.2 ロール
-
-* 管理者ロール `"Admin"`
-  * 管理者専用エリア：`[Authorize(Roles = "Admin")]`
-  * 付与は DB 直接編集のみ（UI では変更不可）
-
-### 6.3 所有者チェック
-
-* ペット関連情報（ペット、健康ログ、予定、通院履歴）は「オーナーのみ CRUD 可」の要件。
-* 実装方針
-  * 共通ヘルパメソッド：
-
+#### ImageAsset（共通画像）
 ```csharp
-public class AuthorizationHelper
-{
-    private readonly ApplicationDbContext _db;
-    private readonly UserManager<ApplicationUser> _userManager;
+public enum ImageAssetStatus { Pending, Ready }
 
-    public Task<bool> IsPetOwnerAsync(int petId, ClaimsPrincipal user);
-    public Task<bool> IsHealthLogOwnerAsync(int logId, ClaimsPrincipal user);
-    public Task<bool> IsScheduleItemOwnerAsync(int itemId, ClaimsPrincipal user);
-    public Task<bool> IsVisitOwnerAsync(int visitId, ClaimsPrincipal user);
+public class ImageAsset
+{
+    public Guid ImageId { get; set; }            // PK
+    public string StorageKey { get; set; }       // 例: images/{guid}.jpg
+    public string ContentType { get; set; }      // image/jpeg, image/png, image/webp
+    public long SizeBytes { get; set; }          // 保存後の実サイズ
+
+    public string OwnerId { get; set; }          // FK: ApplicationUser
+    public string Category { get; set; }         // Avatar, PetPhoto, HealthLog, Visit
+    public ImageAssetStatus Status { get; set; } // Pending/Ready
+
+    public DateTimeOffset CreatedAt { get; set; }
 }
 ```
 
-* Controller 内でチェックし、NG の場合は `Forbid()`（403）を返す。
-
-### 6.4 ペット公開設定による閲覧制御
-
-* ペット詳細
-  * `IsPublic = true` or オーナー本人 or 管理者 → 閲覧可
-  * それ以外 → 404 を返す（存在秘匿も兼ねる）
-* ペット一覧
-  * クエリ時に `IsPublic == true` または `OwnerId == CurrentUserId` を条件に含める。
+### 7.3 インデックス（例）
+- Pet：`(OwnerId)`、`(IsPublic, SpeciesCode)`、`(Name)`
+- HealthLog：`(PetId, RecordedAt DESC)`
+- ScheduleItem：`(PetId, DueDate ASC)`
+- Visit：`(PetId, VisitDate DESC)`
+- ImageAsset：`(OwnerId, Status)`、`(CreatedAt)`
 
 ---
 
-## 7. 画像保存・ファイル管理設計
+## 8. 画像アップロード・保存・配信 設計（要件 v1.1.1 追従）
 
-### 7.1 保存先
+### 8.1 保存先
+- デフォルト画像：`wwwroot/images/default/`（静的）
+- アップロード画像：`wwwroot` 外（例：`<StorageRoot>/images/`）
+- 一時保存：`<StorageRoot>/tmp/`
+- `StorageRoot` は `appsettings.json` / 環境変数から取得可能にする。
 
-要件定義書で指定されたパスをそのまま利用。
+### 8.2 StorageKey（命名規約）
+- `images/{ImageId}.{ext}` を基本とする（GUID により衝突回避）
+- `{ext}` は再エンコード後の形式に合わせる（jpg/png/webp）
 
-* `wwwroot/upload/images/profile/`
-* `wwwroot/upload/images/pet/`
-* `wwwroot/upload/images/healthlog/`
-* `wwwroot/upload/images/visit/`
-* デフォルト画像
-  * `wwwroot/images/default/profile.png`
-  * `wwwroot/images/default/pet.png`
+### 8.3 画像検証（許可リスト）
+- 拡張子：`.jpg/.jpeg/.png/.webp`
+- Content-Type：`image/jpeg`, `image/png`, `image/webp`
+- 可能なら実体判定（マジックナンバー）も行う（最低限、読み込みに失敗する画像は弾く）
+- 1ファイル上限：2MB
+- 健康ログ/通院：最大10枚（既存＋追加の合算）
+- ユーザー合計：100MB
+  - 判定：既存合計 + 今回合計
+  - 超過：全体失敗（部分成功なし）
 
-### 7.2 ファイル名規約
+### 8.4 EXIF除去・Orientation 正規化
+- サーバー側で画像を一度デコードし、Orientation を反映して向きを正規化する
+- 再エンコードして保存し、メタデータ（EXIF 等）を保持しない
 
-* 重複回避と推測困難性のため、GUID ベースとする。
+### 8.5 整合性（「一時保存 → DB更新 → 本保存」）
+目的：DB とファイルの不整合を減らす
 
-例）`{guid}{ext}`
-`"3f1a9c8e-....-abcd.jpg"`
+**フロー（複数ファイル対応）**
+1. 受信ファイルを検証（形式/サイズ/枚数/容量見込み）
+2. 各ファイルを加工（向き正規化+再エンコード）し、tmp に一時保存
+3. DB トランザクション（推奨：`RowVersion` + 例外時リトライ）で
+   - `UsedImageBytes` の上限判定（既存+今回）
+   - `ImageAsset` を `Pending` で追加（`StorageKey` を確定）
+   - `UsedImageBytes` を加算更新
+4. コミット後、tmp → 本保存先へ移動
+5. 本保存に成功した `ImageAsset` を `Ready` に更新
 
-* 保存時の流れ（擬似コード）
+**失敗時（補償）**
+- tmp 保存段階で失敗：tmp のみ削除して中断
+- DB 更新後〜本保存で失敗：
+  - tmp を削除
+  - `ImageAsset` の削除、`UsedImageBytes` 巻き戻し等の補償を実施
+  - 失敗内容（`StorageKey / ImageId`）を `ILogger` に出力
+  - 画面には簡潔な失敗メッセージを返し、全体を失敗扱い
 
-```csharp
-public async Task<string> SaveImageAsync(
-    IFormFile file, ImageCategory category)
-{
-    // category からディレクトリを決定
-    var uploadDir = GetDirectory(category); // e.g. "wwwroot/upload/images/pet"
+### 8.6 画像配信（GET /images/{id}）
+- 認証：`[Authorize]`（未ログインはログインへリダイレクト）
+- レスポンスヘッダ：
+  - `Cache-Control: private, no-store`
+  - `Content-Type`：`ImageAsset.ContentType`
+  - `Content-Disposition`：原則 `inline`
+- 404 条件：
+  - `ImageAsset` 不存在 / `Status=Pending`
+  - 参照元が解決できない（参照レコード削除済み等）
+  - 非許可（存在秘匿）
+- 許可判定（要件 v1.1.1）
+  - Avatar：所有者のみ
+  - HealthLog：所有者のみ
+  - Visit：所有者のみ
+  - PetPhoto：**(参照元 Pet が IsPublic=true) OR (所有者)**
 
-    var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
-    var fileName = $"{Guid.NewGuid()}{ext}";
-    var fullPath = Path.Combine(uploadDir, fileName);
-
-    using var stream = new FileStream(fullPath, FileMode.Create);
-    await file.CopyToAsync(stream);
-
-    // DB には相対パスを保存
-    return $"/upload/images/{category.ToFolderName()}/{fileName}";
-}
-```
-
-### 7.3 デフォルト画像適用
-
-* 表示用 URL プロパティ（例：`AvatarUrl`）は、
-  * DB にパスがあればそれを使用
-  * なければ `/images/default/profile.png` 等を返す
-
-### 7.4 画像削除
-
-* レコード削除時に対応するファイルを削除
-  * `File.Exists` チェック → `File.Delete`
-* 各サービス（例：`UserDataDeletionService`）から
-  * プロフィール画像
-  * ペット画像
-  * 健康ログ画像
-  * 通院履歴画像
-    をまとめて削除。
-
-### 7.5 逃げ道（Blob Storage など）
-
-* `IImageStorageService` インターフェイスで抽象化し、実装クラスを差し替え可能とする。
-  * `FileSystemImageStorageService`（現行）
-  * 将来：`AzureBlobImageStorageService`（別プロジェクト or 実装クラス追加）
-* コントローラからは `IImageStorageService` のみ参照する形にしておく。
+> 実装上の注意：Category は補助情報とし、最終判定は **参照元（Pet/HealthLog/Visit/User）を辿って**行う。
 
 ---
 
-## 8. 入力バリデーション設計
+## 9. 入力バリデーション設計（復活＋要件整合）
 
-### 8.1 サーバーサイド
-
-* DataAnnotations による属性付与。
-
-例：HealthLog
+### 9.1 サーバーサイド（DataAnnotations + ModelState）
+例：健康ログ
 
 ```csharp
 public class HealthLogEditViewModel
 {
     [Required]
-    public DateTime Date { get; set; }
+    public DateTimeOffset RecordedAt { get; set; }
 
     [Range(0.0, 200.0)]
     public double? WeightKg { get; set; }
@@ -505,89 +527,84 @@ public class HealthLogEditViewModel
     public int? WalkMinutes { get; set; }
 
     [MaxLength(100)]
-    public string StoolCondition { get; set; }
+    public string? StoolCondition { get; set; }
 
     [MaxLength(1000)]
-    public string Note { get; set; }
+    public string? Note { get; set; }
 }
 ```
 
-* 文字列長などは要件定義の上限値に合わせる。
+### 9.2 主要項目の制約（目安）
+- ユーザー
+  - DisplayName：最大 50（未設定はデフォルト値を保存）
+- ペット
+  - Name：最大 50（必須）
+  - SpeciesCode：必須（固定値）
+  - Breed：最大 100
+  - Sex：最大 10
+- 予定
+  - Type：最大 20（固定値推奨）
+  - Title：最大 100（必須）
+  - Note：最大 500
+- 通院
+  - ClinicName：最大 100
+  - Diagnosis / Prescription：最大 500
+  - Note：最大 1000
 
-### 8.2 クライアントサイド
-
-* ASP.NET Core MVC の unobtrusive validation を利用。
-* DataAnnotations をそのままクライアント側に反映。
-
-### 8.3 画像アップロードチェック
-
-* 拡張子：`.jpg`, `.jpeg`, `.png` のみ許可
-* Content-Type：`image/jpeg`, `image/png` のみ許可
-* ファイルサイズ上限：2MB 程度（`IFormFile.Length` でチェック）
-* 不正なファイルの場合は ModelState エラーとして画面にメッセージ表示。
-
----
-
-## 9. 削除・カスケード処理設計
-
-### 9.1 ユーザー自身のアカウント削除
-
-* `IUserDataDeletionService.DeleteUserAsync(userId)` を用意。
-* 処理内容
-  1. 対象ユーザーのペット一覧取得
-  2. 各ペットに紐づく
-     * 健康ログ＋画像
-     * 予定
-     * 通院履歴＋画像
-       をすべて取得
-  3. 画像ファイル削除
-  4. DB レコード削除（`SaveChanges` 一括）
-  5. 最後にユーザー自身を削除（Identity）
-
-### 9.2 管理者によるユーザー削除
-
-* 基本的には自アカウント削除と同等ロジックを利用
-  * サービスを共用し、呼び出し元だけ変える
-
-### 9.3 ペット削除
-
-* 単一ペット削除時も同様に、関連健康ログ／予定／通院履歴と画像を削除するサービスメソッドを用意。
+### 9.3 画像アップロード（画面側）
+- UX 向上のため拡張子チェック・サイズ/枚数表示を行う
+- 実際の拒否はサーバー側で確実に行う
 
 ---
 
-## 10. エラーハンドリング・メッセージ
+## 10. 削除・カスケード処理設計
 
-* 404
-  * ID 不正／存在しない場合
-  * 非公開ペットへの他人アクセス
-* 403
-  * 所有者チェック NG の場合（健康ログ・予定・通院履歴など）
-* 500
-  * 予期せぬ例外は、共通エラーページへ遷移
-* ユーザー向けメッセージ
-  * 画面上部に Alert（Bootstrap など）で表示
-  * 成功時：緑（Success）、失敗時：赤（Danger）
+### 10.1 方針
+- DB は EF Core のカスケードに依存し過ぎず、**アプリケーションサービスで明示削除**する（画像削除のため）
+- ファイル削除に失敗しても DB 削除は継続（`ILogger` に記録）
+
+### 10.2 ユーザー自身のアカウント削除
+- `AccountController.DeleteConfirmed` → `IUserDataDeletionService.DeleteUserAsync(userId)`
+
+**概要フロー**
+1. 対象ユーザーの関連データ（Pet/HealthLog/Schedule/Visit）と ImageAsset を列挙
+2. 画像を 1件ずつ try/catch で削除（失敗はログ、処理継続）
+3. 関連データを削除（トランザクション）
+4. Identity ユーザーを削除
+
+### 10.3 管理者によるユーザー削除
+- `Areas.Admin.UsersController.Delete` → 同サービスを呼び出す
+- Admin でも閲覧特権は持たず、「削除」操作のみ
+
+### 10.4 ペット削除
+- ペット配下（HealthLog/Schedule/Visit）と、それらの画像参照（ImageAsset）も削除対象
+- 画像削除失敗はログ、DB削除は継続
 
 ---
 
-## 11. ログ・監査（簡易）
+## 11. エラーハンドリング・メッセージ（例）
 
-* ASP.NET Core のロガー（`ILogger<T>`）を利用
-* ログ出力対象
-  * ログイン／ログアウト（Identity 標準）
-  * ユーザー削除
-  * 管理者によるユーザー削除
-  * 画像保存・削除失敗
+- 画像形式不正：`対応していない画像形式です（JPEG/PNG/WebP のみ）。`
+- 画像サイズ超過：`画像サイズが上限を超えています（1枚あたり最大2MB）。`
+- 画像枚数超過：`添付できる画像は最大10枚です（既存分を含む）。`
+- 容量超過：`画像の合計容量が上限（100MB）を超えます。不要な画像を削除してください。`
+- 予期しない保存失敗：`画像の保存に失敗しました。時間をおいて再度お試しください。`
 
 ---
 
-## 12. 今後の拡張余地（メモ）
+## 12. ログ・監査（簡易）
+- `ILogger<T>` を利用
+- 記録対象（例）
+  - 画像保存/移動/削除の失敗（`ImageId/StorageKey/例外`）
+  - ユーザー削除処理の開始/終了/例外
 
-* Identity 拡張機能
-  * パスワードリセット、メールアドレス確認、ロックアウトの導入
-* 画像保存先の Azure Blob Storage 化
-* 通知機能（予定日前のリマインドメールなど）
-* 多言語化（日本語／英語切替）
+---
+
+## 13. 今後の拡張余地（メモ）
+- Azure Blob Storage への移行（`IImageStorageService` の差替え）
+- Identity 拡張（メール確認、パスワードリセット、MFA）
+- 画像のクライアント側圧縮・プレビュー
+- エラーで残った画像ファイルの削除（運用バッチ）
 
 ---
 
