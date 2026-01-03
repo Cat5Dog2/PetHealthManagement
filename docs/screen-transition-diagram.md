@@ -23,21 +23,33 @@ flowchart LR
   PetDetails --> HealthLogsIndex["健康ログ一覧<br/>(/HealthLogs?petId={id})"]
   HealthLogsIndex --> HealthLogCreate["健康ログ作成<br/>(/HealthLogs/Create?petId={id})"]
   HealthLogsIndex --> HealthLogEdit["健康ログ編集<br/>(/HealthLogs/Edit/{id})"]
+  HealthLogsIndex --> HealthLogDetails["健康ログ詳細<br/>(/HealthLogs/Details/{id})"]
   HealthLogsIndex --> HealthLogDelete["健康ログ削除<br/>(POST /HealthLogs/Delete/{id})"]
+  HealthLogDetails --> HealthLogsIndex
+  HealthLogDetails --> HealthLogEdit
+  HealthLogDetails --> HealthLogDelete
   HealthLogCreate --> HealthLogsIndex
   HealthLogEdit --> HealthLogsIndex
 
   PetDetails --> ScheduleIndex["予定一覧<br/>(/ScheduleItems?petId={id})"]
   ScheduleIndex --> ScheduleCreate["予定作成<br/>(/ScheduleItems/Create?petId={id})"]
   ScheduleIndex --> ScheduleEdit["予定編集<br/>(/ScheduleItems/Edit/{id})"]
+  ScheduleIndex --> ScheduleDetails["予定詳細<br/>(/ScheduleItems/Details/{id})"]
   ScheduleIndex --> ScheduleDelete["予定削除<br/>(POST /ScheduleItems/Delete/{id})"]
+  ScheduleDetails --> ScheduleIndex
+  ScheduleDetails --> ScheduleEdit
+  ScheduleDetails --> ScheduleDelete
   ScheduleCreate --> ScheduleIndex
   ScheduleEdit --> ScheduleIndex
 
   PetDetails --> VisitsIndex["通院履歴一覧<br/>(/Visits?petId={id})"]
   VisitsIndex --> VisitCreate["通院履歴作成<br/>(/Visits/Create?petId={id})"]
   VisitsIndex --> VisitEdit["通院履歴編集<br/>(/Visits/Edit/{id})"]
+  VisitsIndex --> VisitDetails["通院履歴詳細<br/>(/Visits/Details/{id})"]
   VisitsIndex --> VisitDelete["通院履歴削除<br/>(POST /Visits/Delete/{id})"]
+  VisitDetails --> VisitsIndex
+  VisitDetails --> VisitEdit
+  VisitDetails --> VisitDelete
   VisitCreate --> VisitsIndex
   VisitEdit --> VisitsIndex
 

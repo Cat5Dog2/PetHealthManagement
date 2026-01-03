@@ -90,14 +90,17 @@
 | ペット編集 | GET/POST | `/Pets/Edit/{id}` | `PetsController.Edit` | 認証必須 |
 | ペット削除 | POST | `/Pets/Delete/{id}` | `PetsController.Delete` | 認証必須（所有者のみ） |
 | 健康ログ一覧 | GET | `/HealthLogs?petId={id}` | `HealthLogsController.Index` | 認証必須（所有者のみ） |
+| 健康ログ詳細 | GET | `/HealthLogs/Details/{id}` | `HealthLogsController.Details` | 認証必須（所有者のみ） |
 | 健康ログ作成 | GET/POST | `/HealthLogs/Create?petId={id}` | `HealthLogsController.Create` | 認証必須（所有者のみ） |
 | 健康ログ編集 | GET/POST | `/HealthLogs/Edit/{id}` | `HealthLogsController.Edit` | 認証必須（所有者のみ） |
 | 健康ログ削除 | POST | `/HealthLogs/Delete/{id}` | `HealthLogsController.Delete` | 認証必須（所有者のみ） |
 | 予定一覧 | GET | `/ScheduleItems?petId={id}` | `ScheduleItemsController.Index` | 認証必須（所有者のみ） |
+| 予定詳細 | GET | `/ScheduleItems/Details/{id}` | `ScheduleItemsController.Details` | 認証必須（所有者のみ） |
 | 予定作成 | GET/POST | `/ScheduleItems/Create?petId={id}` | `ScheduleItemsController.Create` | 認証必須（所有者のみ） |
 | 予定編集 | GET/POST | `/ScheduleItems/Edit/{id}` | `ScheduleItemsController.Edit` | 認証必須（所有者のみ） |
 | 予定削除 | POST | `/ScheduleItems/Delete/{id}` | `ScheduleItemsController.Delete` | 認証必須（所有者のみ） |
 | 通院履歴一覧 | GET | `/Visits?petId={id}` | `VisitsController.Index` | 認証必須（所有者のみ） |
+| 通院履歴詳細 | GET | `/Visits/Details/{id}` | `VisitsController.Details` | 認証必須（所有者のみ） |
 | 通院履歴作成 | GET/POST | `/Visits/Create?petId={id}` | `VisitsController.Create` | 認証必須（所有者のみ） |
 | 通院履歴編集 | GET/POST | `/Visits/Edit/{id}` | `VisitsController.Edit` | 認証必須（所有者のみ） |
 | 通院履歴削除 | POST | `/Visits/Delete/{id}` | `VisitsController.Delete` | 認証必須（所有者のみ） |
@@ -134,19 +137,24 @@
 ### 4.4 健康ログ（/HealthLogs）
 - 所有者のみアクセス可（非所有者は 403）
 - 一覧：`RecordedAt` 降順、10件/ページ
+- **詳細：`/HealthLogs/Details/{id}`（表示専用）**。一覧から遷移し、編集・削除へ導線を提供
 - 登録・編集：`RecordedAt` 必須（`DateTimeOffset +09:00`）
 - 画像：最大10枚（既存＋追加の合算）、ユーザー合計100MB制限、EXIF除去+向き正規化
+  - 詳細画面では画像サムネ一覧→クリックで拡大表示（`GET /images/{id}`）
 
 ### 4.5 予定（/ScheduleItems）
 - 所有者のみアクセス可（非所有者は 403）
 - 一覧：`DueDate` 昇順、10件/ページ
+- **詳細：`/ScheduleItems/Details/{id}`（表示専用）**。一覧から遷移し、編集・削除へ導線を提供
 - 種別（`Type`）は固定値推奨：`Vaccine` / `Medicine` / `Visit` / `Other`
 - `IsDone`（完了フラグ）の切り替えを提供（一覧上のトグル or 編集画面）
 
 ### 4.6 通院履歴（/Visits）
 - 所有者のみアクセス可（非所有者は 403）
 - 一覧：`VisitDate` 降順、10件/ページ
+- **詳細：`/Visits/Details/{id}`（表示専用）**。一覧から遷移し、編集・削除へ導線を提供
 - 画像：最大10枚（既存＋追加の合算）、ユーザー合計100MB制限
+  - 詳細画面では画像サムネ一覧→クリックで拡大表示（`GET /images/{id}`）
 
 ### 4.7 管理者（/Admin/Users）
 - Admin のみアクセス可
