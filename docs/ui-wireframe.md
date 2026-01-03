@@ -81,7 +81,7 @@ flowchart TB
   Header["Header"]
   Title["{PetName} の健康ログ"]
   Actions["[＋健康ログ追加]"]
-  List["一覧(10件/ページ, RecordedAt降順)<br/>行：RecordedAt | 体重 | 食事量 | 活動 | 排せつ | メモ(抜粋) | 画像あり | [編集] [削除]"]
+  List["一覧(10件/ページ, RecordedAt降順)<br/>行：RecordedAt | 体重 | 食事量 | 活動 | 排せつ | メモ(抜粋) | 画像あり | [詳細] [編集] [削除]"]
   Pager["ページャ"]
 
   Header --> Title --> Actions --> List --> Pager
@@ -91,7 +91,27 @@ flowchart TB
 
 ---
 
-### 7) 健康ログ：作成/編集（/HealthLogs/Create, /HealthLogs/Edit）
+
+### 7) 健康ログ：詳細（/HealthLogs/Details/{id}）
+
+```mermaid
+flowchart TB
+  Header["Header"]
+  Title["健康ログ詳細（{PetName}）"]
+  Summary["内容<br/>RecordedAt<br/>体重 / 食事量 / 活動 / 排せつ<br/>メモ（全文）"]
+  Images["画像<br/>サムネ×N（クリックで拡大 /images/{id}）<br/>※最大10枚"]:::note
+  Actions["（オーナーのみ）<br/>[編集] [削除] [一覧へ戻る]"]:::note
+
+  Header --> Title --> Summary --> Images --> Actions
+
+  classDef note fill:#fff,stroke:#999,stroke-dasharray: 4 4,color:#333;
+```
+
+（表示専用。一覧の各行から遷移し、編集/削除はオーナーのみ）
+
+---
+
+### 8) 健康ログ：作成/編集（/HealthLogs/Create, /HealthLogs/Edit）
 
 ```mermaid
 flowchart TB
@@ -104,14 +124,14 @@ flowchart TB
 
 ---
 
-### 8) 予定：一覧（/ScheduleItems?petId=）
+### 9) 予定：一覧（/ScheduleItems?petId=）
 
 ```mermaid
 flowchart TB
   Header["Header"]
   Title["{PetName} の予定"]
   Actions["[＋予定追加]"]
-  List["一覧(10件/ページ, DueDate昇順)<br/>行：期日 | 種別 | タイトル | メモ(抜粋) | 完了トグル(IsDone) | [編集] [削除]"]
+  List["一覧(10件/ページ, DueDate昇順)<br/>行：期日 | 種別 | タイトル | メモ(抜粋) | 完了トグル(IsDone) | [詳細] [編集] [削除]"]
   Pager["ページャ"]
 
   Header --> Title --> Actions --> List --> Pager
@@ -121,14 +141,33 @@ flowchart TB
 
 ---
 
-### 9) 通院履歴：一覧（/Visits?petId=）
+
+### 10) 予定：詳細（/ScheduleItems/Details/{id}）
+
+```mermaid
+flowchart TB
+  Header["Header"]
+  Title["予定詳細（{PetName}）"]
+  Summary["内容<br/>期日(DueDate)<br/>種別(Type)<br/>タイトル<br/>メモ（全文）<br/>完了(IsDone)"]
+  Actions["（オーナーのみ）<br/>[編集] [削除] [一覧へ戻る]"]:::note
+
+  Header --> Title --> Summary --> Actions
+
+  classDef note fill:#fff,stroke:#999,stroke-dasharray: 4 4,color:#333;
+```
+
+（表示専用。完了フラグは一覧のトグルでも変更可能）
+
+---
+
+### 11) 通院履歴：一覧（/Visits?petId=）
 
 ```mermaid
 flowchart TB
   Header["Header"]
   Title["{PetName} の通院履歴"]
   Actions["[＋通院履歴追加]"]
-  List["一覧(10件/ページ, VisitDate降順)<br/>行：通院日 | 病院名 | 診断(抜粋) | 処方(抜粋) | メモ(抜粋) | 画像あり | [編集] [削除]"]
+  List["一覧(10件/ページ, VisitDate降順)<br/>行：通院日 | 病院名 | 診断(抜粋) | 処方(抜粋) | メモ(抜粋) | 画像あり | [詳細] [編集] [削除]"]
   Pager["ページャ"]
 
   Header --> Title --> Actions --> List --> Pager
@@ -138,7 +177,27 @@ flowchart TB
 
 ---
 
-### 10) 管理者：ユーザー一覧（/Admin/Users）
+
+### 12) 通院履歴：詳細（/Visits/Details/{id}）
+
+```mermaid
+flowchart TB
+  Header["Header"]
+  Title["通院履歴詳細（{PetName}）"]
+  Summary["内容<br/>通院日(VisitDate)<br/>病院名<br/>診断（全文）<br/>処方（全文）<br/>メモ（全文）"]
+  Images["画像<br/>サムネ×N（クリックで拡大 /images/{id}）<br/>※最大10枚"]:::note
+  Actions["（オーナーのみ）<br/>[編集] [削除] [一覧へ戻る]"]:::note
+
+  Header --> Title --> Summary --> Images --> Actions
+
+  classDef note fill:#fff,stroke:#999,stroke-dasharray: 4 4,color:#333;
+```
+
+（表示専用。一覧の各行から遷移）
+
+---
+
+### 13) 管理者：ユーザー一覧（/Admin/Users）
 
 ```mermaid
 flowchart TB
