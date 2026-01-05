@@ -348,7 +348,7 @@ public class HealthLog
     public double? WeightKg { get; set; }        // 0.0〜200.0
     public int? FoodAmountGram { get; set; }     // 0〜5000
     public int? WalkMinutes { get; set; }        // 0〜1440
-    public string? StoolCondition { get; set; }  // Max 100
+    public string? StoolCondition { get; set; }  // Max 50
     public string? Note { get; set; }            // Max 1000
 
     public ICollection<HealthLogImage> Images { get; set; } = new List<HealthLogImage>();
