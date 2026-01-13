@@ -560,7 +560,7 @@ public class HealthLogEditViewModel
     [Range(0, 1440)]
     public int? WalkMinutes { get; set; }
 
-    [MaxLength(100)]
+    [MaxLength(50)]
     public string? StoolCondition { get; set; }
 
     [MaxLength(1000)]
