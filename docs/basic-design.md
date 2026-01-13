@@ -403,7 +403,7 @@ public class ScheduleItem
     public DateTime DueDate { get; set; }
     public string Type { get; set; }    // 固定値推奨: Vaccine/Medicine/Visit/Other
     public string Title { get; set; }   // Max 100
-    public string? Note { get; set; }   // Max 500
+    public string? Note { get; set; }   // Max 1000
     public bool IsDone { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
