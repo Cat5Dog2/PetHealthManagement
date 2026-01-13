@@ -2,7 +2,7 @@
 
 - 文書名：ペット健康管理アプリ 基本設計書
 - バージョン：1.0
-- 作成日：2025-12-27
+- 作成日：2026-01-13
 - 作成者：Cat5Dog2
 - 想定読者：開発者本人、レビュー担当者
 
@@ -14,7 +14,7 @@
 - 前提要件：**「ペット健康管理アプリ 要件定義書 v1.0」**
 - 未ログインユーザーは機能画面へアクセスできず、ログイン画面へリダイレクト（Cookie 認証の既定動作）。
 - 公開（`IsPublic`）は「**ログイン済みユーザー同士のみ共有**」（未ログイン公開は行わない）。
-- 画像は **`wwwroot` 外**に保存し、認可付きエンドポイント **`GET /images/{id}`** 経由で配信（デフォルト画像のみ静的配信）。
+- 画像は **`wwwroot` 外**に保存し、認可付きエンドポイント **`GET /images/{imageId}`** 経由で配信（デフォルト画像のみ静的配信）。
 - 健康ログの日時は **`RecordedAt`（`DateTimeOffset(+09:00)`）** を採用。
 - ペットの公開状態 `IsPublic` の既定値は **true（公開）**。
 
@@ -79,38 +79,54 @@
 | 機能 | HTTP | URL | Controller / Action | 認可 |
 |---|---:|---|---|---|
 | トップ | GET | `/` | `HomeController.Index` | 匿名可 |
+| 共通エラー | GET | `/Error/{statusCode}` | `ErrorController.Index` | 匿名可 |
 | MyPage | GET | `/MyPage` | `MyPageController.Index` | 認証必須 |
 | プロフィール編集 | GET/POST | `/Account/EditProfile` | `AccountController.EditProfile` | 認証必須 |
 | パスワード変更 | GET/POST | `/Account/Manage/ChangePassword` | Identity 標準 | 認証必須 |
 | アカウント削除（確認） | GET | `/Account/Delete` | `AccountController.Delete` | 認証必須 |
 | アカウント削除（実行） | POST | `/Account/DeleteConfirmed` | `AccountController.DeleteConfirmed` | 認証必須 |
-| ペット一覧（公開検索） | GET | `/Pets` | `PetsController.Index` | 認証必須 |
-| ペット詳細 | GET | `/Pets/Details/{id}` | `PetsController.Details` | 認証必須 |
+| ペット一覧（公開検索） | GET | `/Pets?page={page}` | `PetsController.Index` | 認証必須 |
+| ペット詳細 | GET | `/Pets/Details/{petId}` | `PetsController.Details` | 認証必須 |
 | ペット作成 | GET/POST | `/Pets/Create` | `PetsController.Create` | 認証必須 |
-| ペット編集 | GET/POST | `/Pets/Edit/{id}` | `PetsController.Edit` | 認証必須 |
-| ペット削除 | POST | `/Pets/Delete/{id}` | `PetsController.Delete` | 認証必須（所有者のみ） |
-| 健康ログ一覧 | GET | `/HealthLogs?petId={id}` | `HealthLogsController.Index` | 認証必須（所有者のみ） |
-| 健康ログ詳細 | GET | `/HealthLogs/Details/{id}` | `HealthLogsController.Details` | 認証必須（所有者のみ） |
-| 健康ログ作成 | GET/POST | `/HealthLogs/Create?petId={id}` | `HealthLogsController.Create` | 認証必須（所有者のみ） |
-| 健康ログ編集 | GET/POST | `/HealthLogs/Edit/{id}` | `HealthLogsController.Edit` | 認証必須（所有者のみ） |
-| 健康ログ削除 | POST | `/HealthLogs/Delete/{id}` | `HealthLogsController.Delete` | 認証必須（所有者のみ） |
-| 予定一覧 | GET | `/ScheduleItems?petId={id}` | `ScheduleItemsController.Index` | 認証必須（所有者のみ） |
-| 予定詳細 | GET | `/ScheduleItems/Details/{id}` | `ScheduleItemsController.Details` | 認証必須（所有者のみ） |
-| 予定作成 | GET/POST | `/ScheduleItems/Create?petId={id}` | `ScheduleItemsController.Create` | 認証必須（所有者のみ） |
-| 予定編集 | GET/POST | `/ScheduleItems/Edit/{id}` | `ScheduleItemsController.Edit` | 認証必須（所有者のみ） |
-| 予定削除 | POST | `/ScheduleItems/Delete/{id}` | `ScheduleItemsController.Delete` | 認証必須（所有者のみ） |
-| 通院履歴一覧 | GET | `/Visits?petId={id}` | `VisitsController.Index` | 認証必須（所有者のみ） |
-| 通院履歴詳細 | GET | `/Visits/Details/{id}` | `VisitsController.Details` | 認証必須（所有者のみ） |
-| 通院履歴作成 | GET/POST | `/Visits/Create?petId={id}` | `VisitsController.Create` | 認証必須（所有者のみ） |
-| 通院履歴編集 | GET/POST | `/Visits/Edit/{id}` | `VisitsController.Edit` | 認証必須（所有者のみ） |
-| 通院履歴削除 | POST | `/Visits/Delete/{id}` | `VisitsController.Delete` | 認証必須（所有者のみ） |
-| 画像配信（統一） | GET | `/images/{id}` | `ImagesController.Get` | 認証必須 |
+| ペット編集 | GET/POST | `/Pets/Edit/{petId}` | `PetsController.Edit` | 認証必須（所有者のみ） |
+| ペット削除 | POST | `/Pets/Delete/{petId}` | `PetsController.Delete` | 認証必須（所有者のみ） |
+| 健康ログ一覧 | GET | `/HealthLogs?petId={petId}&page={page}` | `HealthLogsController.Index` | 認証必須（所有者のみ） |
+| 健康ログ詳細 | GET | `/HealthLogs/Details/{healthLogId}` | `HealthLogsController.Details` | 認証必須（所有者のみ） |
+| 健康ログ作成 | GET/POST | `/HealthLogs/Create?petId={petId}` | `HealthLogsController.Create` | 認証必須（所有者のみ） |
+| 健康ログ編集 | GET/POST | `/HealthLogs/Edit/{healthLogId}` | `HealthLogsController.Edit` | 認証必須（所有者のみ） |
+| 健康ログ削除 | POST | `/HealthLogs/Delete/{healthLogId}` | `HealthLogsController.Delete` | 認証必須（所有者のみ） |
+| 予定一覧 | GET | `/ScheduleItems?petId={petId}&page={page}` | `ScheduleItemsController.Index` | 認証必須（所有者のみ） |
+| 予定詳細 | GET | `/ScheduleItems/Details/{scheduleItemId}` | `ScheduleItemsController.Details` | 認証必須（所有者のみ） |
+| 予定作成 | GET/POST | `/ScheduleItems/Create?petId={petId}` | `ScheduleItemsController.Create` | 認証必須（所有者のみ） |
+| 予定編集 | GET/POST | `/ScheduleItems/Edit/{scheduleItemId}` | `ScheduleItemsController.Edit` | 認証必須（所有者のみ） |
+| 予定削除 | POST | `/ScheduleItems/Delete/{scheduleItemId}` | `ScheduleItemsController.Delete` | 認証必須（所有者のみ） |
+| 予定完了トグル | POST | `/ScheduleItems/SetDone/{scheduleItemId}` | `ScheduleItemsController.SetDone` | 認証必須（所有者のみ） |
+| 通院履歴一覧 | GET | `/Visits?petId={petId}&page={page}` | `VisitsController.Index` | 認証必須（所有者のみ） |
+| 通院履歴詳細 | GET | `/Visits/Details/{visitId}` | `VisitsController.Details` | 認証必須（所有者のみ） |
+| 通院履歴作成 | GET/POST | `/Visits/Create?petId={petId}` | `VisitsController.Create` | 認証必須（所有者のみ） |
+| 通院履歴編集 | GET/POST | `/Visits/Edit/{visitId}` | `VisitsController.Edit` | 認証必須（所有者のみ） |
+| 通院履歴削除 | POST | `/Visits/Delete/{visitId}` | `VisitsController.Delete` | 認証必須（所有者のみ） |
+| 画像配信（統一） | GET | `/images/{imageId}` | `ImagesController.Get` | 認証必須 |
+
 
 ### 3.2 管理者（Admin Area）
 | 機能 | HTTP | URL | Controller / Action | 認可 |
 |---|---:|---|---|---|
 | ユーザー一覧 | GET | `/Admin/Users` | `Areas.Admin.UsersController.Index` | Admin |
 | ユーザー削除 | POST | `/Admin/Users/Delete/{id}` | `Areas.Admin.UsersController.Delete` | Admin |
+
+### 3.3 戻り先 URL（returnUrl）共通仕様
+- 未ログインで保護URLへアクセスした場合、ログイン画面へリダイレクトし、ログイン後は `returnUrl` に戻る。
+- 登録／編集／削除／トグル更新等の POST 後の遷移先は `returnUrl` を優先できること。
+- `returnUrl` は hidden フィールドまたはクエリとして受け取り、**ローカル URL のみ許可**する（`Url.IsLocalUrl(returnUrl)` 等で検証）。
+  - 不正／未指定の場合は安全な既定遷移先へフォールバックする（例：一覧へ戻す）。
+- 一覧（Index）→編集（Edit）等の導線では、遷移元の一覧URL（`page`/検索条件含む）を `returnUrl` として引き回す。
+
+#### 3.3.1 予定完了トグル（SetDone）の注意
+- `POST /ScheduleItems/SetDone/{scheduleItemId}`
+  - 受け取り：`isDone`（必須）、`page`（任意）、`returnUrl`（任意）
+  - 遷移：`returnUrl` が有効ならそこへ、無効なら一覧（`page` を維持）へ戻す。
+- `petId` はクライアント改ざん可能なため、**サーバ側で `scheduleItemId` から PetId を復元**し、所有者チェックを行う。
 
 ---
 
@@ -119,42 +135,44 @@
 ### 4.1 MyPage（/MyPage）
 - 自分のプロフィール（表示名、メール、アバター）を表示
 - 自分のペット一覧（自分のみ）を表示
-- アバター/ペット画像は `/images/{id}` またはデフォルト画像を表示
+- アバター/ペット画像は `/images/{imageId}` またはデフォルト画像を表示
 
 ### 4.2 ペット一覧（/Pets）
-- 10件/ページ
+- ページング：10件/ページ（クエリ `page`、1 始まり。未指定／非数／0 以下は 1）
 - ソート：`UpdatedAt` 降順（なければ `CreatedAt` 降順）
-- 検索条件：名前キーワード（部分一致）、種別（10択、未指定=ALL）
+- 検索条件：名前キーワード（部分一致）、種別（10択、未指定=すべて）
 - 表示対象：
   - 自分のペット（公開/非公開問わず）
   - 他ユーザーの公開ペット（`IsPublic=true`）
 
-### 4.3 ペット詳細（/Pets/Details/{id}）
+### 4.3 ペット詳細（/Pets/Details/{petId}）
 - 自分のペット：常に閲覧可
 - 他ユーザーのペット：`IsPublic=true` の場合のみ閲覧可（`IsPublic=false` は 404）
 - オーナーのみ：編集/削除、健康ログ/予定/通院履歴への導線を表示
+  - 他ユーザーが `/Pets/Edit/{petId}` 等へ直接アクセスした場合も、存在秘匿のため原則 404
 
 ### 4.4 健康ログ（/HealthLogs）
-- 所有者のみアクセス可（非所有者は 403）
-- 一覧：`RecordedAt` 降順、10件/ページ
-- **詳細：`/HealthLogs/Details/{id}`（表示専用）**。一覧から遷移し、編集・削除へ導線を提供
+- 所有者のみアクセス可（非所有者は 404：存在秘匿）
+- 一覧：`RecordedAt` 降順、10件/ページ（クエリ `page`、1 始まり。未指定／非数／0 以下は 1）
+- **詳細：`/HealthLogs/Details/{healthLogId}`（表示専用）**。一覧から遷移し、編集・削除へ導線を提供
 - 登録・編集：`RecordedAt` 必須（`DateTimeOffset +09:00`）
 - 画像：最大10枚（既存＋追加の合算）、ユーザー合計100MB制限、EXIF除去+向き正規化
-  - 詳細画面では画像サムネ一覧→クリックで拡大表示（`GET /images/{id}`）
+  - 詳細画面では画像サムネ一覧→クリックで拡大表示（`GET /images/{imageId}`）
 
 ### 4.5 予定（/ScheduleItems）
-- 所有者のみアクセス可（非所有者は 403）
-- 一覧：`DueDate` 昇順、10件/ページ
-- **詳細：`/ScheduleItems/Details/{id}`（表示専用）**。一覧から遷移し、編集・削除へ導線を提供
+- 所有者のみアクセス可（非所有者は 404：存在秘匿）
+- 一覧：`DueDate` 昇順、10件/ページ（クエリ `page`、1 始まり。未指定／非数／0 以下は 1）
+- **詳細：`/ScheduleItems/Details/{scheduleItemId}`（表示専用）**。一覧から遷移し、編集・削除へ導線を提供
 - 種別（`Type`）は固定値推奨：`Vaccine` / `Medicine` / `Visit` / `Other`
-- `IsDone`（完了フラグ）の切り替えを提供（一覧上のトグル or 編集画面）
+- `IsDone`（完了フラグ）の切り替えを提供
+  - 一覧上のトグル：`POST /ScheduleItems/SetDone/{scheduleItemId}`（`isDone` 必須、`page`/`returnUrl` 任意）
 
 ### 4.6 通院履歴（/Visits）
-- 所有者のみアクセス可（非所有者は 403）
-- 一覧：`VisitDate` 降順、10件/ページ
-- **詳細：`/Visits/Details/{id}`（表示専用）**。一覧から遷移し、編集・削除へ導線を提供
+- 所有者のみアクセス可（非所有者は 404：存在秘匿）
+- 一覧：`VisitDate` 降順、10件/ページ（クエリ `page`、1 始まり。未指定／非数／0 以下は 1）
+- **詳細：`/Visits/Details/{visitId}`（表示専用）**。一覧から遷移し、編集・削除へ導線を提供
 - 画像：最大10枚（既存＋追加の合算）、ユーザー合計100MB制限
-  - 詳細画面では画像サムネ一覧→クリックで拡大表示（`GET /images/{id}`）
+  - 詳細画面では画像サムネ一覧→クリックで拡大表示（`GET /images/{imageId}`）
 
 ### 4.7 管理者（/Admin/Users）
 - Admin のみアクセス可
@@ -190,7 +208,7 @@ public class MyPageViewModel
 {
     public string DisplayName { get; set; }
     public string Email { get; set; }
-    public string AvatarUrl { get; set; } // /images/{id} or /images/default/...
+    public string AvatarUrl { get; set; } // /images/{imageId} or /images/default/...
     public List<MyPetSummaryViewModel> Pets { get; set; } = new();
 }
 
@@ -209,7 +227,7 @@ public class MyPetSummaryViewModel
 public class PetSearchViewModel
 {
     public string? NameKeyword { get; set; }
-    public string SpeciesFilter { get; set; } = "ALL"; // ALL or DOG/CAT/...
+    public string? SpeciesFilter { get; set; } // null/empty=すべて, DOG/CAT/...（Speciesコード）
     public int Page { get; set; } = 1;
     public int PageSize { get; set; } = 10;
     public int TotalCount { get; set; }
@@ -244,20 +262,21 @@ public class HealthLogEditViewModel
     public string? Note { get; set; }
 
     public List<ImageItemViewModel> ExistingImages { get; set; } = new();
-    public IFormFile[]? NewFiles { get; set; } // 追加
-    public Guid[]? DeleteImageIds { get; set; } // 削除対象
+    public IFormFile[] NewFiles { get; set; } = Array.Empty<IFormFile>(); // 追加（未送信は空として扱う）
+    public Guid[] DeleteImageIds { get; set; } = Array.Empty<Guid>(); // 削除対象（未送信は空として扱う）
 }
 
 public class ImageItemViewModel
 {
     public Guid ImageId { get; set; }
-    public string Url { get; set; } // /images/{id}
+    public string Url { get; set; } // /images/{imageId}
     public int SortOrder { get; set; }
 }
 ```
 
 ### 5.5 通院履歴編集（画像あり）
 - 健康ログと同様に `ExistingImages/NewFiles/DeleteImageIds` を持つ
+- `NewFiles/DeleteImageIds` は未送信の場合でも **空として扱う**（null 前提にしない）
 
 ---
 
@@ -265,14 +284,20 @@ public class ImageItemViewModel
 
 ### 6.1 未ログイン
 - 機能画面：ログインへリダイレクト（Cookie 認証の既定動作）
-- 画像：`GET /images/{id}` もログインへリダイレクト（`[Authorize]`）
+- 画像：`GET /images/{imageId}` もログインへリダイレクト（`[Authorize]`）
 
 ### 6.2 ログイン済み：404（存在秘匿）
 - 他人の非公開ペット（`IsPublic=false`）：404
-- 画像：非許可の場合は 404（存在秘匿）
+- 他人のリソースへのアクセス（所有者不一致）：
+  - ペット編集／削除
+  - 健康ログ／予定／通院履歴（一覧・詳細・編集・削除・トグル更新）
+  - 画像配信 `GET /images/{imageId}`（非許可・存在しない・参照元が辿れない等）
+  - いずれも存在秘匿のため **404**
 
-### 6.3 ログイン済み：403（所有者チェック NG）
-- 健康ログ/通院履歴/予定：所有者以外は 403（要件方針）
+### 6.3 ログイン済み：403（権限不足）
+- Admin エリア等、存在秘匿の必要が低い領域：
+  - Admin 以外の Admin ルート：403
+- それ以外は原則、存在秘匿したいリソース（ペット／健康ログ／予定／通院履歴／画像など）は 404 を優先する。
 
 ---
 
@@ -494,10 +519,11 @@ public class ImageAsset
   - 失敗内容（`StorageKey / ImageId`）を `ILogger` に出力
   - 画面には簡潔な失敗メッセージを返し、全体を失敗扱い
 
-### 8.6 画像配信（GET /images/{id}）
+### 8.6 画像配信（GET /images/{imageId}）
 - 認証：`[Authorize]`（未ログインはログインへリダイレクト）
 - レスポンスヘッダ：
   - `Cache-Control: private, no-store`
+  - `X-Content-Type-Options: nosniff`
   - `Content-Type`：`ImageAsset.ContentType`
   - `Content-Disposition`：原則 `inline`
 - 404 条件：
@@ -553,7 +579,7 @@ public class HealthLogEditViewModel
 - 予定
   - Type：最大 20（固定値推奨）
   - Title：最大 100（必須）
-  - Note：最大 500
+  - Note：最大 1000
 - 通院
   - ClinicName：最大 100
   - Diagnosis / Prescription：最大 500
@@ -591,6 +617,10 @@ public class HealthLogEditViewModel
 ---
 
 ## 11. エラーハンドリング・メッセージ（例）
+
+- 400 / 403 / 404 等のエラーは、共通エラーページ `/Error/{statusCode}` を表示する
+- 一覧画面上のトグル／削除など「画面を持たない」POST の入力不備（ID 不正、必須不足等）は 400 を返す
+- 登録／編集など入力画面を持つ機能は、検証失敗時に同一画面へ戻してエラーメッセージを表示し、データは保存しない
 
 - 画像形式不正：`対応していない画像形式です（JPEG/PNG/WebP のみ）。`
 - 画像サイズ超過：`画像サイズが上限を超えています（1枚あたり最大2MB）。`
