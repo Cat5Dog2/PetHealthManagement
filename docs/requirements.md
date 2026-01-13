@@ -621,7 +621,7 @@
   - IsDone：必須（bool）、新規登録時は false を初期値とする  
   - Type：必須、最大 20 文字（`Vaccine` / `Medicine` / `Visit` / `Other` など）  
   - Title：必須、最大 100 文字  
-  - Note：任意、最大 500 文字  
+  - Note：任意、最大 1000 文字  
 
 - 通院履歴（Visit）
   - VisitDate：必須  
