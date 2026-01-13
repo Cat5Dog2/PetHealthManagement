@@ -538,7 +538,7 @@
   - IsDone（必須、完了フラグ。新規登録時は false）
   - Type（必須、最大 20 文字：Vaccine / Medicine / Visit / Other 等）
   - Title（必須、最大 100 文字）
-  - Note（任意、最大 500 文字）
+  - Note（任意、最大 1000 文字）
 
 - 通院履歴（Visit）
   - Id
