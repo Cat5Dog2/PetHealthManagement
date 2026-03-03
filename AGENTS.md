@@ -67,9 +67,9 @@ Codexが作業する時は、**必ずこの指示に従って**ください。
 
 ## 2. よく使うコマンド（この順で実行）
 
-- ビルド：`./scripts/build.sh`（Windowsは `./scripts/build.ps1`）
-- テスト：`./scripts/test.sh`（Windowsは `./scripts/test.ps1`）
-- フォーマット（導入時）：`./scripts/format.sh`（Windowsは `./scripts/format.ps1`）
+- ビルド：`./scripts/build.sh`（Windowsは `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build.ps1`）
+- テスト：`./scripts/test.sh`（Windowsは `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test.ps1`）
+- フォーマット（導入時）：`./scripts/format.sh`（Windowsは `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/format.ps1`）
 
 ---
 
@@ -86,13 +86,13 @@ Codexが作業する時は、**必ずこの指示に従って**ください。
 ## 4. 参照すべき資料（この順で正）
 
 1. TODO（`todo.md`）
-2. 要件定義（`requirements.md`）
-3. 基本設計（`basic-design.md`）
-4. API仕様（`api-spec.md`）
-5. テスト観点（`test-cases-by-screen.md`）
-6. ER図（`er-diagram.md`）
-7. 画面遷移（`screen-transition-diagram.md`）
-8. UIワイヤー（`ui-wireframe.md`）
-9. 画面項目定義（`screen-item-definition.md`）
+2. 要件定義（`docs/requirements.md`）
+3. 基本設計（`docs/basic-design.md`）
+4. API仕様（`docs/api-spec.md`）
+5. テスト観点（`docs/test-cases-by-screen.md`）
+6. ER図（`docs/er-diagram.md`）
+7. 画面遷移（`docs/screen-transition-diagram.md`）
+8. UIワイヤー（`docs/ui-wireframe.md`）
+9. 画面項目定義（`docs/screen-item-definition.md`）
 
 矛盾があれば、まず TODO に「決定事項」として追記し、以後それを正とする。

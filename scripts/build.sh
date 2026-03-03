@@ -7,7 +7,7 @@ warn() { echo "[$(basename "$0")][WARN] $*" >&2; }
 # Resolve repository root even if this script is executed from anywhere.
 # Heuristics: walk up from the script directory until we find one of:
 #   - .git/ folder
-#   - .config/dotnet-tools.json
+#   - dotnet-tools.json (or legacy .config/dotnet-tools.json)
 #   - global.json
 #   - at least one *.sln file
 find_repo_root() {
@@ -15,6 +15,7 @@ find_repo_root() {
   local dir="$start_dir"
   for _ in {1..8}; do
     if [[ -d "$dir/.git" ]] \
+      || [[ -f "$dir/dotnet-tools.json" ]] \
       || [[ -f "$dir/.config/dotnet-tools.json" ]] \
       || [[ -f "$dir/global.json" ]] \
       || compgen -G "$dir"/*.sln >/dev/null; then
