@@ -9,9 +9,9 @@
 
 ## 1. 必須の品質ゲート（PR前に必ず通す）
 
-- ビルド：`./scripts/build.sh`（Windowsは `./scripts/build.ps1`）
-- テスト：`./scripts/test.sh`（Windowsは `./scripts/test.ps1`）
-- フォーマット：`./scripts/format.sh`（Windowsは `./scripts/format.ps1`）
+- ビルド：`./scripts/build.sh`（Windows: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build.ps1`）
+- テスト：`./scripts/test.sh`（Windows: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test.ps1`）
+- フォーマット：`./scripts/format.sh`（Windows: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/format.ps1`）
 
 PRでは以下を必須とします（CIで同等が回る想定）。
 

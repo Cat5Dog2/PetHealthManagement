@@ -37,16 +37,25 @@ function Write-Warn([string]$Message) {
   Write-Host "[$(Split-Path -Leaf $PSCommandPath)][WARN] $Message" -ForegroundColor Yellow
 }
 
+function Invoke-Dotnet([string[]]$DotnetCliArgs) {
+  & dotnet @DotnetCliArgs
+  if ($LASTEXITCODE -ne 0) {
+    throw "dotnet $($DotnetCliArgs -join ' ') failed with exit code $LASTEXITCODE."
+  }
+}
+
 function Get-RepoRoot([string]$StartDir) {
   $dir = Get-Item -LiteralPath $StartDir
   for ($i = 0; $i -lt 9; $i++) {
     $gitDir = Join-Path $dir.FullName '.git'
-    $toolManifest = Join-Path $dir.FullName '.config/dotnet-tools.json'
+    $toolManifest = Join-Path $dir.FullName 'dotnet-tools.json'
+    $legacyToolManifest = Join-Path $dir.FullName '.config/dotnet-tools.json'
     $globalJson = Join-Path $dir.FullName 'global.json'
-    $hasSln = (Get-ChildItem -Path $dir.FullName -Filter *.sln -File -ErrorAction SilentlyContinue).Count -gt 0
+    $hasSln = @(Get-ChildItem -Path $dir.FullName -Filter *.sln -File -ErrorAction SilentlyContinue).Count -gt 0
 
     if ((Test-Path $gitDir -PathType Container) -or
         (Test-Path $toolManifest -PathType Leaf) -or
+        (Test-Path $legacyToolManifest -PathType Leaf) -or
         (Test-Path $globalJson -PathType Leaf) -or
         $hasSln) {
       return $dir.FullName
@@ -78,6 +87,8 @@ if ([string]::IsNullOrWhiteSpace($Configuration)) {
   $Configuration = 'Debug'
 }
 
+$DotnetArgs = @($DotnetArgs)
+
 # If the caller used `--` as a separator, drop it before passing through to dotnet.
 if ($DotnetArgs.Count -gt 0 -and $DotnetArgs[0] -eq '--') {
   if ($DotnetArgs.Count -eq 1) {
@@ -88,6 +99,7 @@ if ($DotnetArgs.Count -gt 0 -and $DotnetArgs[0] -eq '--') {
   }
 }
 
-dotnet --info
-dotnet restore
-dotnet build -c $Configuration @DotnetArgs
+Invoke-Dotnet @('--info')
+Invoke-Dotnet @('restore')
+$BuildArgs = @('build', '-c', $Configuration) + $DotnetArgs
+Invoke-Dotnet $BuildArgs

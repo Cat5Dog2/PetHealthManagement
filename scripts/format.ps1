@@ -6,7 +6,8 @@
   Default behavior is "check" mode: it verifies there are no formatting changes needed.
   Use -Apply to actually apply formatting.
 
-  If a local tool manifest exists at ./.config/dotnet-tools.json, this script will run:
+  If a local tool manifest exists at ./dotnet-tools.json (or legacy ./.config/dotnet-tools.json),
+  this script will run:
     dotnet tool restore
   to install the pinned dotnet-format version.
 
@@ -47,16 +48,25 @@ function Write-Warn([string]$Message) {
   Write-Host "[$(Split-Path -Leaf $PSCommandPath)][WARN] $Message" -ForegroundColor Yellow
 }
 
+function Invoke-Dotnet([string[]]$DotnetCliArgs) {
+  & dotnet @DotnetCliArgs
+  if ($LASTEXITCODE -ne 0) {
+    throw "dotnet $($DotnetCliArgs -join ' ') failed with exit code $LASTEXITCODE."
+  }
+}
+
 function Get-RepoRoot([string]$StartDir) {
   $dir = Get-Item -LiteralPath $StartDir
   for ($i = 0; $i -lt 9; $i++) {
     $gitDir = Join-Path $dir.FullName '.git'
-    $toolManifest = Join-Path $dir.FullName '.config/dotnet-tools.json'
+    $toolManifest = Join-Path $dir.FullName 'dotnet-tools.json'
+    $legacyToolManifest = Join-Path $dir.FullName '.config/dotnet-tools.json'
     $globalJson = Join-Path $dir.FullName 'global.json'
-    $hasSln = (Get-ChildItem -Path $dir.FullName -Filter *.sln -File -ErrorAction SilentlyContinue).Count -gt 0
+    $hasSln = @(Get-ChildItem -Path $dir.FullName -Filter *.sln -File -ErrorAction SilentlyContinue).Count -gt 0
 
     if ((Test-Path $gitDir -PathType Container) -or
         (Test-Path $toolManifest -PathType Leaf) -or
+        (Test-Path $legacyToolManifest -PathType Leaf) -or
         (Test-Path $globalJson -PathType Leaf) -or
         $hasSln) {
       return $dir.FullName
@@ -85,6 +95,7 @@ if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
 Write-Info "RepoRoot: $RepoRoot"
 
 # If the caller used `--` as a separator, drop it before passing through to dotnet.
+$DotnetFormatArgs = @($DotnetFormatArgs)
 if ($DotnetFormatArgs.Count -gt 0 -and $DotnetFormatArgs[0] -eq '--') {
   if ($DotnetFormatArgs.Count -eq 1) {
     $DotnetFormatArgs = @()
@@ -96,13 +107,14 @@ if ($DotnetFormatArgs.Count -gt 0 -and $DotnetFormatArgs[0] -eq '--') {
 
 # Restore local tools (dotnet-format, etc.)
 if (-not $NoRestore) {
-  $ToolManifest = Join-Path $RepoRoot '.config/dotnet-tools.json'
-  if (Test-Path $ToolManifest) {
+  $ToolManifest = Join-Path $RepoRoot 'dotnet-tools.json'
+  $LegacyToolManifest = Join-Path $RepoRoot '.config/dotnet-tools.json'
+  if ((Test-Path $ToolManifest) -or (Test-Path $LegacyToolManifest)) {
     Write-Info 'Restoring local dotnet tools (dotnet tool restore)...'
-    dotnet tool restore
+    Invoke-Dotnet @('tool', 'restore')
   }
   else {
-    Write-Warn "Tool manifest not found at $ToolManifest. Skipping tool restore."
+    Write-Warn "Tool manifest not found at $ToolManifest (or $LegacyToolManifest). Skipping tool restore."
     Write-Warn 'If you want a pinned tool version, create it with: dotnet new tool-manifest'
   }
 }
@@ -110,7 +122,7 @@ if (-not $NoRestore) {
 # Decide formatting target
 $ResolvedTarget = $Target
 if ([string]::IsNullOrWhiteSpace($ResolvedTarget)) {
-  $Solutions = Get-ChildItem -Path $RepoRoot -Filter *.sln -File -ErrorAction SilentlyContinue
+  $Solutions = @(Get-ChildItem -Path $RepoRoot -Filter *.sln -File -ErrorAction SilentlyContinue)
   if ($Solutions.Count -eq 1) {
     $ResolvedTarget = $Solutions[0].FullName
   }
@@ -119,7 +131,7 @@ if ([string]::IsNullOrWhiteSpace($ResolvedTarget)) {
     Write-Warn "Multiple .sln files found. Using: $ResolvedTarget"
   }
   else {
-    $Projects = Get-ChildItem -Path $RepoRoot -Recurse -Filter *.csproj -File -ErrorAction SilentlyContinue
+    $Projects = @(Get-ChildItem -Path $RepoRoot -Recurse -Filter *.csproj -File -ErrorAction SilentlyContinue)
     if ($Projects.Count -eq 1) {
       $ResolvedTarget = $Projects[0].FullName
     }
@@ -143,6 +155,7 @@ if (-not [string]::IsNullOrWhiteSpace($ResolvedTarget)) {
 
 Write-Info (('Running: dotnet format ' + ($TargetArgs -join ' ') + ' ' + ($VerifyArgs -join ' ') + ' ' + ($DotnetFormatArgs -join ' ')).Trim())
 
-& dotnet format @TargetArgs @VerifyArgs @DotnetFormatArgs
+$FormatArgs = @('format') + $TargetArgs + $VerifyArgs + $DotnetFormatArgs
+Invoke-Dotnet $FormatArgs
 
 Write-Info 'OK'

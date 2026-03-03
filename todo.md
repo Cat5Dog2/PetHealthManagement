@@ -43,10 +43,10 @@
 - [ ] **命名規約チェックリスト**（Query/Route は lowerCamelCase、Formは例外ルール込み、API仕様との一致）を `CONTRIBUTING.md` に追記
 
 ### 0.2 リポジトリ/品質ゲート
-- [ ] CI（ビルド/テスト）最小セット（GitHub Actions等）
+- [x] CI（ビルド/テスト）最小セット（GitHub Actions等）
 - [ ] **ブランチ保護**：main への直push禁止、CI必須、レビュー必須
 - [ ] **CIの段階導入**：最初は「ビルド + 重要シナリオ最小テスト（認証/秘匿/画像）」を必須チェックにする
-- [ ] tool manifest + `./scripts/format.sh`（Windowsは `./scripts/format.ps1`）を有効化
+- [x] tool manifest + `./scripts/format.sh`（Windowsは `./scripts/format.ps1`）を有効化
 - [ ] 依存関係更新の運用（例：Dependabot/Renovate。必要なら）
 
 > 参考：ローカルの品質ゲート（build/test/format）は `CONTRIBUTING.md` に明文化済み。
@@ -61,15 +61,15 @@
 - [x] 重要ルール（404秘匿/returnUrl/画像制限/所有者認可）が1ページにまとまっている（AGENTS/CONTRIBUTING）
 - [x] PRの品質ゲート（build/test/format方針）が明記されている（CONTRIBUTING）
 - [x] `./scripts/build.sh` と `./scripts/test.sh`（Windowsは `*.ps1`）が用意されている
-- [ ] CIで `dotnet build` / `dotnet test` が回り、PRで落ちる
+- [x] CIで `dotnet build` / `dotnet test` が回り、PRで落ちる
 
 ---
 
 ## フェーズ1：環境構築・基盤
 
 ### 1.1 ソリューション/プロジェクト作成
-- [ ] ASP.NET Core MVC プロジェクト作成（.NET 10）
-- [ ] Identity 組み込み（個別アカウント / Cookie認証）
+- [x] ASP.NET Core MVC プロジェクト作成（.NET 10）
+- [x] Identity 組み込み（個別アカウント / Cookie認証）
 - [ ] 開発用 HTTPS 証明書準備（dev-certs）
 
 ### 1.2 設定・シークレット
@@ -309,7 +309,7 @@
 ## フェーズ11：テスト（単体/結合/E2E）
 
 ### 11.1 テスト基盤
-- [ ] テストプロジェクト作成（xUnit等）
+- [x] テストプロジェクト作成（xUnit等）
 - [ ] DBテスト戦略（LocalDB/テストDB、トランザクション、データリセット）
 - [ ] ストレージ（画像）テスト戦略（テスト用StorageRoot、クリーンアップ）
 
