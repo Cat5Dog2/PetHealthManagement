@@ -10,9 +10,10 @@ using PetHealthManagement.Web.ViewModels.Pets;
 namespace PetHealthManagement.Web.Controllers;
 
 [Authorize]
+[Route("Pets")]
 public class PetsController(ApplicationDbContext dbContext) : Controller
 {
-    [HttpGet]
+    [HttpGet("")]
     public async Task<IActionResult> Index(string? nameKeyword, string? speciesFilter, string? page)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -105,7 +106,7 @@ public class PetsController(ApplicationDbContext dbContext) : Controller
         return View(viewModel);
     }
 
-    [HttpGet]
+    [HttpGet("Details/{petId:int}")]
     public async Task<IActionResult> Details(int petId, string? returnUrl)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -151,6 +152,207 @@ public class PetsController(ApplicationDbContext dbContext) : Controller
         };
 
         return View(viewModel);
+    }
+
+    [HttpGet("Create")]
+    public IActionResult Create(string? returnUrl)
+    {
+        var viewModel = BuildPetEditViewModel(
+            petId: null,
+            name: string.Empty,
+            speciesCode: string.Empty,
+            breed: null,
+            isPublic: true,
+            returnUrl: returnUrl,
+            fallbackCancelUrl: "/MyPage");
+
+        return View(viewModel);
+    }
+
+    [HttpPost("Create")]
+    public async Task<IActionResult> Create(PetEditViewModel viewModel, string? returnUrl)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Challenge();
+        }
+
+        ValidateSpeciesCode(viewModel.SpeciesCode);
+        if (!ModelState.IsValid)
+        {
+            var invalidViewModel = BuildPetEditViewModel(
+                petId: null,
+                name: viewModel.Name,
+                speciesCode: viewModel.SpeciesCode,
+                breed: viewModel.Breed,
+                isPublic: viewModel.IsPublic,
+                returnUrl: returnUrl,
+                fallbackCancelUrl: "/MyPage");
+
+            return View(invalidViewModel);
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        var pet = new Pet
+        {
+            OwnerId = userId,
+            Name = viewModel.Name.Trim(),
+            SpeciesCode = viewModel.SpeciesCode.Trim().ToUpperInvariant(),
+            Breed = NormalizeBreed(viewModel.Breed),
+            IsPublic = viewModel.IsPublic,
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+
+        dbContext.Pets.Add(pet);
+        await dbContext.SaveChangesAsync();
+
+        var redirectUrl = ReturnUrlHelper.ResolveLocalReturnUrl(returnUrl, "/MyPage");
+        return Redirect(redirectUrl);
+    }
+
+    [HttpGet("Edit/{petId:int}")]
+    public async Task<IActionResult> Edit(int petId, string? returnUrl)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Challenge();
+        }
+
+        var pet = await dbContext.Pets
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == petId);
+
+        if (pet is null || pet.OwnerId != userId)
+        {
+            return NotFound();
+        }
+
+        var viewModel = BuildPetEditViewModel(
+            petId: pet.Id,
+            name: pet.Name,
+            speciesCode: pet.SpeciesCode,
+            breed: pet.Breed,
+            isPublic: pet.IsPublic,
+            returnUrl: returnUrl,
+            fallbackCancelUrl: $"/Pets/Details/{petId}");
+
+        return View(viewModel);
+    }
+
+    [HttpPost("Edit/{petId:int}")]
+    public async Task<IActionResult> Edit(int petId, PetEditViewModel viewModel, string? returnUrl)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Challenge();
+        }
+
+        var pet = await dbContext.Pets
+            .FirstOrDefaultAsync(p => p.Id == petId);
+
+        if (pet is null || pet.OwnerId != userId)
+        {
+            return NotFound();
+        }
+
+        ValidateSpeciesCode(viewModel.SpeciesCode);
+        if (!ModelState.IsValid)
+        {
+            var invalidViewModel = BuildPetEditViewModel(
+                petId: petId,
+                name: viewModel.Name,
+                speciesCode: viewModel.SpeciesCode,
+                breed: viewModel.Breed,
+                isPublic: viewModel.IsPublic,
+                returnUrl: returnUrl,
+                fallbackCancelUrl: $"/Pets/Details/{petId}");
+
+            return View(invalidViewModel);
+        }
+
+        pet.Name = viewModel.Name.Trim();
+        pet.SpeciesCode = viewModel.SpeciesCode.Trim().ToUpperInvariant();
+        pet.Breed = NormalizeBreed(viewModel.Breed);
+        pet.IsPublic = viewModel.IsPublic;
+        pet.UpdatedAt = DateTimeOffset.UtcNow;
+
+        await dbContext.SaveChangesAsync();
+
+        var redirectUrl = ReturnUrlHelper.ResolveLocalReturnUrl(returnUrl, $"/Pets/Details/{petId}");
+        return Redirect(redirectUrl);
+    }
+
+    [HttpPost("Delete/{petId:int}")]
+    public async Task<IActionResult> Delete(int petId, string? returnUrl)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Challenge();
+        }
+
+        var pet = await dbContext.Pets
+            .FirstOrDefaultAsync(p => p.Id == petId);
+
+        if (pet is null || pet.OwnerId != userId)
+        {
+            return NotFound();
+        }
+
+        dbContext.Pets.Remove(pet);
+        await dbContext.SaveChangesAsync();
+
+        var redirectUrl = ReturnUrlHelper.ResolveLocalReturnUrl(returnUrl, "/MyPage");
+        return Redirect(redirectUrl);
+    }
+
+    private static PetEditViewModel BuildPetEditViewModel(
+        int? petId,
+        string name,
+        string speciesCode,
+        string? breed,
+        bool isPublic,
+        string? returnUrl,
+        string fallbackCancelUrl)
+    {
+        var safeReturnUrl = ReturnUrlHelper.IsLocalUrl(returnUrl) ? returnUrl : null;
+        var cancelUrl = ReturnUrlHelper.ResolveLocalReturnUrl(safeReturnUrl, fallbackCancelUrl);
+
+        return new PetEditViewModel
+        {
+            PetId = petId,
+            Name = name,
+            SpeciesCode = speciesCode,
+            Breed = breed,
+            IsPublic = isPublic,
+            ReturnUrl = safeReturnUrl,
+            CancelUrl = cancelUrl,
+            SpeciesOptions = SpeciesCatalog.All
+                .Select(x => new SpeciesOptionViewModel
+                {
+                    Code = x.Code,
+                    Label = x.Label
+                })
+                .ToList()
+        };
+    }
+
+    private void ValidateSpeciesCode(string? speciesCode)
+    {
+        if (!SpeciesCatalog.IsKnownCode(speciesCode))
+        {
+            ModelState.AddModelError(nameof(PetEditViewModel.SpeciesCode), "種別を選択してください。");
+        }
+    }
+
+    private static string? NormalizeBreed(string? breed)
+    {
+        var normalized = breed?.Trim();
+        return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
     }
 
     private static int NormalizePage(string? page)

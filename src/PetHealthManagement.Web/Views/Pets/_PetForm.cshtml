@@ -1,0 +1,38 @@
+@model PetHealthManagement.Web.ViewModels.Pets.PetEditViewModel
+
+<div asp-validation-summary="ModelOnly" class="text-danger"></div>
+<input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+
+<div class="mb-3">
+    <label asp-for="Name" class="form-label"></label>
+    <input asp-for="Name" class="form-control" />
+    <span asp-validation-for="Name" class="text-danger"></span>
+</div>
+
+<div class="mb-3">
+    <label asp-for="SpeciesCode" class="form-label">種別</label>
+    <select asp-for="SpeciesCode" class="form-select">
+        <option value="">選択してください</option>
+        @foreach (var option in Model.SpeciesOptions)
+        {
+            <option value="@option.Code">@option.Label</option>
+        }
+    </select>
+    <span asp-validation-for="SpeciesCode" class="text-danger"></span>
+</div>
+
+<div class="mb-3">
+    <label asp-for="Breed" class="form-label"></label>
+    <input asp-for="Breed" class="form-control" />
+    <span asp-validation-for="Breed" class="text-danger"></span>
+</div>
+
+<div class="form-check mb-3">
+    <input asp-for="IsPublic" class="form-check-input" />
+    <label asp-for="IsPublic" class="form-check-label">公開する</label>
+</div>
+
+<div class="d-flex gap-2">
+    <button type="submit" class="btn btn-primary">保存</button>
+    <a href="@Model.CancelUrl" class="btn btn-outline-secondary">キャンセル</a>
+</div>

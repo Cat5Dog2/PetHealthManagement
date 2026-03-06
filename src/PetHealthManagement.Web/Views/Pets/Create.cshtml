@@ -1,0 +1,15 @@
+@model PetHealthManagement.Web.ViewModels.Pets.PetEditViewModel
+@{
+    ViewData["Title"] = "Pet Create";
+}
+
+<h1>ペット作成</h1>
+
+<form asp-action="Create" method="post">
+    <partial name="_PetForm" model="Model" />
+</form>
+
+@section Scripts
+{
+    <partial name="_ValidationScriptsPartial" />
+}
