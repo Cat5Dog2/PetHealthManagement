@@ -1,0 +1,37 @@
+@model PetHealthManagement.Web.ViewModels.Pets.PetDetailsViewModel
+@{
+    ViewData["Title"] = "Pet Details";
+}
+
+<h1>ペット詳細</h1>
+
+<dl class="row">
+    <dt class="col-sm-3">名前</dt>
+    <dd class="col-sm-9">@Model.Name</dd>
+
+    <dt class="col-sm-3">種別</dt>
+    <dd class="col-sm-9">@Model.SpeciesLabel</dd>
+
+    <dt class="col-sm-3">品種</dt>
+    <dd class="col-sm-9">@(string.IsNullOrWhiteSpace(Model.Breed) ? "-" : Model.Breed)</dd>
+
+    <dt class="col-sm-3">オーナー</dt>
+    <dd class="col-sm-9">@Model.OwnerDisplayName</dd>
+
+    <dt class="col-sm-3">公開設定</dt>
+    <dd class="col-sm-9">@(Model.IsPublic ? "公開" : "非公開")</dd>
+</dl>
+
+@if (Model.IsOwner)
+{
+    <div class="mb-3">
+        <p class="mb-2">オーナー向け導線</p>
+        <div class="d-flex gap-2 flex-wrap">
+            <a class="btn btn-outline-secondary" href="/HealthLogs?petId=@Model.PetId">健康ログ</a>
+            <a class="btn btn-outline-secondary" href="/ScheduleItems?petId=@Model.PetId">予定</a>
+            <a class="btn btn-outline-secondary" href="/Visits?petId=@Model.PetId">通院履歴</a>
+        </div>
+    </div>
+}
+
+<a class="btn btn-primary" href="@Model.ReturnUrl">一覧へ戻る</a>
