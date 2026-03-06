@@ -112,6 +112,125 @@ public class PetsControllerTests
         Assert.Equal("/Pets?page=3", model.ReturnUrl);
     }
 
+    [Fact]
+    public async Task Create_Post_RedirectsToMyPage_WhenReturnUrlIsInvalid()
+    {
+        await using var dbContext = CreateDbContext();
+        dbContext.Users.Add(new IdentityUser { Id = "user-a", UserName = "userA" });
+        await dbContext.SaveChangesAsync();
+
+        var controller = BuildController(dbContext, "user-a");
+        var form = new PetEditViewModel
+        {
+            Name = "New Pet",
+            SpeciesCode = "DOG",
+            Breed = "Shiba",
+            IsPublic = true
+        };
+
+        var result = await controller.Create(form, "https://evil.example/");
+
+        var redirectResult = Assert.IsType<RedirectResult>(result);
+        Assert.Equal("/MyPage", redirectResult.Url);
+        Assert.Equal(1, await dbContext.Pets.CountAsync());
+    }
+
+    [Fact]
+    public async Task Create_Post_ReturnsView_WhenModelIsInvalid()
+    {
+        await using var dbContext = CreateDbContext();
+        dbContext.Users.Add(new IdentityUser { Id = "user-a", UserName = "userA" });
+        await dbContext.SaveChangesAsync();
+
+        var controller = BuildController(dbContext, "user-a");
+        controller.ModelState.AddModelError("Name", "Required");
+
+        var result = await controller.Create(new PetEditViewModel(), "/Pets");
+
+        Assert.IsType<ViewResult>(result);
+        Assert.Equal(0, await dbContext.Pets.CountAsync());
+    }
+
+    [Fact]
+    public async Task Edit_Post_ReturnsNotFound_ForNonOwner()
+    {
+        await using var dbContext = CreateDbContext();
+        dbContext.Users.AddRange(
+            new IdentityUser { Id = "user-a", UserName = "userA" },
+            new IdentityUser { Id = "user-b", UserName = "userB" });
+        dbContext.Pets.Add(NewPet(20, "user-a", "A-Pet", true));
+        await dbContext.SaveChangesAsync();
+
+        var controller = BuildController(dbContext, "user-b");
+        var result = await controller.Edit(20, new PetEditViewModel
+        {
+            Name = "Updated",
+            SpeciesCode = "CAT",
+            IsPublic = true
+        }, "/Pets");
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task Edit_Post_UpdatesPet_AndRedirectsToDetails_WhenReturnUrlMissing()
+    {
+        await using var dbContext = CreateDbContext();
+        dbContext.Users.Add(new IdentityUser { Id = "user-a", UserName = "userA" });
+        dbContext.Pets.Add(NewPet(21, "user-a", "Before", true));
+        await dbContext.SaveChangesAsync();
+
+        var controller = BuildController(dbContext, "user-a");
+        var result = await controller.Edit(21, new PetEditViewModel
+        {
+            Name = "After",
+            SpeciesCode = "CAT",
+            Breed = "Mix",
+            IsPublic = false
+        }, null);
+
+        var redirectResult = Assert.IsType<RedirectResult>(result);
+        Assert.Equal("/Pets/Details/21", redirectResult.Url);
+
+        var updated = await dbContext.Pets.SingleAsync(x => x.Id == 21);
+        Assert.Equal("After", updated.Name);
+        Assert.Equal("CAT", updated.SpeciesCode);
+        Assert.False(updated.IsPublic);
+    }
+
+    [Fact]
+    public async Task Delete_Post_RemovesPet_AndUsesReturnUrl()
+    {
+        await using var dbContext = CreateDbContext();
+        dbContext.Users.Add(new IdentityUser { Id = "user-a", UserName = "userA" });
+        dbContext.Pets.Add(NewPet(30, "user-a", "Delete Target", true));
+        await dbContext.SaveChangesAsync();
+
+        var controller = BuildController(dbContext, "user-a");
+        var result = await controller.Delete(30, "/Pets?page=2");
+
+        var redirectResult = Assert.IsType<RedirectResult>(result);
+        Assert.Equal("/Pets?page=2", redirectResult.Url);
+        Assert.Equal(0, await dbContext.Pets.CountAsync());
+    }
+
+    [Fact]
+    public async Task Delete_Post_ReturnsNotFound_ForNonOwner()
+    {
+        await using var dbContext = CreateDbContext();
+        dbContext.Users.AddRange(
+            new IdentityUser { Id = "user-a", UserName = "userA" },
+            new IdentityUser { Id = "user-b", UserName = "userB" });
+        dbContext.Pets.Add(NewPet(31, "user-a", "A-Pet", true));
+        await dbContext.SaveChangesAsync();
+
+        var controller = BuildController(dbContext, "user-b");
+        var result = await controller.Delete(31, "/Pets");
+
+        Assert.IsType<NotFoundResult>(result);
+        Assert.Equal(1, await dbContext.Pets.CountAsync());
+    }
+
     private static PetsController BuildController(ApplicationDbContext dbContext, string userId)
     {
         var controller = new PetsController(dbContext);
