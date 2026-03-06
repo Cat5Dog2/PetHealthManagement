@@ -1,0 +1,112 @@
+@model PetHealthManagement.Web.ViewModels.Pets.PetSearchViewModel
+@{
+    ViewData["Title"] = "Pets";
+    var currentUrl = $"{Context.Request.Path}{Context.Request.QueryString}";
+}
+
+<h1>ペット一覧</h1>
+
+<form asp-action="Index" method="get" class="row g-3 mb-3">
+    <div class="col-md-4">
+        <label for="nameKeyword" class="form-label">名前（部分一致）</label>
+        <input id="nameKeyword" name="nameKeyword" value="@Model.NameKeyword" class="form-control" />
+    </div>
+    <div class="col-md-4">
+        <label for="speciesFilter" class="form-label">種別</label>
+        <select id="speciesFilter" name="speciesFilter" class="form-select">
+            <option value="">すべて</option>
+            @foreach (var option in Model.SpeciesOptions)
+            {
+                if (string.Equals(option.Code, Model.SpeciesFilter, StringComparison.OrdinalIgnoreCase))
+                {
+                    <option value="@option.Code" selected>@option.Label</option>
+                }
+                else
+                {
+                    <option value="@option.Code">@option.Label</option>
+                }
+            }
+        </select>
+    </div>
+    <div class="col-md-2 d-grid align-self-end">
+        <button type="submit" class="btn btn-primary">検索</button>
+    </div>
+</form>
+
+<p>全 @Model.TotalCount 件 / @Model.Page ページ目（1ページ @Model.PageSize 件）</p>
+
+@if (Model.Pets.Count == 0)
+{
+    <div class="alert alert-secondary">該当するペットがありません。</div>
+}
+else
+{
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>名前</th>
+                <th>種別</th>
+                <th>品種</th>
+                <th>オーナー</th>
+                <th>公開設定</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var pet in Model.Pets)
+            {
+                <tr>
+                    <td>@pet.Name</td>
+                    <td>@pet.SpeciesLabel</td>
+                    <td>@(string.IsNullOrWhiteSpace(pet.Breed) ? "-" : pet.Breed)</td>
+                    <td>@pet.OwnerDisplayName</td>
+                    <td>
+                        @if (pet.IsOwner)
+                        {
+                            @(pet.IsPublic ? "公開" : "非公開")
+                        }
+                        else
+                        {
+                            <text>公開</text>
+                        }
+                    </td>
+                    <td>
+                        <a asp-action="Details"
+                           asp-route-petId="@pet.PetId"
+                           asp-route-returnUrl="@currentUrl"
+                           class="btn btn-sm btn-outline-primary">
+                            詳細
+                        </a>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@if (Model.TotalPages > 1)
+{
+    <nav aria-label="ペット一覧ページャー">
+        <ul class="pagination">
+            @for (var pageNumber = 1; pageNumber <= Model.TotalPages; pageNumber++)
+            {
+                if (pageNumber == Model.Page)
+                {
+                    <li class="page-item active"><span class="page-link">@pageNumber</span></li>
+                }
+                else
+                {
+                    <li class="page-item">
+                        <a class="page-link"
+                           asp-action="Index"
+                           asp-route-nameKeyword="@Model.NameKeyword"
+                           asp-route-speciesFilter="@Model.SpeciesFilter"
+                           asp-route-page="@pageNumber">
+                            @pageNumber
+                        </a>
+                    </li>
+                }
+            }
+        </ul>
+    </nav>
+}
