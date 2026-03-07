@@ -6,6 +6,10 @@
 
 <h1>ペット一覧</h1>
 
+<div class="mb-3">
+    <a asp-action="Create" asp-route-returnUrl="@currentUrl" class="btn btn-primary">＋ ペット作成</a>
+</div>
+
 <form asp-action="Index" method="get" class="row g-3 mb-3">
     <div class="col-md-4">
         <label for="nameKeyword" class="form-label">名前（部分一致）</label>
