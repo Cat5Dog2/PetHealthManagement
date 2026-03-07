@@ -5,14 +5,19 @@ using Microsoft.EntityFrameworkCore;
 using PetHealthManagement.Web.Data;
 using PetHealthManagement.Web.Helpers;
 using PetHealthManagement.Web.Models;
+using PetHealthManagement.Web.Services;
 using PetHealthManagement.Web.ViewModels.Pets;
 
 namespace PetHealthManagement.Web.Controllers;
 
 [Authorize]
 [Route("Pets")]
-public class PetsController(ApplicationDbContext dbContext) : Controller
+public class PetsController(
+    ApplicationDbContext dbContext,
+    IPetPhotoService petPhotoService) : Controller
 {
+    private const string DefaultPetPhotoUrl = "/images/default/pet-placeholder.svg";
+
     [HttpGet("")]
     public async Task<IActionResult> Index(string? nameKeyword, string? speciesFilter, string? page)
     {
@@ -57,7 +62,8 @@ public class PetsController(ApplicationDbContext dbContext) : Controller
                 p.SpeciesCode,
                 p.Breed,
                 p.OwnerId,
-                p.IsPublic
+                p.IsPublic,
+                p.PhotoImageId
             })
             .ToListAsync();
 
@@ -93,6 +99,7 @@ public class PetsController(ApplicationDbContext dbContext) : Controller
                 .Select(p => new PetListItemViewModel
                 {
                     PetId = p.Id,
+                    PhotoUrl = ResolvePetPhotoUrl(p.PhotoImageId),
                     Name = p.Name,
                     SpeciesLabel = SpeciesCatalog.ToLabel(p.SpeciesCode),
                     Breed = p.Breed,
@@ -142,6 +149,7 @@ public class PetsController(ApplicationDbContext dbContext) : Controller
         var viewModel = new PetDetailsViewModel
         {
             PetId = pet.Id,
+            PhotoUrl = ResolvePetPhotoUrl(pet.PhotoImageId),
             Name = pet.Name,
             SpeciesLabel = SpeciesCatalog.ToLabel(pet.SpeciesCode),
             Breed = pet.Breed,
@@ -163,6 +171,7 @@ public class PetsController(ApplicationDbContext dbContext) : Controller
             speciesCode: string.Empty,
             breed: null,
             isPublic: true,
+            currentPhotoUrl: null,
             returnUrl: returnUrl,
             fallbackCancelUrl: "/MyPage");
 
@@ -187,6 +196,7 @@ public class PetsController(ApplicationDbContext dbContext) : Controller
                 speciesCode: viewModel.SpeciesCode,
                 breed: viewModel.Breed,
                 isPublic: viewModel.IsPublic,
+                currentPhotoUrl: null,
                 returnUrl: returnUrl,
                 fallbackCancelUrl: "/MyPage");
 
@@ -206,7 +216,35 @@ public class PetsController(ApplicationDbContext dbContext) : Controller
         };
 
         dbContext.Pets.Add(pet);
-        await dbContext.SaveChangesAsync();
+        await dbContext.SaveChangesAsync(cancellationToken: HttpContext.RequestAborted);
+
+        var photoUpdateResult = await petPhotoService.ApplyPetPhotoChangeAsync(
+            pet,
+            userId,
+            viewModel.PhotoFile,
+            viewModel.RemovePhoto,
+            HttpContext.RequestAborted);
+
+        if (!photoUpdateResult.Succeeded)
+        {
+            dbContext.Pets.Remove(pet);
+            await dbContext.SaveChangesAsync(HttpContext.RequestAborted);
+
+            ModelState.AddModelError(nameof(PetEditViewModel.PhotoFile), photoUpdateResult.ErrorMessage!);
+            var invalidPhotoViewModel = BuildPetEditViewModel(
+                petId: null,
+                name: viewModel.Name,
+                speciesCode: viewModel.SpeciesCode,
+                breed: viewModel.Breed,
+                isPublic: viewModel.IsPublic,
+                currentPhotoUrl: null,
+                returnUrl: returnUrl,
+                fallbackCancelUrl: "/MyPage");
+
+            return View(invalidPhotoViewModel);
+        }
+
+        await dbContext.SaveChangesAsync(HttpContext.RequestAborted);
 
         var redirectUrl = ReturnUrlHelper.ResolveLocalReturnUrl(returnUrl, "/MyPage");
         return Redirect(redirectUrl);
@@ -236,6 +274,7 @@ public class PetsController(ApplicationDbContext dbContext) : Controller
             speciesCode: pet.SpeciesCode,
             breed: pet.Breed,
             isPublic: pet.IsPublic,
+            currentPhotoUrl: ResolvePetPhotoUrl(pet.PhotoImageId),
             returnUrl: returnUrl,
             fallbackCancelUrl: $"/Pets/Details/{petId}");
 
@@ -268,10 +307,34 @@ public class PetsController(ApplicationDbContext dbContext) : Controller
                 speciesCode: viewModel.SpeciesCode,
                 breed: viewModel.Breed,
                 isPublic: viewModel.IsPublic,
+                currentPhotoUrl: ResolvePetPhotoUrl(pet.PhotoImageId),
                 returnUrl: returnUrl,
                 fallbackCancelUrl: $"/Pets/Details/{petId}");
 
             return View(invalidViewModel);
+        }
+
+        var photoUpdateResult = await petPhotoService.ApplyPetPhotoChangeAsync(
+            pet,
+            userId,
+            viewModel.PhotoFile,
+            viewModel.RemovePhoto,
+            HttpContext.RequestAborted);
+
+        if (!photoUpdateResult.Succeeded)
+        {
+            ModelState.AddModelError(nameof(PetEditViewModel.PhotoFile), photoUpdateResult.ErrorMessage!);
+            var invalidPhotoViewModel = BuildPetEditViewModel(
+                petId: petId,
+                name: viewModel.Name,
+                speciesCode: viewModel.SpeciesCode,
+                breed: viewModel.Breed,
+                isPublic: viewModel.IsPublic,
+                currentPhotoUrl: ResolvePetPhotoUrl(pet.PhotoImageId),
+                returnUrl: returnUrl,
+                fallbackCancelUrl: $"/Pets/Details/{petId}");
+
+            return View(invalidPhotoViewModel);
         }
 
         pet.Name = viewModel.Name.Trim();
@@ -280,7 +343,7 @@ public class PetsController(ApplicationDbContext dbContext) : Controller
         pet.IsPublic = viewModel.IsPublic;
         pet.UpdatedAt = DateTimeOffset.UtcNow;
 
-        await dbContext.SaveChangesAsync();
+        await dbContext.SaveChangesAsync(HttpContext.RequestAborted);
 
         var redirectUrl = ReturnUrlHelper.ResolveLocalReturnUrl(returnUrl, $"/Pets/Details/{petId}");
         return Redirect(redirectUrl);
@@ -303,8 +366,15 @@ public class PetsController(ApplicationDbContext dbContext) : Controller
             return NotFound();
         }
 
+        await petPhotoService.ApplyPetPhotoChangeAsync(
+            pet,
+            userId,
+            newPhotoFile: null,
+            removePhoto: true,
+            HttpContext.RequestAborted);
+
         dbContext.Pets.Remove(pet);
-        await dbContext.SaveChangesAsync();
+        await dbContext.SaveChangesAsync(HttpContext.RequestAborted);
 
         var redirectUrl = ReturnUrlHelper.ResolveLocalReturnUrl(returnUrl, "/MyPage");
         return Redirect(redirectUrl);
@@ -316,6 +386,7 @@ public class PetsController(ApplicationDbContext dbContext) : Controller
         string speciesCode,
         string? breed,
         bool isPublic,
+        string? currentPhotoUrl,
         string? returnUrl,
         string fallbackCancelUrl)
     {
@@ -329,6 +400,7 @@ public class PetsController(ApplicationDbContext dbContext) : Controller
             SpeciesCode = speciesCode,
             Breed = breed,
             IsPublic = isPublic,
+            CurrentPhotoUrl = currentPhotoUrl,
             ReturnUrl = safeReturnUrl,
             CancelUrl = cancelUrl,
             SpeciesOptions = SpeciesCatalog.All
@@ -353,6 +425,11 @@ public class PetsController(ApplicationDbContext dbContext) : Controller
     {
         var normalized = breed?.Trim();
         return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
+    }
+
+    private static string ResolvePetPhotoUrl(Guid? photoImageId)
+    {
+        return photoImageId is null ? DefaultPetPhotoUrl : $"/images/{photoImageId.Value:D}";
     }
 
     private static int NormalizePage(string? page)

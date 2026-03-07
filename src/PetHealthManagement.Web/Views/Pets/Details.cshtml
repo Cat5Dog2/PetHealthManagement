@@ -5,6 +5,10 @@
 
 <h1>ペット詳細</h1>
 
+<div class="mb-3">
+    <img src="@Model.PhotoUrl" alt="@Model.Name の写真" style="max-width: 320px; max-height: 320px; object-fit: cover;" />
+</div>
+
 <dl class="row">
     <dt class="col-sm-3">名前</dt>
     <dd class="col-sm-9">@Model.Name</dd>
