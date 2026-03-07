@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using PetHealthManagement.Web.Controllers;
 using PetHealthManagement.Web.Data;
 using PetHealthManagement.Web.Models;
+using PetHealthManagement.Web.Services;
 using PetHealthManagement.Web.ViewModels.Pets;
 
 namespace PetHealthManagement.Web.Tests.Controllers;
@@ -40,6 +41,7 @@ public class PetsControllerTests
         Assert.Contains(model.Pets, x => x.Name == "A-Private");
         Assert.Contains(model.Pets, x => x.Name == "B-Public");
         Assert.DoesNotContain(model.Pets, x => x.Name == "B-Private");
+        Assert.All(model.Pets, x => Assert.False(string.IsNullOrWhiteSpace(x.PhotoUrl)));
     }
 
     [Fact]
@@ -110,6 +112,7 @@ public class PetsControllerTests
 
         Assert.True(model.IsOwner);
         Assert.Equal("/Pets?page=3", model.ReturnUrl);
+        Assert.False(string.IsNullOrWhiteSpace(model.PhotoUrl));
     }
 
     [Fact]
@@ -233,7 +236,7 @@ public class PetsControllerTests
 
     private static PetsController BuildController(ApplicationDbContext dbContext, string userId)
     {
-        var controller = new PetsController(dbContext);
+        var controller = new PetsController(dbContext, new FakePetPhotoService());
         var claimsPrincipal = new ClaimsPrincipal(
             new ClaimsIdentity(
                 [new Claim(ClaimTypes.NameIdentifier, userId)],
@@ -273,5 +276,18 @@ public class PetsControllerTests
             CreatedAt = now,
             UpdatedAt = now
         };
+    }
+
+    private sealed class FakePetPhotoService : IPetPhotoService
+    {
+        public Task<PetPhotoUpdateResult> ApplyPetPhotoChangeAsync(
+            Pet pet,
+            string ownerId,
+            IFormFile? newPhotoFile,
+            bool removePhoto,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(PetPhotoUpdateResult.Success());
+        }
     }
 }

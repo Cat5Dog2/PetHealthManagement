@@ -23,6 +23,8 @@ public class Pet
 
     public bool IsPublic { get; set; } = true;
 
+    public Guid? PhotoImageId { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
 
     public DateTimeOffset UpdatedAt { get; set; }
