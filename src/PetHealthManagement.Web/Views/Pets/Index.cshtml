@@ -48,6 +48,7 @@ else
     <table class="table table-striped">
         <thead>
             <tr>
+                <th>写真</th>
                 <th>名前</th>
                 <th>種別</th>
                 <th>品種</th>
@@ -60,6 +61,9 @@ else
             @foreach (var pet in Model.Pets)
             {
                 <tr>
+                    <td>
+                        <img src="@pet.PhotoUrl" alt="@pet.Name の写真" style="width: 72px; height: 72px; object-fit: cover;" />
+                    </td>
                     <td>@pet.Name</td>
                     <td>@pet.SpeciesLabel</td>
                     <td>@(string.IsNullOrWhiteSpace(pet.Breed) ? "-" : pet.Breed)</td>

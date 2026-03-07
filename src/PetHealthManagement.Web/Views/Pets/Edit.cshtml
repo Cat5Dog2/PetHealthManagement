@@ -5,7 +5,7 @@
 
 <h1>ペット編集</h1>
 
-<form asp-action="Edit" asp-route-petId="@Model.PetId" method="post">
+<form asp-action="Edit" asp-route-petId="@Model.PetId" method="post" enctype="multipart/form-data">
     <partial name="_PetForm" model="Model" />
 </form>
 
