@@ -19,6 +19,12 @@ public class PetEditViewModel
 
     public bool IsPublic { get; set; } = true;
 
+    public IFormFile? PhotoFile { get; set; }
+
+    public bool RemovePhoto { get; set; }
+
+    public string? CurrentPhotoUrl { get; set; }
+
     public string? ReturnUrl { get; set; }
 
     public string CancelUrl { get; set; } = "/Pets";

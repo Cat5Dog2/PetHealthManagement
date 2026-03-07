@@ -25,6 +25,8 @@ public class PetListItemViewModel
 {
     public int PetId { get; set; }
 
+    public string PhotoUrl { get; set; } = string.Empty;
+
     public string Name { get; set; } = string.Empty;
 
     public string SpeciesLabel { get; set; } = string.Empty;

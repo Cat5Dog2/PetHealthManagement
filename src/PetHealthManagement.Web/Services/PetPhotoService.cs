@@ -1,0 +1,303 @@
+using Microsoft.EntityFrameworkCore;
+using PetHealthManagement.Web.Data;
+using PetHealthManagement.Web.Models;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats;
+using SixLabors.ImageSharp.Formats.Jpeg;
+using SixLabors.ImageSharp.Formats.Png;
+using SixLabors.ImageSharp.Formats.Webp;
+using SixLabors.ImageSharp.Processing;
+
+namespace PetHealthManagement.Web.Services;
+
+public class PetPhotoService(
+    ApplicationDbContext dbContext,
+    IImageStorageService imageStorageService,
+    ILogger<PetPhotoService> logger) : IPetPhotoService
+{
+    private const long MaxFileSizeBytes = 2 * 1024 * 1024;
+    private const long MaxUserTotalBytes = 100 * 1024 * 1024;
+    private const int MaxEdgePixels = 4096;
+    private const long MaxTotalPixels = 16_777_216;
+
+    private static readonly HashSet<string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".jpg", ".jpeg", ".png", ".webp"
+    };
+
+    private static readonly HashSet<string> AllowedContentTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "image/jpeg", "image/png", "image/webp"
+    };
+
+    public async Task<PetPhotoUpdateResult> ApplyPetPhotoChangeAsync(
+        Pet pet,
+        string ownerId,
+        IFormFile? newPhotoFile,
+        bool removePhoto,
+        CancellationToken cancellationToken = default)
+    {
+        if (newPhotoFile is null)
+        {
+            if (!removePhoto)
+            {
+                return PetPhotoUpdateResult.Success();
+            }
+
+            await RemoveCurrentPhotoAsync(pet, cancellationToken);
+            return PetPhotoUpdateResult.Success();
+        }
+
+        // Replace takes precedence when both PhotoFile and RemovePhoto are set.
+        return await ReplacePhotoAsync(pet, ownerId, newPhotoFile, cancellationToken);
+    }
+
+    private async Task<PetPhotoUpdateResult> ReplacePhotoAsync(
+        Pet pet,
+        string ownerId,
+        IFormFile newPhotoFile,
+        CancellationToken cancellationToken)
+    {
+        var extension = Path.GetExtension(newPhotoFile.FileName);
+        if (!AllowedExtensions.Contains(extension))
+        {
+            return PetPhotoUpdateResult.Fail("画像ファイルは jpg / jpeg / png / webp のみアップロードできます。");
+        }
+
+        if (!AllowedContentTypes.Contains(newPhotoFile.ContentType))
+        {
+            return PetPhotoUpdateResult.Fail("画像ファイルの Content-Type が不正です。");
+        }
+
+        if (newPhotoFile.Length <= 0 || newPhotoFile.Length > MaxFileSizeBytes)
+        {
+            return PetPhotoUpdateResult.Fail("画像ファイルは 2MB 以下にしてください。");
+        }
+
+        var originalTempPath = imageStorageService.CreateTemporaryPath(extension);
+        var processedTempPath = imageStorageService.CreateTemporaryPath(".tmp");
+
+        try
+        {
+            await imageStorageService.SaveFormFileToPathAsync(newPhotoFile, originalTempPath, cancellationToken);
+            var processed = await ProcessAndValidateImageAsync(originalTempPath, processedTempPath, cancellationToken);
+            if (!processed.Succeeded)
+            {
+                return PetPhotoUpdateResult.Fail(processed.ErrorMessage!);
+            }
+
+            var currentImageId = pet.PhotoImageId;
+            var currentAsset = currentImageId is null
+                ? null
+                : await dbContext.ImageAssets.FirstOrDefaultAsync(x => x.ImageId == currentImageId.Value, cancellationToken);
+
+            var userUsedBytes = await dbContext.ImageAssets
+                .Where(x => x.OwnerId == ownerId && x.Status == ImageAssetStatus.Ready)
+                .SumAsync(x => (long?)x.SizeBytes, cancellationToken) ?? 0;
+
+            var currentImageBytes = currentAsset?.SizeBytes ?? 0;
+            var projectedTotal = userUsedBytes - currentImageBytes + processed.SizeBytes;
+            if (projectedTotal > MaxUserTotalBytes)
+            {
+                return PetPhotoUpdateResult.Fail("ユーザーの画像合計サイズ（100MB）を超えています。");
+            }
+
+            var newImageId = Guid.NewGuid();
+            var storageKey = $"images/{newImageId:N}{processed.Extension}";
+
+            var newAsset = new ImageAsset
+            {
+                ImageId = newImageId,
+                StorageKey = storageKey,
+                ContentType = processed.ContentType!,
+                SizeBytes = processed.SizeBytes,
+                OwnerId = ownerId,
+                Category = "PetPhoto",
+                Status = ImageAssetStatus.Pending,
+                CreatedAt = DateTimeOffset.UtcNow
+            };
+
+            dbContext.ImageAssets.Add(newAsset);
+            pet.PhotoImageId = newImageId;
+            await dbContext.SaveChangesAsync(cancellationToken);
+
+            try
+            {
+                await imageStorageService.MoveToStorageAsync(processedTempPath, storageKey, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to move pet photo to storage. storageKey={StorageKey}", storageKey);
+
+                dbContext.ImageAssets.Remove(newAsset);
+                pet.PhotoImageId = currentImageId;
+                await dbContext.SaveChangesAsync(cancellationToken);
+                return PetPhotoUpdateResult.Fail("画像の保存に失敗しました。時間をおいて再試行してください。");
+            }
+
+            newAsset.Status = ImageAssetStatus.Ready;
+
+            if (currentAsset is not null)
+            {
+                dbContext.ImageAssets.Remove(currentAsset);
+            }
+
+            await dbContext.SaveChangesAsync(cancellationToken);
+
+            if (currentAsset is not null)
+            {
+                try
+                {
+                    await imageStorageService.DeleteIfExistsAsync(currentAsset.StorageKey, cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Failed to delete old pet photo file. storageKey={StorageKey}", currentAsset.StorageKey);
+                }
+            }
+
+            return PetPhotoUpdateResult.Success();
+        }
+        catch (SixLabors.ImageSharp.UnknownImageFormatException)
+        {
+            return PetPhotoUpdateResult.Fail("画像データを読み取れません。");
+        }
+        finally
+        {
+            TryDeleteTemporaryFile(originalTempPath);
+            TryDeleteTemporaryFile(processedTempPath);
+        }
+    }
+
+    private async Task RemoveCurrentPhotoAsync(Pet pet, CancellationToken cancellationToken)
+    {
+        if (pet.PhotoImageId is null)
+        {
+            return;
+        }
+
+        var currentImageId = pet.PhotoImageId.Value;
+        var currentAsset = await dbContext.ImageAssets
+            .FirstOrDefaultAsync(x => x.ImageId == currentImageId, cancellationToken);
+
+        pet.PhotoImageId = null;
+        if (currentAsset is not null)
+        {
+            dbContext.ImageAssets.Remove(currentAsset);
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        if (currentAsset is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await imageStorageService.DeleteIfExistsAsync(currentAsset.StorageKey, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to delete pet photo file. storageKey={StorageKey}", currentAsset.StorageKey);
+        }
+    }
+
+    private static async Task<ImageProcessingResult> ProcessAndValidateImageAsync(
+        string originalTempPath,
+        string processedTempPath,
+        CancellationToken cancellationToken)
+    {
+        await using var originalStream = new FileStream(originalTempPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+
+        var detectedFormat = await Image.DetectFormatAsync(originalStream, cancellationToken);
+        if (detectedFormat is null)
+        {
+            return ImageProcessingResult.Fail("画像データを判定できませんでした。");
+        }
+
+        var mappedFormat = MapFormat(detectedFormat);
+        if (mappedFormat is null)
+        {
+            return ImageProcessingResult.Fail("画像形式は jpeg / png / webp のみ対応しています。");
+        }
+
+        var format = mappedFormat.Value;
+
+        originalStream.Position = 0;
+        using var image = await Image.LoadAsync(originalStream, cancellationToken);
+        image.Mutate(x => x.AutoOrient());
+        image.Metadata.ExifProfile = null;
+
+        if (image.Width > MaxEdgePixels || image.Height > MaxEdgePixels)
+        {
+            return ImageProcessingResult.Fail("画像の最大辺は 4096px 以下にしてください。");
+        }
+
+        var totalPixels = (long)image.Width * image.Height;
+        if (totalPixels > MaxTotalPixels)
+        {
+            return ImageProcessingResult.Fail("画像の総画素数が上限（16,777,216px）を超えています。");
+        }
+
+        await using var processedStream = new FileStream(processedTempPath, FileMode.Create, FileAccess.Write, FileShare.None);
+        await image.SaveAsync(processedStream, format.Encoder, cancellationToken);
+
+        var processedSize = new FileInfo(processedTempPath).Length;
+        if (processedSize <= 0)
+        {
+            return ImageProcessingResult.Fail("画像処理に失敗しました。");
+        }
+
+        if (processedSize > MaxFileSizeBytes)
+        {
+            return ImageProcessingResult.Fail("画像ファイルは 2MB 以下にしてください。");
+        }
+
+        return ImageProcessingResult.Success(format.Extension, format.ContentType, processedSize);
+    }
+
+    private static (string Extension, string ContentType, IImageEncoder Encoder)? MapFormat(IImageFormat detectedFormat)
+    {
+        if (detectedFormat.Name.Equals("JPEG", StringComparison.OrdinalIgnoreCase))
+        {
+            return (".jpg", "image/jpeg", new JpegEncoder { Quality = 90 });
+        }
+
+        if (detectedFormat.Name.Equals("PNG", StringComparison.OrdinalIgnoreCase))
+        {
+            return (".png", "image/png", new PngEncoder());
+        }
+
+        if (detectedFormat.Name.Equals("WEBP", StringComparison.OrdinalIgnoreCase))
+        {
+            return (".webp", "image/webp", new WebpEncoder());
+        }
+
+        return null;
+    }
+
+    private static void TryDeleteTemporaryFile(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+        catch
+        {
+            // Best effort cleanup.
+        }
+    }
+
+    private sealed record ImageProcessingResult(bool Succeeded, string? ErrorMessage, string? Extension, string? ContentType, long SizeBytes)
+    {
+        public static ImageProcessingResult Success(string extension, string contentType, long sizeBytes)
+            => new(true, null, extension, contentType, sizeBytes);
+
+        public static ImageProcessingResult Fail(string errorMessage)
+            => new(false, errorMessage, null, null, 0);
+    }
+}
