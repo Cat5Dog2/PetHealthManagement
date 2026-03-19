@@ -77,9 +77,7 @@ public class PetsController(
             .Where(u => ownerIds.Contains(u.Id))
             .ToDictionaryAsync(
                 u => u.Id,
-                u => string.IsNullOrWhiteSpace(u.UserName)
-                    ? (string.IsNullOrWhiteSpace(u.Email) ? u.Id : u.Email)
-                    : u.UserName);
+                u => UserDisplayNameHelper.ResolveForDisplay(u));
 
         var viewModel = new PetSearchViewModel
         {
@@ -137,14 +135,14 @@ public class PetsController(
             return NotFound();
         }
 
-        var ownerDisplayName = await dbContext.Users
+        var owner = await dbContext.Users
             .AsNoTracking()
             .Where(u => u.Id == pet.OwnerId)
-            .Select(u => string.IsNullOrWhiteSpace(u.UserName)
-                ? (string.IsNullOrWhiteSpace(u.Email) ? u.Id : u.Email)
-                : u.UserName)
-            .FirstOrDefaultAsync()
-            ?? pet.OwnerId;
+            .FirstOrDefaultAsync();
+
+        var ownerDisplayName = owner is null
+            ? pet.OwnerId
+            : UserDisplayNameHelper.ResolveForDisplay(owner);
 
         var viewModel = new PetDetailsViewModel
         {

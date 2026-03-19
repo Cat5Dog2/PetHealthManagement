@@ -53,6 +53,15 @@ public class ImagesController(
 
     private async Task<bool> IsAuthorizedToReadImageAsync(ImageAsset imageAsset, string userId, CancellationToken cancellationToken)
     {
+        if (string.Equals(imageAsset.Category, "Avatar", StringComparison.Ordinal))
+        {
+            var owner = await dbContext.Users
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.AvatarImageId == imageAsset.ImageId, cancellationToken);
+
+            return owner is not null && string.Equals(owner.Id, userId, StringComparison.Ordinal);
+        }
+
         if (!string.Equals(imageAsset.Category, "PetPhoto", StringComparison.Ordinal))
         {
             return false;

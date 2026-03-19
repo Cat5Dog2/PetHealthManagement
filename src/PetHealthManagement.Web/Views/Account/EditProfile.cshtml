@@ -1,12 +1,45 @@
+@model PetHealthManagement.Web.ViewModels.Account.EditProfileViewModel
 @{
     ViewData["Title"] = "プロフィール編集";
-    var returnUrl = ViewData["ReturnUrl"] as string ?? "/MyPage";
 }
 
 <h1>プロフィール編集</h1>
 
-<div class="alert alert-secondary">
-    プロフィール編集は次のタスクで実装予定です。現在は MyPage 導線のみ先に用意しています。
-</div>
+<form asp-action="EditProfile" method="post" enctype="multipart/form-data" class="d-flex flex-column gap-3">
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+    <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
 
-<a class="btn btn-primary" href="@returnUrl">MyPageへ戻る</a>
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <div class="mb-3">
+                <label class="form-label">現在のプロフィール画像</label>
+                <div>
+                    <img src="@Model.CurrentAvatarUrl" alt="現在のプロフィール画像" class="mypage-avatar" />
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="DisplayName" class="form-label">表示名</label>
+                <input asp-for="DisplayName" class="form-control" />
+                <span asp-validation-for="DisplayName" class="text-danger"></span>
+            </div>
+
+            <div class="mb-0">
+                <label asp-for="AvatarFile" class="form-label">プロフィール画像</label>
+                <input asp-for="AvatarFile" type="file" class="form-control" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" />
+                <div class="form-text">jpg / jpeg / png / webp、2MB以下</div>
+                <span asp-validation-for="AvatarFile" class="text-danger"></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">保存</button>
+        <a href="@Model.CancelUrl" class="btn btn-outline-secondary">キャンセル</a>
+    </div>
+</form>
+
+@section Scripts
+{
+    <partial name="_ValidationScriptsPartial" />
+}

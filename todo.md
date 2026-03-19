@@ -158,8 +158,8 @@
 - [x] ペット0件時の案内表示
 
 ### 4.2 プロフィール編集
-- [ ] `GET/POST /Account/EditProfile`（DisplayName、AvatarFile）
-- [ ] `returnUrl` の取り回し（Query→hidden→POST、ローカルURLのみ許可）
+- [x] `GET/POST /Account/EditProfile`（DisplayName、AvatarFile）
+- [x] `returnUrl` の取り回し（Query→hidden→POST、ローカルURLのみ許可）
 
 ### 4.3 アカウント削除（ユーザー自身）
 - [ ] `GET /Account/Delete`（確認画面）

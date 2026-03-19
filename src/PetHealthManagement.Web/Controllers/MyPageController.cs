@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PetHealthManagement.Web.Data;
+using PetHealthManagement.Web.Helpers;
 using PetHealthManagement.Web.Models;
 using PetHealthManagement.Web.ViewModels.MyPage;
 
@@ -51,28 +52,18 @@ public class MyPageController(ApplicationDbContext dbContext) : Controller
 
         var viewModel = new MyPageViewModel
         {
-            DisplayName = ResolveDisplayName(user),
+            DisplayName = UserDisplayNameHelper.ResolveForDisplay(user),
             Email = string.IsNullOrWhiteSpace(user.Email) ? "未設定" : user.Email,
-            AvatarUrl = DefaultAvatarUrl,
+            AvatarUrl = ResolveAvatarUrl(user.AvatarImageId),
             Pets = pets
         };
 
         return View(viewModel);
     }
 
-    private static string ResolveDisplayName(Microsoft.AspNetCore.Identity.IdentityUser user)
+    private static string ResolveAvatarUrl(Guid? avatarImageId)
     {
-        if (!string.IsNullOrWhiteSpace(user.UserName))
-        {
-            return user.UserName;
-        }
-
-        if (!string.IsNullOrWhiteSpace(user.Email))
-        {
-            return user.Email;
-        }
-
-        return user.Id;
+        return avatarImageId is null ? DefaultAvatarUrl : $"/images/{avatarImageId.Value:D}";
     }
 
     private static string ResolvePetPhotoUrl(Guid? photoImageId)
