@@ -10,10 +10,10 @@ using SixLabors.ImageSharp.Processing;
 
 namespace PetHealthManagement.Web.Services;
 
-public class PetPhotoService(
+public class UserAvatarService(
     ApplicationDbContext dbContext,
     IImageStorageService imageStorageService,
-    ILogger<PetPhotoService> logger) : IPetPhotoService
+    ILogger<UserAvatarService> logger) : IUserAvatarService
 {
     private const long MaxFileSizeBytes = 2 * 1024 * 1024;
     private const long MaxUserTotalBytes = 100 * 1024 * 1024;
@@ -30,48 +30,30 @@ public class PetPhotoService(
         "image/jpeg", "image/png", "image/webp"
     };
 
-    public async Task<PetPhotoUpdateResult> ApplyPetPhotoChangeAsync(
-        Pet pet,
-        string ownerId,
-        IFormFile? newPhotoFile,
-        bool removePhoto,
+    public async Task<UserAvatarUpdateResult> ApplyAvatarChangeAsync(
+        ApplicationUser user,
+        IFormFile? newAvatarFile,
         CancellationToken cancellationToken = default)
     {
-        if (newPhotoFile is null)
+        if (newAvatarFile is null)
         {
-            if (!removePhoto)
-            {
-                return PetPhotoUpdateResult.Success();
-            }
-
-            await RemoveCurrentPhotoAsync(pet, cancellationToken);
-            return PetPhotoUpdateResult.Success();
+            return UserAvatarUpdateResult.Success();
         }
 
-        // Replace takes precedence when both PhotoFile and RemovePhoto are set.
-        return await ReplacePhotoAsync(pet, ownerId, newPhotoFile, cancellationToken);
-    }
-
-    private async Task<PetPhotoUpdateResult> ReplacePhotoAsync(
-        Pet pet,
-        string ownerId,
-        IFormFile newPhotoFile,
-        CancellationToken cancellationToken)
-    {
-        var extension = Path.GetExtension(newPhotoFile.FileName);
+        var extension = Path.GetExtension(newAvatarFile.FileName);
         if (!AllowedExtensions.Contains(extension))
         {
-            return PetPhotoUpdateResult.Fail("画像ファイルは jpg / jpeg / png / webp のみアップロードできます。");
+            return UserAvatarUpdateResult.Fail("画像ファイルは jpg / jpeg / png / webp のみアップロードできます。");
         }
 
-        if (!AllowedContentTypes.Contains(newPhotoFile.ContentType))
+        if (!AllowedContentTypes.Contains(newAvatarFile.ContentType))
         {
-            return PetPhotoUpdateResult.Fail("画像ファイルの Content-Type が不正です。");
+            return UserAvatarUpdateResult.Fail("画像ファイルの Content-Type が不正です。");
         }
 
-        if (newPhotoFile.Length <= 0 || newPhotoFile.Length > MaxFileSizeBytes)
+        if (newAvatarFile.Length <= 0 || newAvatarFile.Length > MaxFileSizeBytes)
         {
-            return PetPhotoUpdateResult.Fail("画像ファイルは 2MB 以下にしてください。");
+            return UserAvatarUpdateResult.Fail("画像ファイルは 2MB 以下にしてください。");
         }
 
         var originalTempPath = imageStorageService.CreateTemporaryPath(extension);
@@ -79,33 +61,27 @@ public class PetPhotoService(
 
         try
         {
-            await imageStorageService.SaveFormFileToPathAsync(newPhotoFile, originalTempPath, cancellationToken);
+            await imageStorageService.SaveFormFileToPathAsync(newAvatarFile, originalTempPath, cancellationToken);
             var processed = await ProcessAndValidateImageAsync(originalTempPath, processedTempPath, cancellationToken);
             if (!processed.Succeeded)
             {
-                return PetPhotoUpdateResult.Fail(processed.ErrorMessage!);
+                return UserAvatarUpdateResult.Fail(processed.ErrorMessage!);
             }
 
-            var currentImageId = pet.PhotoImageId;
+            var currentImageId = user.AvatarImageId;
             var currentAsset = currentImageId is null
                 ? null
                 : await dbContext.ImageAssets.FirstOrDefaultAsync(x => x.ImageId == currentImageId.Value, cancellationToken);
 
             var userUsedBytes = await dbContext.ImageAssets
-                .Where(x => x.OwnerId == ownerId && x.Status == ImageAssetStatus.Ready)
+                .Where(x => x.OwnerId == user.Id && x.Status == ImageAssetStatus.Ready)
                 .SumAsync(x => (long?)x.SizeBytes, cancellationToken) ?? 0;
 
             var currentImageBytes = currentAsset?.SizeBytes ?? 0;
             var projectedTotal = userUsedBytes - currentImageBytes + processed.SizeBytes;
             if (projectedTotal > MaxUserTotalBytes)
             {
-                return PetPhotoUpdateResult.Fail("ユーザーの画像合計サイズ（100MB）を超えています。");
-            }
-
-            var owner = await dbContext.Users.FirstOrDefaultAsync(x => x.Id == ownerId, cancellationToken);
-            if (owner is null)
-            {
-                return PetPhotoUpdateResult.Fail("ユーザー情報が見つかりません。");
+                return UserAvatarUpdateResult.Fail("ユーザーの画像合計サイズ（100MB）を超えています。");
             }
 
             var newImageId = Guid.NewGuid();
@@ -117,15 +93,15 @@ public class PetPhotoService(
                 StorageKey = storageKey,
                 ContentType = processed.ContentType!,
                 SizeBytes = processed.SizeBytes,
-                OwnerId = ownerId,
-                Category = "PetPhoto",
+                OwnerId = user.Id,
+                Category = "Avatar",
                 Status = ImageAssetStatus.Pending,
                 CreatedAt = DateTimeOffset.UtcNow
             };
 
             dbContext.ImageAssets.Add(newAsset);
-            pet.PhotoImageId = newImageId;
-            owner.UsedImageBytes = projectedTotal;
+            user.AvatarImageId = newImageId;
+            user.UsedImageBytes = projectedTotal;
             await dbContext.SaveChangesAsync(cancellationToken);
 
             try
@@ -134,13 +110,14 @@ public class PetPhotoService(
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Failed to move pet photo to storage. storageKey={StorageKey}", storageKey);
+                logger.LogError(ex, "Failed to move avatar to storage. storageKey={StorageKey}", storageKey);
 
                 dbContext.ImageAssets.Remove(newAsset);
-                pet.PhotoImageId = currentImageId;
-                owner.UsedImageBytes = userUsedBytes;
+                user.AvatarImageId = currentImageId;
+                user.UsedImageBytes = userUsedBytes;
                 await dbContext.SaveChangesAsync(cancellationToken);
-                return PetPhotoUpdateResult.Fail("画像の保存に失敗しました。時間をおいて再試行してください。");
+
+                return UserAvatarUpdateResult.Fail("画像の保存に失敗しました。時間をおいて再試行してください。");
             }
 
             newAsset.Status = ImageAssetStatus.Ready;
@@ -160,61 +137,20 @@ public class PetPhotoService(
                 }
                 catch (Exception ex)
                 {
-                    logger.LogWarning(ex, "Failed to delete old pet photo file. storageKey={StorageKey}", currentAsset.StorageKey);
+                    logger.LogWarning(ex, "Failed to delete old avatar file. storageKey={StorageKey}", currentAsset.StorageKey);
                 }
             }
 
-            return PetPhotoUpdateResult.Success();
+            return UserAvatarUpdateResult.Success();
         }
         catch (SixLabors.ImageSharp.UnknownImageFormatException)
         {
-            return PetPhotoUpdateResult.Fail("画像データを読み取れません。");
+            return UserAvatarUpdateResult.Fail("画像データを読み取れません。");
         }
         finally
         {
             TryDeleteTemporaryFile(originalTempPath);
             TryDeleteTemporaryFile(processedTempPath);
-        }
-    }
-
-    private async Task RemoveCurrentPhotoAsync(Pet pet, CancellationToken cancellationToken)
-    {
-        if (pet.PhotoImageId is null)
-        {
-            return;
-        }
-
-        var currentImageId = pet.PhotoImageId.Value;
-        var currentAsset = await dbContext.ImageAssets
-            .FirstOrDefaultAsync(x => x.ImageId == currentImageId, cancellationToken);
-
-        var owner = await dbContext.Users.FirstOrDefaultAsync(x => x.Id == pet.OwnerId, cancellationToken);
-
-        pet.PhotoImageId = null;
-        if (currentAsset is not null)
-        {
-            dbContext.ImageAssets.Remove(currentAsset);
-        }
-
-        if (owner is not null && currentAsset is not null)
-        {
-            owner.UsedImageBytes = Math.Max(0, owner.UsedImageBytes - currentAsset.SizeBytes);
-        }
-
-        await dbContext.SaveChangesAsync(cancellationToken);
-
-        if (currentAsset is null)
-        {
-            return;
-        }
-
-        try
-        {
-            await imageStorageService.DeleteIfExistsAsync(currentAsset.StorageKey, cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Failed to delete pet photo file. storageKey={StorageKey}", currentAsset.StorageKey);
         }
     }
 
