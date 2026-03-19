@@ -73,22 +73,22 @@
 - [ ] 開発用 HTTPS 証明書準備（dev-certs）
 
 ### 1.2 設定・シークレット
-- [ ] `dotnet user-secrets` 初期化
-- [ ] ConnectionString（LocalDB）設定
-- [ ] `StorageRoot`（画像保存先）設定
+- [x] `dotnet user-secrets` 初期化
+- [x] ConnectionString（LocalDB）設定
+- [x] `StorageRoot`（画像保存先）設定
 - [ ] 環境別設定（Development/Staging/Production）方針を決め、appsettings を整備
 
 ### 1.3 ミドルウェア・共通UI
-- [ ] ルーティング/エリア（Admin）設定
-- [ ] `UseStatusCodePagesWithReExecute("/Error/{0}")` 等でエラーページ統一
+- [x] ルーティング/エリア（Admin）設定
+- [x] `UseStatusCodePagesWithReExecute("/Error/{0}")` 等でエラーページ統一
 - [ ] 共通レイアウト（ヘッダ：未ログイン/ログイン/Admin表示切替）
-- [ ] CSRF（Anti-forgery）をフォームPOSTへ適用
+- [x] CSRF（Anti-forgery）をフォームPOSTへ適用
 
 ### 1.4 横断共通部品
-- [ ] `ReturnUrlHelper`（validate + Query→hidden→POST のテンプレ）を作成
-- [ ] `PagingHelper`（page補正）を作成
+- [x] `ReturnUrlHelper`（validate + Query→hidden→POST のテンプレ）を作成
+- [x] `PagingHelper`（page補正）を作成
 - [ ] `OwnershipAuthorizer`（リソースID → PetId/UserId復元 → 所有者チェック → 404秘匿）を作成
-- [ ] `ErrorController`（`/Error/{statusCode}`：400/403/404/500 の共通表示）を用意
+- [x] `ErrorController`（`/Error/{statusCode}`：400/403/404/500 の共通表示）を用意
 - [ ] **命名規約テスト**（Query/Route と、`returnUrl`/`page`/`petId` 等の hidden/リンク用キーが lowerCamelCase になっている）をスモーク的に追加（必要なら）
 
 ### 1.5 完了条件/成果物
@@ -119,16 +119,16 @@
 ## フェーズ3：画像基盤（アップロード・検証・保存・配信）
 
 ### 3.1 画像ストレージ
-- [ ] `IImageStorageService`（保存/取得/削除）実装（ファイルシステム）
-- [ ] `StorageRoot/tmp`（一時保存）運用
-- [ ] デフォルト画像を `wwwroot/images/default/` に配置
+- [x] `IImageStorageService`（保存/取得/削除）実装（ファイルシステム）
+- [x] `StorageRoot/tmp`（一時保存）運用
+- [x] デフォルト画像を `wwwroot/images/default/` に配置
 
 ### 3.2 画像検証・加工
-- [ ] 許可拡張子/Content-Type（jpeg/png/webp）検証
-- [ ] 実データをデコードして画像判定（偽装ファイル拒否）
-- [ ] EXIF除去・向き正規化（再エンコード）
-- [ ] 解像度制限（最大辺/総画素数）
-- [ ] サイズ上限（1ファイル2MB）
+- [x] 許可拡張子/Content-Type（jpeg/png/webp）検証
+- [x] 実データをデコードして画像判定（偽装ファイル拒否）
+- [x] EXIF除去・向き正規化（再エンコード）
+- [x] 解像度制限（最大辺/総画素数）
+- [x] サイズ上限（1ファイル2MB）
 
 ### 3.2a 濫用対策
 - [ ] **リクエストサイズ上限**：Kestrel/`FormOptions.MultipartBodyLengthLimit` 等で上限を設定
@@ -140,10 +140,10 @@
 - [ ] HealthLog/Visit 添付は最大10枚（既存+追加合算）
 
 ### 3.4 画像配信 `GET /images/{imageId}`
-- [ ] `ImagesController.Get(imageId)` 実装
+- [x] `ImagesController.Get(imageId)` 実装
 - [ ] 参照元（Avatar/PetPhoto/HealthLog/Visit）を辿って認可
-- [ ] 非許可/存在不明/参照辿れず/Status=Pending 等は 404（存在秘匿）
-- [ ] レスポンスヘッダ（Cache-Control/private、nosniff等）
+- [x] 非許可/存在不明/参照辿れず/Status=Pending 等は 404（存在秘匿）
+- [x] レスポンスヘッダ（Cache-Control/private、nosniff等）
 
 ### 3.5 完了条件/成果物
 - [ ] 画像アップロード→保存→認可付き配信→削除 が一連で動作（異常系：偽装/超過/上限も含む）
@@ -154,8 +154,8 @@
 ## フェーズ4：認証・アカウント（MyPage/プロフィール/削除）
 
 ### 4.1 MyPage
-- [ ] `GET /MyPage`：ユーザー情報＋自分のペット一覧表示
-- [ ] ペット0件時の案内表示
+- [x] `GET /MyPage`：ユーザー情報＋自分のペット一覧表示
+- [x] ペット0件時の案内表示
 
 ### 4.2 プロフィール編集
 - [ ] `GET/POST /Account/EditProfile`（DisplayName、AvatarFile）
@@ -175,24 +175,24 @@
 ## フェーズ5：ペット機能（公開プロフィール共有）
 
 ### 5.1 ペット一覧（公開＋自分）
-- [ ] `GET /Pets`：検索（名前部分一致、Speciesフィルタ）
-- [ ] ページング（10件/ページ、`page`補正：未指定/非数/<=0 は1）
-- [ ] 表示対象：自分のペット（公開/非公開問わず）＋他人の公開ペット
+- [x] `GET /Pets`：検索（名前部分一致、Speciesフィルタ）
+- [x] ページング（10件/ページ、`page`補正：未指定/非数/<=0 は1）
+- [x] 表示対象：自分のペット（公開/非公開問わず）＋他人の公開ペット
 
 ### 5.2 ペット詳細
-- [ ] `GET /Pets/Details/{petId}`：公開 or オーナーのみ
-- [ ] 非公開ペットをオーナー以外が参照：404（存在秘匿）
-- [ ] オーナーのみ：編集/削除/健康ログ/予定/通院/画像への導線表示
+- [x] `GET /Pets/Details/{petId}`：公開 or オーナーのみ
+- [x] 非公開ペットをオーナー以外が参照：404（存在秘匿）
+- [x] オーナーのみ：編集/削除/健康ログ/予定/通院/画像への導線表示
 
 ### 5.3 ペット作成/編集/削除
-- [ ] `GET/POST /Pets/Create`（IsPublic 初期 true）
-- [ ] `GET/POST /Pets/Edit/{petId}`（オーナーのみ、他人は404）
-- [ ] 画像置換/削除（RemovePhoto 等）
+- [x] `GET/POST /Pets/Create`（IsPublic 初期 true）
+- [x] `GET/POST /Pets/Edit/{petId}`（オーナーのみ、他人は404）
+- [x] 画像置換/削除（RemovePhoto 等）
 - [ ] `POST /Pets/Delete/{petId}`（関連データ削除、画像も削除）
-- [ ] すべての POST：PRG（302）+ returnUrl 優先（ローカルのみ）
+- [x] すべての POST：PRG（302）+ returnUrl 優先（ローカルのみ）
 
 ### 5.4 完了条件/成果物
-- [ ] 公開/非公開の表示制御（自分と他人）と、秘匿(404)が確認できる
+- [x] 公開/非公開の表示制御（自分と他人）と、秘匿(404)が確認できる
 
 ---
 
@@ -262,7 +262,7 @@
 ## フェーズ9：管理者機能（Admin Area）
 
 ### 9.1 ユーザー一覧
-- [ ] `GET /Admin/Users`（Adminのみ、非Adminは403）
+- [x] `GET /Admin/Users`（Adminのみ、非Adminは403）
 - [ ] 一覧表示（検索/ページング必要なら追加）
 
 ### 9.2 ユーザー削除
@@ -278,13 +278,13 @@
 ## フェーズ10：横断（セキュリティ/バリデーション/UX）
 
 ### 10.1 returnUrl / Open Redirect対策
-- [ ] `Url.IsLocalUrl(returnUrl)`（または同等）で検証
-- [ ] Query→hidden→POST の統一ルール化（画面項目定義に沿う）
+- [x] `Url.IsLocalUrl(returnUrl)`（または同等）で検証
+- [x] Query→hidden→POST の統一ルール化（画面項目定義に沿う）
 
 ### 10.2 ステータスコード・存在秘匿
 - [ ] 所有者不一致は原則 404（秘匿対象：Pet/HealthLog/ScheduleItem/Visit/Image）
-- [ ] Adminルート非許可は 403
-- [ ] 400/403/404/500 を `/Error/{statusCode}` に統一表示
+- [x] Adminルート非許可は 403
+- [x] 400/403/404/500 を `/Error/{statusCode}` に統一表示
 
 ### 10.3 入力バリデーション
 - [ ] 文字数（例：Name 50、Note 1000等）
@@ -293,7 +293,7 @@
 
 ### 10.4 パフォーマンス/運用
 - [ ] N+1回避（一覧で必要な関連だけInclude）
-- [ ] 画像配信のキャッシュ方針（private/no-store or ETag）
+- [x] 画像配信のキャッシュ方針（private/no-store or ETag）
 - [ ] ログ（削除失敗、例外、監査的ログが必要なら方針化）
 
 ### 10.5 Cookie/ヘッダ（最低限）
@@ -317,7 +317,7 @@
 - [ ] 認証：未ログイン→保護URL→Login→returnUrl復帰
 - [ ] 存在秘匿：他人の非公開Pet/健康情報/画像が404
 - [ ] 画像：拡張子偽装、2MB超、解像度超、合計100MB超、最大10枚超
-- [ ] PRG：POST成功→302→一覧/詳細、returnUrl優先
+- [x] PRG：POST成功→302→一覧/詳細、returnUrl優先
 - [ ] Admin：非Admin 403、Admin削除の一括削除
 
 ### 11.3 既存のテスト設計書

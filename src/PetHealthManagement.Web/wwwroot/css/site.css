@@ -21,6 +21,23 @@ body {
   margin-bottom: 60px;
 }
 
+.mypage-avatar {
+  width: 128px;
+  height: 128px;
+  border-radius: 24px;
+  object-fit: cover;
+  background: #f4efe7;
+  border: 1px solid #d9d2c6;
+}
+
+.mypage-pet-photo {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 16px;
+  background: #f7f7f7;
+}
+
 .form-floating > .form-control-plaintext::placeholder, .form-floating > .form-control::placeholder {
   color: var(--bs-secondary-color);
   text-align: end;
