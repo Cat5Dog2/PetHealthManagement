@@ -354,12 +354,99 @@ public class HealthLogsControllerTests
         Assert.Equal(new DateTimeOffset(2026, 3, 21, 9, 0, 0, TimeSpan.FromHours(9)), unchangedHealthLog.RecordedAt);
     }
 
+    [Fact]
+    public async Task DeletePost_ReturnsBadRequest_WhenHealthLogIdIsInvalid()
+    {
+        await using var dbContext = CreateDbContext();
+        var controller = BuildController(dbContext, "user-a");
+
+        var result = await controller.Delete(0, petId: null, page: null, returnUrl: null);
+
+        Assert.IsType<BadRequestResult>(result);
+    }
+
+    [Fact]
+    public async Task DeletePost_ReturnsNotFound_ForNonOwnerHealthLog()
+    {
+        await using var dbContext = CreateDbContext();
+        dbContext.Pets.Add(NewPet(1, "user-a", "Mugi"));
+        dbContext.HealthLogs.Add(new HealthLog
+        {
+            Id = 10,
+            PetId = 1,
+            RecordedAt = new DateTimeOffset(2026, 3, 21, 9, 0, 0, TimeSpan.FromHours(9)),
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        });
+        await dbContext.SaveChangesAsync();
+
+        var controller = BuildController(dbContext, "user-b");
+        var result = await controller.Delete(10, petId: 1, page: "2", returnUrl: "/HealthLogs?petId=1&page=2");
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task DeletePost_RedirectsToReturnUrl_WhenLocal()
+    {
+        await using var dbContext = CreateDbContext();
+        dbContext.Pets.Add(NewPet(1, "user-a", "Mugi"));
+        dbContext.HealthLogs.Add(new HealthLog
+        {
+            Id = 10,
+            PetId = 1,
+            RecordedAt = new DateTimeOffset(2026, 3, 21, 9, 0, 0, TimeSpan.FromHours(9)),
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        });
+        await dbContext.SaveChangesAsync();
+
+        var deletionService = new FakeHealthLogDeletionService();
+        var controller = BuildController(dbContext, "user-a", deletionService: deletionService);
+
+        var result = await controller.Delete(10, petId: 999, page: "3", returnUrl: "/HealthLogs?petId=1&page=3");
+
+        var redirect = Assert.IsType<RedirectResult>(result);
+        Assert.Equal("/HealthLogs?petId=1&page=3", redirect.Url);
+        Assert.Equal(1, deletionService.CallCount);
+        Assert.Equal(10, deletionService.LastHealthLogId);
+    }
+
+    [Fact]
+    public async Task DeletePost_RedirectsToFallbackList_WhenReturnUrlIsInvalid()
+    {
+        await using var dbContext = CreateDbContext();
+        dbContext.Pets.Add(NewPet(1, "user-a", "Mugi"));
+        dbContext.HealthLogs.Add(new HealthLog
+        {
+            Id = 10,
+            PetId = 1,
+            RecordedAt = new DateTimeOffset(2026, 3, 21, 9, 0, 0, TimeSpan.FromHours(9)),
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        });
+        await dbContext.SaveChangesAsync();
+
+        var deletionService = new FakeHealthLogDeletionService();
+        var controller = BuildController(dbContext, "user-a", deletionService: deletionService);
+
+        var result = await controller.Delete(10, petId: null, page: "2", returnUrl: "https://evil.example/");
+
+        var redirect = Assert.IsType<RedirectResult>(result);
+        Assert.Equal("/HealthLogs?petId=1&page=2", redirect.Url);
+        Assert.Equal(1, deletionService.CallCount);
+    }
+
     private static HealthLogsController BuildController(
         ApplicationDbContext dbContext,
         string userId,
-        IHealthLogImageService? imageService = null)
+        IHealthLogImageService? imageService = null,
+        IHealthLogDeletionService? deletionService = null)
     {
-        var controller = new HealthLogsController(dbContext, imageService ?? new FakeHealthLogImageService());
+        var controller = new HealthLogsController(
+            dbContext,
+            imageService ?? new FakeHealthLogImageService(),
+            deletionService ?? new FakeHealthLogDeletionService());
         var httpContext = new DefaultHttpContext
         {
             User = new ClaimsPrincipal(
@@ -434,6 +521,20 @@ public class HealthLogsControllerTests
             CallCount += 1;
             LastPetId = healthLog.PetId;
             return Task.FromResult(NextResult);
+        }
+    }
+
+    private sealed class FakeHealthLogDeletionService : IHealthLogDeletionService
+    {
+        public int CallCount { get; private set; }
+
+        public int? LastHealthLogId { get; private set; }
+
+        public Task DeleteAsync(HealthLog healthLog, string ownerId, CancellationToken cancellationToken = default)
+        {
+            CallCount += 1;
+            LastHealthLogId = healthLog.Id;
+            return Task.CompletedTask;
         }
     }
 
