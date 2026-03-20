@@ -1,5 +1,7 @@
 using System.Security.Claims;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PetHealthManagement.Web.Data;
@@ -14,7 +16,8 @@ namespace PetHealthManagement.Web.Controllers;
 [Route("Account")]
 public class AccountController(
     ApplicationDbContext dbContext,
-    IUserAvatarService userAvatarService) : Controller
+    IUserAvatarService userAvatarService,
+    IUserDataDeletionService userDataDeletionService) : Controller
 {
     private const string DefaultAvatarUrl = "/images/default/avatar-placeholder.svg";
 
@@ -59,10 +62,30 @@ public class AccountController(
     }
 
     [HttpGet("Delete")]
-    public IActionResult Delete(string? returnUrl)
+    public async Task<IActionResult> Delete(string? returnUrl)
     {
-        ViewData["ReturnUrl"] = ReturnUrlHelper.ResolveLocalReturnUrl(returnUrl, "/MyPage");
-        return View();
+        var user = await GetCurrentUserAsync(asNoTracking: true);
+        if (user is null)
+        {
+            return Challenge();
+        }
+
+        return View(BuildDeleteAccountViewModel(user, returnUrl));
+    }
+
+    [HttpPost("DeleteConfirmed")]
+    public async Task<IActionResult> DeleteConfirmed(string? returnUrl)
+    {
+        var user = await GetCurrentUserAsync(asNoTracking: false);
+        if (user is null)
+        {
+            return Challenge();
+        }
+
+        await userDataDeletionService.DeleteUserAsync(user.Id, HttpContext.RequestAborted);
+        await SignOutCurrentUserAsync();
+
+        return Redirect("/");
     }
 
     private async Task<ApplicationUser?> GetCurrentUserAsync(bool asNoTracking)
@@ -96,5 +119,26 @@ public class AccountController(
             ReturnUrl = safeReturnUrl,
             CancelUrl = ReturnUrlHelper.ResolveLocalReturnUrl(safeReturnUrl, "/MyPage")
         };
+    }
+
+    private static DeleteAccountViewModel BuildDeleteAccountViewModel(ApplicationUser user, string? returnUrl)
+    {
+        var safeReturnUrl = ReturnUrlHelper.IsLocalUrl(returnUrl) ? returnUrl : null;
+
+        return new DeleteAccountViewModel
+        {
+            DisplayName = UserDisplayNameHelper.ResolveForDisplay(user),
+            Email = user.Email ?? string.Empty,
+            ReturnUrl = safeReturnUrl,
+            CancelUrl = ReturnUrlHelper.ResolveLocalReturnUrl(safeReturnUrl, "/MyPage")
+        };
+    }
+
+    private async Task SignOutCurrentUserAsync()
+    {
+        await HttpContext.SignOutAsync(IdentityConstants.ApplicationScheme);
+        await HttpContext.SignOutAsync(IdentityConstants.ExternalScheme);
+        await HttpContext.SignOutAsync(IdentityConstants.TwoFactorRememberMeScheme);
+        await HttpContext.SignOutAsync(IdentityConstants.TwoFactorUserIdScheme);
     }
 }
