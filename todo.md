@@ -162,13 +162,13 @@
 - [x] `returnUrl` の取り回し（Query→hidden→POST、ローカルURLのみ許可）
 
 ### 4.3 アカウント削除（ユーザー自身）
-- [ ] `GET /Account/Delete`（確認画面）
-- [ ] `POST /Account/DeleteConfirmed`：関連データ物理削除
-- [ ] 画像ファイル削除失敗時：DB削除は継続し、失敗識別子をログ出力
+- [x] `GET /Account/Delete`（確認画面）
+- [x] `POST /Account/DeleteConfirmed`：関連データ物理削除
+- [x] 画像ファイル削除失敗時：DB削除は継続し、失敗識別子をログ出力
 
 ### 4.4 完了条件/成果物
 - [ ] 未ログイン→保護URL→Login→returnUrl復帰が確認できる
-- [ ] アカウント削除で「関連データが消える/画像削除失敗でも処理継続」が確認できる
+- [x] アカウント削除で「関連データが消える/画像削除失敗でも処理継続」が確認できる
 
 ---
 
@@ -199,9 +199,9 @@
 ## フェーズ6：健康ログ（CRUD + 画像複数）
 
 ### 6.1 一覧/詳細
-- [ ] `GET /HealthLogs?petId=&page=`：RecordedAt降順（同時刻はId降順）
-- [ ] `GET /HealthLogs/Details/{healthLogId}`：表示専用（画像サムネ→拡大）
-- [ ] 非オーナーは 404（存在秘匿）
+- [x] `GET /HealthLogs?petId=&page=`：RecordedAt降順（同時刻はId降順）
+- [x] `GET /HealthLogs/Details/{healthLogId}`：表示専用（画像サムネ→拡大）
+- [x] 非オーナーは 404（存在秘匿）
 
 ### 6.2 作成/編集
 - [ ] `GET/POST /HealthLogs/Create?petId=`：RecordedAt（datetime-local）必須、JST(+09:00)として保存

@@ -28,6 +28,22 @@ public class UserDataDeletionService(
             .Where(x => x.OwnerId == userId)
             .ToListAsync(cancellationToken);
 
+        var petIds = pets
+            .Select(x => x.Id)
+            .ToList();
+
+        var healthLogs = await dbContext.HealthLogs
+            .Where(x => petIds.Contains(x.PetId))
+            .ToListAsync(cancellationToken);
+
+        var healthLogIds = healthLogs
+            .Select(x => x.Id)
+            .ToList();
+
+        var healthLogImages = await dbContext.HealthLogImages
+            .Where(x => healthLogIds.Contains(x.HealthLogId))
+            .ToListAsync(cancellationToken);
+
         var imageAssets = await dbContext.ImageAssets
             .Where(x => x.OwnerId == userId)
             .ToListAsync(cancellationToken);
@@ -45,6 +61,8 @@ public class UserDataDeletionService(
 
         try
         {
+            dbContext.HealthLogImages.RemoveRange(healthLogImages);
+            dbContext.HealthLogs.RemoveRange(healthLogs);
             dbContext.Pets.RemoveRange(pets);
             dbContext.ImageAssets.RemoveRange(imageAssets);
             dbContext.Users.Remove(user);

@@ -1,0 +1,63 @@
+@model PetHealthManagement.Web.ViewModels.HealthLogs.HealthLogDetailsViewModel
+@{
+    ViewData["Title"] = "Health Log Details";
+}
+
+<div class="d-flex flex-column gap-3">
+    <div>
+        <h1 class="mb-1">健康ログ詳細</h1>
+        <p class="text-muted mb-0">@Model.PetName の記録です。</p>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <dl class="row mb-0">
+                <dt class="col-sm-3">記録日時</dt>
+                <dd class="col-sm-9">@Model.RecordedAt.ToString("yyyy/MM/dd HH:mm")</dd>
+
+                <dt class="col-sm-3">体重(kg)</dt>
+                <dd class="col-sm-9">@(Model.WeightKg?.ToString("0.0") ?? "-")</dd>
+
+                <dt class="col-sm-3">食事量(g)</dt>
+                <dd class="col-sm-9">@(Model.FoodAmountGram?.ToString() ?? "-")</dd>
+
+                <dt class="col-sm-3">活動(分)</dt>
+                <dd class="col-sm-9">@(Model.WalkMinutes?.ToString() ?? "-")</dd>
+
+                <dt class="col-sm-3">排せつ</dt>
+                <dd class="col-sm-9">@(string.IsNullOrWhiteSpace(Model.StoolCondition) ? "-" : Model.StoolCondition)</dd>
+
+                <dt class="col-sm-3">メモ</dt>
+                <dd class="col-sm-9" style="white-space: pre-wrap;">@(string.IsNullOrWhiteSpace(Model.Note) ? "-" : Model.Note)</dd>
+            </dl>
+        </div>
+    </div>
+
+    <section class="card shadow-sm">
+        <div class="card-body">
+            <h2 class="h5">画像</h2>
+
+            @if (Model.Images.Count == 0)
+            {
+                <p class="text-muted mb-0">画像はありません。</p>
+            }
+            else
+            {
+                <div class="d-flex flex-wrap gap-3">
+                    @foreach (var image in Model.Images)
+                    {
+                        <a href="@image.Url" target="_blank" rel="noopener noreferrer">
+                            <img src="@image.Url"
+                                 alt="@image.AltText"
+                                 style="width: 144px; height: 144px; object-fit: cover;" />
+                        </a>
+                    }
+                </div>
+            }
+        </div>
+    </section>
+
+    <div>
+        <a class="btn btn-primary" href="@Model.ReturnUrl">一覧へ戻る</a>
+    </div>
+</div>
