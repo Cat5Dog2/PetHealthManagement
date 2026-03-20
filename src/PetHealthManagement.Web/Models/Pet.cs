@@ -28,4 +28,6 @@ public class Pet
     public DateTimeOffset CreatedAt { get; set; }
 
     public DateTimeOffset UpdatedAt { get; set; }
+
+    public ICollection<HealthLog> HealthLogs { get; set; } = [];
 }
