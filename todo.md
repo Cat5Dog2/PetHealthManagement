@@ -221,8 +221,8 @@
 ## フェーズ7：予定（CRUD + 完了トグル）
 
 ### 7.1 一覧/詳細
-- [ ] `GET /ScheduleItems?petId=&page=`：DueDate昇順
-- [ ] `GET /ScheduleItems/Details/{scheduleItemId}`：表示専用
+- [x] `GET /ScheduleItems?petId=&page=`：DueDate昇順
+- [x] `GET /ScheduleItems/Details/{scheduleItemId}`：表示専用
 - [ ] 非オーナーは 404（存在秘匿）
 
 ### 7.2 作成/編集/削除

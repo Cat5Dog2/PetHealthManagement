@@ -1,0 +1,95 @@
+@model PetHealthManagement.Web.ViewModels.ScheduleItems.ScheduleItemIndexViewModel
+@{
+    ViewData["Title"] = "Schedule Items";
+    var currentUrl = $"{Context.Request.Path}{Context.Request.QueryString}";
+}
+
+<div class="d-flex flex-column gap-3">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div>
+            <h1 class="mb-1">@Model.PetName の予定</h1>
+            <p class="text-muted mb-0">期日が近い順に確認できます。</p>
+        </div>
+        <div>
+            <a class="btn btn-outline-secondary"
+               asp-controller="Pets"
+               asp-action="Details"
+               asp-route-petId="@Model.PetId"
+               asp-route-returnUrl="/Pets">
+                ペット詳細へ
+            </a>
+        </div>
+    </div>
+
+    <p class="mb-0">全 @Model.TotalCount 件 / @Model.Page ページ目（1ページ @Model.PageSize 件）</p>
+
+    @if (Model.ScheduleItems.Count == 0)
+    {
+        <div class="alert alert-secondary mb-0">
+            まだ予定は登録されていません。
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-striped align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>期日</th>
+                        <th>種別</th>
+                        <th>タイトル</th>
+                        <th>メモ</th>
+                        <th>完了</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var scheduleItem in Model.ScheduleItems)
+                    {
+                        <tr>
+                            <td>@scheduleItem.DueDate.ToString("yyyy/MM/dd")</td>
+                            <td>@scheduleItem.TypeLabel</td>
+                            <td>@scheduleItem.Title</td>
+                            <td>@(string.IsNullOrWhiteSpace(scheduleItem.NoteExcerpt) ? "-" : scheduleItem.NoteExcerpt)</td>
+                            <td>@(scheduleItem.IsDone ? "完了" : "未完了")</td>
+                            <td>
+                                <a asp-action="Details"
+                                   asp-route-scheduleItemId="@scheduleItem.ScheduleItemId"
+                                   asp-route-returnUrl="@currentUrl"
+                                   class="btn btn-sm btn-outline-primary">
+                                    詳細
+                                </a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    @if (Model.TotalPages > 1)
+    {
+        <nav aria-label="予定一覧ページャー">
+            <ul class="pagination mb-0">
+                @for (var pageNumber = 1; pageNumber <= Model.TotalPages; pageNumber++)
+                {
+                    if (pageNumber == Model.Page)
+                    {
+                        <li class="page-item active"><span class="page-link">@pageNumber</span></li>
+                    }
+                    else
+                    {
+                        <li class="page-item">
+                            <a class="page-link"
+                               asp-action="Index"
+                               asp-route-petId="@Model.PetId"
+                               asp-route-page="@pageNumber">
+                                @pageNumber
+                            </a>
+                        </li>
+                    }
+                }
+            </ul>
+        </nav>
+    }
+</div>
