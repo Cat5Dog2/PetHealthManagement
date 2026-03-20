@@ -1,0 +1,15 @@
+@model PetHealthManagement.Web.ViewModels.HealthLogs.HealthLogEditViewModel
+@{
+    ViewData["Title"] = "Health Log Create";
+}
+
+<h1>健康ログ作成</h1>
+
+<form asp-action="Create" method="post" enctype="multipart/form-data" class="d-flex flex-column gap-3">
+    <partial name="_HealthLogForm" model="Model" />
+</form>
+
+@section Scripts
+{
+    <partial name="_ValidationScriptsPartial" />
+}

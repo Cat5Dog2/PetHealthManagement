@@ -8,15 +8,23 @@
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
         <div>
             <h1 class="mb-1">@Model.PetName の健康ログ</h1>
-            <p class="text-muted mb-0">記録日時の新しい順に表示しています。</p>
+            <p class="text-muted mb-0">記録日が新しい順で表示しています。</p>
         </div>
-        <a class="btn btn-outline-secondary"
-           asp-controller="Pets"
-           asp-action="Details"
-           asp-route-petId="@Model.PetId"
-           asp-route-returnUrl="/Pets">
-            ペット詳細へ
-        </a>
+        <div class="d-flex gap-2">
+            <a class="btn btn-primary"
+               asp-action="Create"
+               asp-route-petId="@Model.PetId"
+               asp-route-returnUrl="@currentUrl">
+                新規作成
+            </a>
+            <a class="btn btn-outline-secondary"
+               asp-controller="Pets"
+               asp-action="Details"
+               asp-route-petId="@Model.PetId"
+               asp-route-returnUrl="/Pets">
+                ペット詳細へ
+            </a>
+        </div>
     </div>
 
     <p class="mb-0">全 @Model.TotalCount 件 / @Model.Page ページ目（1ページ @Model.PageSize 件）</p>
@@ -36,8 +44,8 @@
                         <th>記録日時</th>
                         <th>体重(kg)</th>
                         <th>食事量(g)</th>
-                        <th>活動(分)</th>
-                        <th>排せつ</th>
+                        <th>散歩時間</th>
+                        <th>便の様子</th>
                         <th>メモ</th>
                         <th>画像</th>
                         <th></th>
@@ -55,12 +63,20 @@
                             <td>@(string.IsNullOrWhiteSpace(healthLog.NoteExcerpt) ? "-" : healthLog.NoteExcerpt)</td>
                             <td>@(healthLog.HasImages ? "あり" : "-")</td>
                             <td>
-                                <a asp-action="Details"
-                                   asp-route-healthLogId="@healthLog.HealthLogId"
-                                   asp-route-returnUrl="@currentUrl"
-                                   class="btn btn-sm btn-outline-primary">
-                                    詳細
-                                </a>
+                                <div class="d-flex gap-2">
+                                    <a asp-action="Details"
+                                       asp-route-healthLogId="@healthLog.HealthLogId"
+                                       asp-route-returnUrl="@currentUrl"
+                                       class="btn btn-sm btn-outline-primary">
+                                        詳細
+                                    </a>
+                                    <a asp-action="Edit"
+                                       asp-route-healthLogId="@healthLog.HealthLogId"
+                                       asp-route-returnUrl="@currentUrl"
+                                       class="btn btn-sm btn-outline-secondary">
+                                        編集
+                                    </a>
+                                </div>
                             </td>
                         </tr>
                     }
