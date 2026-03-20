@@ -1,12 +1,21 @@
 @model PetHealthManagement.Web.ViewModels.HealthLogs.HealthLogDetailsViewModel
 @{
     ViewData["Title"] = "Health Log Details";
+    var currentUrl = Context.Request.Path.ToString();
 }
 
 <div class="d-flex flex-column gap-3">
-    <div>
-        <h1 class="mb-1">健康ログ詳細</h1>
-        <p class="text-muted mb-0">@Model.PetName の記録です。</p>
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div>
+            <h1 class="mb-1">健康ログ詳細</h1>
+            <p class="text-muted mb-0">@Model.PetName の記録です。</p>
+        </div>
+        <a class="btn btn-outline-secondary"
+           asp-action="Edit"
+           asp-route-healthLogId="@Model.HealthLogId"
+           asp-route-returnUrl="@currentUrl">
+            編集
+        </a>
     </div>
 
     <div class="card shadow-sm">
@@ -21,10 +30,10 @@
                 <dt class="col-sm-3">食事量(g)</dt>
                 <dd class="col-sm-9">@(Model.FoodAmountGram?.ToString() ?? "-")</dd>
 
-                <dt class="col-sm-3">活動(分)</dt>
+                <dt class="col-sm-3">散歩時間</dt>
                 <dd class="col-sm-9">@(Model.WalkMinutes?.ToString() ?? "-")</dd>
 
-                <dt class="col-sm-3">排せつ</dt>
+                <dt class="col-sm-3">便の様子</dt>
                 <dd class="col-sm-9">@(string.IsNullOrWhiteSpace(Model.StoolCondition) ? "-" : Model.StoolCondition)</dd>
 
                 <dt class="col-sm-3">メモ</dt>

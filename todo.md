@@ -136,7 +136,7 @@
 - [ ] 画像アップロード失敗時のエラーメッセージ（ユーザー向け/ログ向け）を整理
 
 ### 3.3 容量制限
-- [ ] ユーザー合計100MB管理（UsedImageBytes 更新）
+- [x] ユーザー合計100MB管理（UsedImageBytes 更新）
 - [ ] HealthLog/Visit 添付は最大10枚（既存+追加合算）
 
 ### 3.4 画像配信 `GET /images/{imageId}`
@@ -204,10 +204,10 @@
 - [x] 非オーナーは 404（存在秘匿）
 
 ### 6.2 作成/編集
-- [ ] `GET/POST /HealthLogs/Create?petId=`：RecordedAt（datetime-local）必須、JST(+09:00)として保存
-- [ ] `GET/POST /HealthLogs/Edit/{healthLogId}`：既存値表示、更新
-- [ ] 画像追加（複数）・削除（DeleteImageIds）
-- [ ] 最大10枚制限（既存+追加）とユーザー合計100MB制限
+- [x] `GET/POST /HealthLogs/Create?petId=`：RecordedAt（datetime-local）必須、JST(+09:00)として保存
+- [x] `GET/POST /HealthLogs/Edit/{healthLogId}`：既存値表示、更新
+- [x] 画像追加（複数）・削除（DeleteImageIds）
+- [x] 最大10枚制限（既存+追加）とユーザー合計100MB制限
 
 ### 6.3 削除
 - [ ] `POST /HealthLogs/Delete/{healthLogId}`：画像含め削除

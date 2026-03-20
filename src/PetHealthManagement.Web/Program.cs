@@ -17,6 +17,7 @@ builder.Services.AddDefaultIdentity<ApplicationUser>(options => options.SignIn.R
 builder.Services.Configure<StorageOptions>(builder.Configuration.GetSection("Storage"));
 builder.Services.AddScoped<IImageStorageService, FileSystemImageStorageService>();
 builder.Services.AddScoped<IPetPhotoService, PetPhotoService>();
+builder.Services.AddScoped<IHealthLogImageService, HealthLogImageService>();
 builder.Services.AddScoped<IUserAvatarService, UserAvatarService>();
 builder.Services.AddScoped<IUserDataDeletionService, UserDataDeletionService>();
 builder.Services.ConfigureApplicationCookie(options =>
