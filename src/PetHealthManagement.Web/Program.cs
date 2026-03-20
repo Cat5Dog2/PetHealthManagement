@@ -1,7 +1,7 @@
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PetHealthManagement.Web.Data;
+using PetHealthManagement.Web.Models;
 using PetHealthManagement.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -12,11 +12,12 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(connectionString));
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
-builder.Services.AddDefaultIdentity<IdentityUser>(options => options.SignIn.RequireConfirmedAccount = true)
+builder.Services.AddDefaultIdentity<ApplicationUser>(options => options.SignIn.RequireConfirmedAccount = true)
     .AddEntityFrameworkStores<ApplicationDbContext>();
 builder.Services.Configure<StorageOptions>(builder.Configuration.GetSection("Storage"));
 builder.Services.AddScoped<IImageStorageService, FileSystemImageStorageService>();
 builder.Services.AddScoped<IPetPhotoService, PetPhotoService>();
+builder.Services.AddScoped<IUserAvatarService, UserAvatarService>();
 builder.Services.ConfigureApplicationCookie(options =>
 {
     options.Events.OnRedirectToAccessDenied = context =>

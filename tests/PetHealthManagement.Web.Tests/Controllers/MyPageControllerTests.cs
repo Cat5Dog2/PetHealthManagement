@@ -1,6 +1,5 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PetHealthManagement.Web.Controllers;
@@ -16,9 +15,17 @@ public class MyPageControllerTests
     public async Task Index_ReturnsCurrentUserAndOwnPetsOnly()
     {
         await using var dbContext = CreateDbContext();
+        var avatarImageId = Guid.NewGuid();
         dbContext.Users.AddRange(
-            new IdentityUser { Id = "user-a", UserName = "userA", Email = "usera@example.com" },
-            new IdentityUser { Id = "user-b", UserName = "userB", Email = "userb@example.com" });
+            new ApplicationUser
+            {
+                Id = "user-a",
+                UserName = "userA",
+                Email = "usera@example.com",
+                DisplayName = "Hanako",
+                AvatarImageId = avatarImageId
+            },
+            new ApplicationUser { Id = "user-b", UserName = "userB", Email = "userb@example.com" });
 
         dbContext.Pets.AddRange(
             NewPet(1, "user-a", "Mugi", true),
@@ -33,9 +40,9 @@ public class MyPageControllerTests
         var viewResult = Assert.IsType<ViewResult>(result);
         var model = Assert.IsType<MyPageViewModel>(viewResult.Model);
 
-        Assert.Equal("userA", model.DisplayName);
+        Assert.Equal("Hanako", model.DisplayName);
         Assert.Equal("usera@example.com", model.Email);
-        Assert.Equal("/images/default/avatar-placeholder.svg", model.AvatarUrl);
+        Assert.Equal($"/images/{avatarImageId:D}", model.AvatarUrl);
         Assert.Equal(2, model.Pets.Count);
         Assert.Contains(model.Pets, x => x.Name == "Mugi" && x.IsPublic);
         Assert.Contains(model.Pets, x => x.Name == "Sora" && !x.IsPublic);
@@ -46,7 +53,7 @@ public class MyPageControllerTests
     public async Task Index_UsesFallbackValues_WhenUserNameOrEmailIsMissing()
     {
         await using var dbContext = CreateDbContext();
-        dbContext.Users.Add(new IdentityUser { Id = "user-a" });
+        dbContext.Users.Add(new ApplicationUser { Id = "user-a" });
         await dbContext.SaveChangesAsync();
 
         var controller = BuildController(dbContext, "user-a");
