@@ -1,0 +1,36 @@
+@model PetHealthManagement.Web.ViewModels.ScheduleItems.ScheduleItemDetailsViewModel
+@{
+    ViewData["Title"] = "Schedule Item Details";
+}
+
+<div class="d-flex flex-column gap-3">
+    <div>
+        <h1 class="mb-1">予定詳細</h1>
+        <p class="text-muted mb-0">@Model.PetName の予定です。</p>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <dl class="row mb-0">
+                <dt class="col-sm-3">期日</dt>
+                <dd class="col-sm-9">@Model.DueDate.ToString("yyyy/MM/dd")</dd>
+
+                <dt class="col-sm-3">種別</dt>
+                <dd class="col-sm-9">@Model.TypeLabel</dd>
+
+                <dt class="col-sm-3">タイトル</dt>
+                <dd class="col-sm-9">@Model.Title</dd>
+
+                <dt class="col-sm-3">完了</dt>
+                <dd class="col-sm-9">@(Model.IsDone ? "完了" : "未完了")</dd>
+
+                <dt class="col-sm-3">メモ</dt>
+                <dd class="col-sm-9" style="white-space: pre-wrap;">@(string.IsNullOrWhiteSpace(Model.Note) ? "-" : Model.Note)</dd>
+            </dl>
+        </div>
+    </div>
+
+    <div>
+        <a class="btn btn-primary" href="@Model.ReturnUrl">一覧へ戻る</a>
+    </div>
+</div>

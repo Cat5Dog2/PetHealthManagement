@@ -30,4 +30,6 @@ public class Pet
     public DateTimeOffset UpdatedAt { get; set; }
 
     public ICollection<HealthLog> HealthLogs { get; set; } = [];
+
+    public ICollection<ScheduleItem> ScheduleItems { get; set; } = [];
 }
