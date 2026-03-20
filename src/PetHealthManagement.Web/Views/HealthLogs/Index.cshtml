@@ -76,6 +76,15 @@
                                        class="btn btn-sm btn-outline-secondary">
                                         編集
                                     </a>
+                                    <form asp-action="Delete"
+                                          asp-route-healthLogId="@healthLog.HealthLogId"
+                                          method="post"
+                                          class="d-inline">
+                                        <input type="hidden" name="petId" value="@Model.PetId" />
+                                        <input type="hidden" name="page" value="@Model.Page" />
+                                        <input type="hidden" name="returnUrl" value="@currentUrl" />
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">削除</button>
+                                    </form>
                                 </div>
                             </td>
                         </tr>
