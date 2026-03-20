@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using PetHealthManagement.Web.Controllers;
 using PetHealthManagement.Web.Data;
 using PetHealthManagement.Web.Models;
+using PetHealthManagement.Web.Services;
 using PetHealthManagement.Web.ViewModels.HealthLogs;
 
 namespace PetHealthManagement.Web.Tests.Controllers;
@@ -109,7 +110,7 @@ public class HealthLogsControllerTests
             FoodAmountGram = 120,
             WalkMinutes = 45,
             StoolCondition = "良好",
-            Note = "元気でした。",
+            Note = "いつも通りでした。",
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
         });
@@ -140,9 +141,225 @@ public class HealthLogsControllerTests
         Assert.Equal($"/images/{secondImageId:D}", model.Images[0].Url);
     }
 
-    private static HealthLogsController BuildController(ApplicationDbContext dbContext, string userId)
+    [Fact]
+    public async Task CreateGet_ReturnsBadRequest_WhenPetIdIsMissing()
     {
-        var controller = new HealthLogsController(dbContext);
+        await using var dbContext = CreateDbContext();
+        var controller = BuildController(dbContext, "user-a");
+
+        var result = await controller.Create(petId: null, returnUrl: null);
+
+        Assert.IsType<BadRequestResult>(result);
+    }
+
+    [Fact]
+    public async Task CreateGet_ReturnsNotFound_ForNonOwnerPet()
+    {
+        await using var dbContext = CreateDbContext();
+        dbContext.Pets.Add(NewPet(1, "user-a", "Mugi"));
+        await dbContext.SaveChangesAsync();
+
+        var controller = BuildController(dbContext, "user-b");
+        var result = await controller.Create(1, "/HealthLogs?petId=1");
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task CreatePost_RedirectsToReturnUrl_WhenSuccessful()
+    {
+        await using var dbContext = CreateDbContext();
+        dbContext.Users.Add(new ApplicationUser { Id = "user-a", UserName = "userA" });
+        dbContext.Pets.Add(NewPet(1, "user-a", "Mugi"));
+        await dbContext.SaveChangesAsync();
+
+        var imageService = new FakeHealthLogImageService();
+        var controller = BuildController(dbContext, "user-a", imageService);
+
+        var result = await controller.Create(new HealthLogEditViewModel
+        {
+            PetId = 1,
+            RecordedAt = new DateTime(2026, 3, 22, 9, 30, 0),
+            WeightKg = 5.8,
+            FoodAmountGram = 100,
+            WalkMinutes = 25,
+            StoolCondition = "良好",
+            Note = "朝の散歩あり",
+            ReturnUrl = "/HealthLogs?petId=1&page=2"
+        });
+
+        var redirect = Assert.IsType<RedirectResult>(result);
+        var savedHealthLog = await dbContext.HealthLogs.SingleAsync();
+
+        Assert.Equal("/HealthLogs?petId=1&page=2", redirect.Url);
+        Assert.Equal(1, imageService.CallCount);
+        Assert.Equal(1, imageService.LastPetId);
+        Assert.Equal(new DateTimeOffset(2026, 3, 22, 9, 30, 0, TimeSpan.FromHours(9)), savedHealthLog.RecordedAt);
+    }
+
+    [Fact]
+    public async Task CreatePost_RollsBackAndReturnsView_WhenImageUpdateFails()
+    {
+        await using var dbContext = CreateDbContext();
+        dbContext.Users.Add(new ApplicationUser { Id = "user-a", UserName = "userA" });
+        dbContext.Pets.Add(NewPet(1, "user-a", "Mugi"));
+        await dbContext.SaveChangesAsync();
+
+        var imageService = new FakeHealthLogImageService
+        {
+            NextResult = HealthLogImageUpdateResult.Fail("画像エラー")
+        };
+
+        var controller = BuildController(dbContext, "user-a", imageService);
+
+        var result = await controller.Create(new HealthLogEditViewModel
+        {
+            PetId = 1,
+            RecordedAt = new DateTime(2026, 3, 22, 9, 30, 0),
+            ReturnUrl = "/HealthLogs?petId=1"
+        });
+
+        var viewResult = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<HealthLogEditViewModel>(viewResult.Model);
+
+        Assert.False(controller.ModelState.IsValid);
+        Assert.Equal(0, await dbContext.HealthLogs.CountAsync());
+        Assert.Equal("Mugi", model.PetName);
+    }
+
+    [Fact]
+    public async Task EditGet_ReturnsView_ForOwner()
+    {
+        await using var dbContext = CreateDbContext();
+        dbContext.Pets.Add(NewPet(1, "user-a", "Mugi"));
+        dbContext.HealthLogs.Add(new HealthLog
+        {
+            Id = 10,
+            PetId = 1,
+            RecordedAt = new DateTimeOffset(2026, 3, 21, 9, 0, 0, TimeSpan.FromHours(9)),
+            Note = "memo",
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        });
+        await dbContext.SaveChangesAsync();
+
+        var controller = BuildController(dbContext, "user-a");
+        var result = await controller.Edit(10, "/HealthLogs?petId=1");
+
+        var viewResult = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<HealthLogEditViewModel>(viewResult.Model);
+
+        Assert.Equal(10, model.HealthLogId);
+        Assert.Equal("Mugi", model.PetName);
+        Assert.Equal("/HealthLogs?petId=1", model.ReturnUrl);
+    }
+
+    [Fact]
+    public async Task EditPost_ReturnsNotFound_ForNonOwnerHealthLog()
+    {
+        await using var dbContext = CreateDbContext();
+        dbContext.Pets.Add(NewPet(1, "user-a", "Mugi"));
+        dbContext.HealthLogs.Add(new HealthLog
+        {
+            Id = 10,
+            PetId = 1,
+            RecordedAt = new DateTimeOffset(2026, 3, 21, 9, 0, 0, TimeSpan.FromHours(9)),
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        });
+        await dbContext.SaveChangesAsync();
+
+        var controller = BuildController(dbContext, "user-b");
+        var result = await controller.Edit(10, new HealthLogEditViewModel
+        {
+            PetId = 1,
+            RecordedAt = new DateTime(2026, 3, 22, 9, 0, 0)
+        });
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task EditPost_RedirectsToDefaultDetails_WhenReturnUrlIsInvalid()
+    {
+        await using var dbContext = CreateDbContext();
+        dbContext.Users.Add(new ApplicationUser { Id = "user-a", UserName = "userA" });
+        dbContext.Pets.Add(NewPet(1, "user-a", "Mugi"));
+        dbContext.HealthLogs.Add(new HealthLog
+        {
+            Id = 10,
+            PetId = 1,
+            RecordedAt = new DateTimeOffset(2026, 3, 21, 9, 0, 0, TimeSpan.FromHours(9)),
+            WeightKg = 5.4,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        });
+        await dbContext.SaveChangesAsync();
+
+        var imageService = new FakeHealthLogImageService();
+        var controller = BuildController(dbContext, "user-a", imageService);
+
+        var result = await controller.Edit(10, new HealthLogEditViewModel
+        {
+            PetId = 1,
+            RecordedAt = new DateTime(2026, 3, 23, 8, 15, 0),
+            WeightKg = 5.6,
+            ReturnUrl = "https://evil.example/"
+        });
+
+        var redirect = Assert.IsType<RedirectResult>(result);
+        var savedHealthLog = await dbContext.HealthLogs.SingleAsync();
+
+        Assert.Equal("/HealthLogs/Details/10", redirect.Url);
+        Assert.Equal(1, imageService.CallCount);
+        Assert.Equal(5.6, savedHealthLog.WeightKg);
+        Assert.Equal(new DateTimeOffset(2026, 3, 23, 8, 15, 0, TimeSpan.FromHours(9)), savedHealthLog.RecordedAt);
+    }
+
+    [Fact]
+    public async Task EditPost_ReturnsView_WhenImageUpdateFails()
+    {
+        await using var dbContext = CreateDbContext();
+        dbContext.Users.Add(new ApplicationUser { Id = "user-a", UserName = "userA" });
+        dbContext.Pets.Add(NewPet(1, "user-a", "Mugi"));
+        dbContext.HealthLogs.Add(new HealthLog
+        {
+            Id = 10,
+            PetId = 1,
+            RecordedAt = new DateTimeOffset(2026, 3, 21, 9, 0, 0, TimeSpan.FromHours(9)),
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        });
+        await dbContext.SaveChangesAsync();
+
+        var imageService = new FakeHealthLogImageService
+        {
+            NextResult = HealthLogImageUpdateResult.Fail("画像エラー")
+        };
+
+        var controller = BuildController(dbContext, "user-a", imageService);
+
+        var result = await controller.Edit(10, new HealthLogEditViewModel
+        {
+            PetId = 1,
+            RecordedAt = new DateTime(2026, 3, 23, 8, 15, 0)
+        });
+
+        var viewResult = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<HealthLogEditViewModel>(viewResult.Model);
+        var unchangedHealthLog = await dbContext.HealthLogs.SingleAsync();
+
+        Assert.False(controller.ModelState.IsValid);
+        Assert.Equal(10, model.HealthLogId);
+        Assert.Equal(new DateTimeOffset(2026, 3, 21, 9, 0, 0, TimeSpan.FromHours(9)), unchangedHealthLog.RecordedAt);
+    }
+
+    private static HealthLogsController BuildController(
+        ApplicationDbContext dbContext,
+        string userId,
+        IHealthLogImageService? imageService = null)
+    {
+        var controller = new HealthLogsController(dbContext, imageService ?? new FakeHealthLogImageService());
         var httpContext = new DefaultHttpContext
         {
             User = new ClaimsPrincipal(
@@ -197,6 +414,27 @@ public class HealthLogsControllerTests
             Status = ImageAssetStatus.Ready,
             CreatedAt = DateTimeOffset.UtcNow
         };
+    }
+
+    private sealed class FakeHealthLogImageService : IHealthLogImageService
+    {
+        public int CallCount { get; private set; }
+
+        public int? LastPetId { get; private set; }
+
+        public HealthLogImageUpdateResult NextResult { get; init; } = HealthLogImageUpdateResult.Success();
+
+        public Task<HealthLogImageUpdateResult> ApplyImageChangesAsync(
+            HealthLog healthLog,
+            string ownerId,
+            IReadOnlyCollection<IFormFile>? newFiles,
+            IReadOnlyCollection<Guid>? deleteImageIds,
+            CancellationToken cancellationToken = default)
+        {
+            CallCount += 1;
+            LastPetId = healthLog.PetId;
+            return Task.FromResult(NextResult);
+        }
     }
 
     private sealed class TestTempDataProvider : ITempDataProvider
