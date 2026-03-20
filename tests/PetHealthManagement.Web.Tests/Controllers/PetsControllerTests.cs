@@ -1,6 +1,5 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PetHealthManagement.Web.Controllers;
@@ -19,8 +18,8 @@ public class PetsControllerTests
         await using var dbContext = CreateDbContext();
 
         dbContext.Users.AddRange(
-            new IdentityUser { Id = "user-a", UserName = "userA" },
-            new IdentityUser { Id = "user-b", UserName = "userB" });
+            new ApplicationUser { Id = "user-a", UserName = "userA" },
+            new ApplicationUser { Id = "user-b", UserName = "userB" });
 
         dbContext.Pets.AddRange(
             NewPet(1, "user-a", "A-Public", true),
@@ -48,7 +47,7 @@ public class PetsControllerTests
     public async Task Index_UsesPageOne_WhenPageIsInvalid()
     {
         await using var dbContext = CreateDbContext();
-        dbContext.Users.Add(new IdentityUser { Id = "user-a", UserName = "userA" });
+        dbContext.Users.Add(new ApplicationUser { Id = "user-a", UserName = "userA" });
         dbContext.Pets.Add(NewPet(1, "user-a", "A-Public", true));
         await dbContext.SaveChangesAsync();
 
@@ -65,8 +64,8 @@ public class PetsControllerTests
     {
         await using var dbContext = CreateDbContext();
         dbContext.Users.AddRange(
-            new IdentityUser { Id = "user-a", UserName = "userA" },
-            new IdentityUser { Id = "user-b", UserName = "userB" });
+            new ApplicationUser { Id = "user-a", UserName = "userA" },
+            new ApplicationUser { Id = "user-b", UserName = "userB" });
         dbContext.Pets.Add(NewPet(10, "user-a", "A-Private", false));
         await dbContext.SaveChangesAsync();
 
@@ -81,8 +80,8 @@ public class PetsControllerTests
     {
         await using var dbContext = CreateDbContext();
         dbContext.Users.AddRange(
-            new IdentityUser { Id = "user-a", UserName = "userA" },
-            new IdentityUser { Id = "user-b", UserName = "userB" });
+            new ApplicationUser { Id = "user-a", UserName = "userA" },
+            new ApplicationUser { Id = "user-b", UserName = "userB" });
         dbContext.Pets.Add(NewPet(11, "user-a", "A-Public", true));
         await dbContext.SaveChangesAsync();
 
@@ -100,7 +99,7 @@ public class PetsControllerTests
     public async Task Details_ReturnsView_ForOwnerPrivatePet()
     {
         await using var dbContext = CreateDbContext();
-        dbContext.Users.Add(new IdentityUser { Id = "user-a", UserName = "userA" });
+        dbContext.Users.Add(new ApplicationUser { Id = "user-a", UserName = "userA" });
         dbContext.Pets.Add(NewPet(12, "user-a", "A-Private", false));
         await dbContext.SaveChangesAsync();
 
@@ -119,7 +118,7 @@ public class PetsControllerTests
     public async Task Create_Post_RedirectsToMyPage_WhenReturnUrlIsInvalid()
     {
         await using var dbContext = CreateDbContext();
-        dbContext.Users.Add(new IdentityUser { Id = "user-a", UserName = "userA" });
+        dbContext.Users.Add(new ApplicationUser { Id = "user-a", UserName = "userA" });
         await dbContext.SaveChangesAsync();
 
         var controller = BuildController(dbContext, "user-a");
@@ -142,7 +141,7 @@ public class PetsControllerTests
     public async Task Create_Post_ReturnsView_WhenModelIsInvalid()
     {
         await using var dbContext = CreateDbContext();
-        dbContext.Users.Add(new IdentityUser { Id = "user-a", UserName = "userA" });
+        dbContext.Users.Add(new ApplicationUser { Id = "user-a", UserName = "userA" });
         await dbContext.SaveChangesAsync();
 
         var controller = BuildController(dbContext, "user-a");
@@ -159,8 +158,8 @@ public class PetsControllerTests
     {
         await using var dbContext = CreateDbContext();
         dbContext.Users.AddRange(
-            new IdentityUser { Id = "user-a", UserName = "userA" },
-            new IdentityUser { Id = "user-b", UserName = "userB" });
+            new ApplicationUser { Id = "user-a", UserName = "userA" },
+            new ApplicationUser { Id = "user-b", UserName = "userB" });
         dbContext.Pets.Add(NewPet(20, "user-a", "A-Pet", true));
         await dbContext.SaveChangesAsync();
 
@@ -179,7 +178,7 @@ public class PetsControllerTests
     public async Task Edit_Post_UpdatesPet_AndRedirectsToDetails_WhenReturnUrlMissing()
     {
         await using var dbContext = CreateDbContext();
-        dbContext.Users.Add(new IdentityUser { Id = "user-a", UserName = "userA" });
+        dbContext.Users.Add(new ApplicationUser { Id = "user-a", UserName = "userA" });
         dbContext.Pets.Add(NewPet(21, "user-a", "Before", true));
         await dbContext.SaveChangesAsync();
 
@@ -205,7 +204,7 @@ public class PetsControllerTests
     public async Task Delete_Post_RemovesPet_AndUsesReturnUrl()
     {
         await using var dbContext = CreateDbContext();
-        dbContext.Users.Add(new IdentityUser { Id = "user-a", UserName = "userA" });
+        dbContext.Users.Add(new ApplicationUser { Id = "user-a", UserName = "userA" });
         dbContext.Pets.Add(NewPet(30, "user-a", "Delete Target", true));
         await dbContext.SaveChangesAsync();
 
@@ -222,8 +221,8 @@ public class PetsControllerTests
     {
         await using var dbContext = CreateDbContext();
         dbContext.Users.AddRange(
-            new IdentityUser { Id = "user-a", UserName = "userA" },
-            new IdentityUser { Id = "user-b", UserName = "userB" });
+            new ApplicationUser { Id = "user-a", UserName = "userA" },
+            new ApplicationUser { Id = "user-b", UserName = "userB" });
         dbContext.Pets.Add(NewPet(31, "user-a", "A-Pet", true));
         await dbContext.SaveChangesAsync();
 

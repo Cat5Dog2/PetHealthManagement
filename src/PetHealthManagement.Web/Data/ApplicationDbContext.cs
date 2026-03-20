@@ -4,7 +4,7 @@ using PetHealthManagement.Web.Models;
 
 namespace PetHealthManagement.Web.Data;
 
-public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : IdentityDbContext(options)
+public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : IdentityDbContext<ApplicationUser>(options)
 {
     public DbSet<Pet> Pets => Set<Pet>();
     public DbSet<ImageAsset> ImageAssets => Set<ImageAsset>();
@@ -12,6 +12,26 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
+
+        builder.Entity<ApplicationUser>(entity =>
+        {
+            entity.Property(x => x.DisplayName)
+                .HasMaxLength(50)
+                .HasDefaultValue(string.Empty)
+                .IsRequired();
+
+            entity.Property(x => x.UsedImageBytes)
+                .HasDefaultValue(0L)
+                .IsRequired();
+
+            entity.Property(x => x.RowVersion)
+                .IsRowVersion();
+
+            entity.HasOne<ImageAsset>()
+                .WithMany()
+                .HasForeignKey(x => x.AvatarImageId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
 
         builder.Entity<Pet>(entity =>
         {

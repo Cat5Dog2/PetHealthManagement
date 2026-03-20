@@ -1,6 +1,5 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PetHealthManagement.Web.Controllers;
@@ -60,8 +59,8 @@ public class ImagesControllerTests
         var imageId = Guid.NewGuid();
 
         dbContext.Users.AddRange(
-            new IdentityUser { Id = "user-a", UserName = "owner" },
-            new IdentityUser { Id = "user-b", UserName = "other" });
+            new ApplicationUser { Id = "user-a", UserName = "owner" },
+            new ApplicationUser { Id = "user-b", UserName = "other" });
 
         dbContext.ImageAssets.Add(new ImageAsset
         {
@@ -105,8 +104,8 @@ public class ImagesControllerTests
         var imageId = Guid.NewGuid();
 
         dbContext.Users.AddRange(
-            new IdentityUser { Id = "user-a", UserName = "owner" },
-            new IdentityUser { Id = "user-b", UserName = "other" });
+            new ApplicationUser { Id = "user-a", UserName = "owner" },
+            new ApplicationUser { Id = "user-b", UserName = "other" });
 
         dbContext.ImageAssets.Add(new ImageAsset
         {
@@ -145,6 +144,84 @@ public class ImagesControllerTests
         Assert.Equal("private, no-store", controller.Response.Headers.CacheControl.ToString());
         Assert.Equal("inline", controller.Response.Headers.ContentDisposition.ToString());
         Assert.Equal("nosniff", controller.Response.Headers.XContentTypeOptions.ToString());
+    }
+
+    [Fact]
+    public async Task Get_ReturnsFile_ForOwnerAvatar()
+    {
+        await using var dbContext = CreateDbContext();
+        var imageId = Guid.NewGuid();
+
+        dbContext.Users.Add(new ApplicationUser
+        {
+            Id = "user-a",
+            UserName = "owner",
+            AvatarImageId = imageId
+        });
+
+        dbContext.ImageAssets.Add(new ImageAsset
+        {
+            ImageId = imageId,
+            StorageKey = "images/avatar.jpg",
+            ContentType = "image/jpeg",
+            SizeBytes = 100,
+            OwnerId = "user-a",
+            Category = "Avatar",
+            Status = ImageAssetStatus.Ready,
+            CreatedAt = DateTimeOffset.UtcNow
+        });
+
+        await dbContext.SaveChangesAsync();
+
+        var storage = new FakeImageStorageService();
+        storage.Add("images/avatar.jpg", [1, 2, 3]);
+
+        var controller = BuildController(dbContext, storage, "user-a");
+        var result = await controller.Get(imageId, CancellationToken.None);
+
+        Assert.IsType<FileStreamResult>(result);
+    }
+
+    [Fact]
+    public async Task Get_ReturnsNotFound_ForOtherUsersAvatar()
+    {
+        await using var dbContext = CreateDbContext();
+        var imageId = Guid.NewGuid();
+
+        dbContext.Users.AddRange(
+            new ApplicationUser
+            {
+                Id = "user-a",
+                UserName = "owner",
+                AvatarImageId = imageId
+            },
+            new ApplicationUser
+            {
+                Id = "user-b",
+                UserName = "other"
+            });
+
+        dbContext.ImageAssets.Add(new ImageAsset
+        {
+            ImageId = imageId,
+            StorageKey = "images/avatar.jpg",
+            ContentType = "image/jpeg",
+            SizeBytes = 100,
+            OwnerId = "user-a",
+            Category = "Avatar",
+            Status = ImageAssetStatus.Ready,
+            CreatedAt = DateTimeOffset.UtcNow
+        });
+
+        await dbContext.SaveChangesAsync();
+
+        var storage = new FakeImageStorageService();
+        storage.Add("images/avatar.jpg", [1, 2, 3]);
+
+        var controller = BuildController(dbContext, storage, "user-b");
+        var result = await controller.Get(imageId, CancellationToken.None);
+
+        Assert.IsType<NotFoundResult>(result);
     }
 
     private static ImagesController BuildController(ApplicationDbContext dbContext, IImageStorageService storage, string userId)
