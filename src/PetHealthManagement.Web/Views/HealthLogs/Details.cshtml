@@ -10,12 +10,22 @@
             <h1 class="mb-1">健康ログ詳細</h1>
             <p class="text-muted mb-0">@Model.PetName の記録です。</p>
         </div>
-        <a class="btn btn-outline-secondary"
-           asp-action="Edit"
-           asp-route-healthLogId="@Model.HealthLogId"
-           asp-route-returnUrl="@currentUrl">
-            編集
-        </a>
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-secondary"
+               asp-action="Edit"
+               asp-route-healthLogId="@Model.HealthLogId"
+               asp-route-returnUrl="@currentUrl">
+                編集
+            </a>
+            <form asp-action="Delete"
+                  asp-route-healthLogId="@Model.HealthLogId"
+                  method="post"
+                  class="d-inline">
+                <input type="hidden" name="petId" value="@Model.PetId" />
+                <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+                <button type="submit" class="btn btn-outline-danger">削除</button>
+            </form>
+        </div>
     </div>
 
     <div class="card shadow-sm">

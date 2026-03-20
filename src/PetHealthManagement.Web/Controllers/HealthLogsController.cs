@@ -14,7 +14,8 @@ namespace PetHealthManagement.Web.Controllers;
 [Route("HealthLogs")]
 public class HealthLogsController(
     ApplicationDbContext dbContext,
-    IHealthLogImageService healthLogImageService) : Controller
+    IHealthLogImageService healthLogImageService,
+    IHealthLogDeletionService healthLogDeletionService) : Controller
 {
     private static readonly TimeSpan JstOffset = TimeSpan.FromHours(9);
 
@@ -294,6 +295,37 @@ public class HealthLogsController(
         return Redirect(redirectUrl);
     }
 
+    [HttpPost("Delete/{healthLogId:int}")]
+    public async Task<IActionResult> Delete(int healthLogId, int? petId, string? page, string? returnUrl)
+    {
+        _ = petId;
+
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Challenge();
+        }
+
+        if (healthLogId <= 0 || !ModelState.IsValid)
+        {
+            return BadRequest();
+        }
+
+        var healthLog = await LoadOwnedHealthLogAsync(healthLogId, userId, asNoTracking: false);
+        if (healthLog is null)
+        {
+            return NotFound();
+        }
+
+        var redirectUrl = ReturnUrlHelper.ResolveLocalReturnUrl(
+            returnUrl,
+            BuildHealthLogListUrl(healthLog.PetId, page));
+
+        await healthLogDeletionService.DeleteAsync(healthLog, userId, HttpContext.RequestAborted);
+
+        return Redirect(redirectUrl);
+    }
+
     private async Task<Pet?> LoadOwnedPetAsync(int petId, string userId, bool asNoTracking)
     {
         var query = dbContext.Pets.AsQueryable();
@@ -401,6 +433,18 @@ public class HealthLogsController(
         }
 
         return PagingHelper.DefaultPage;
+    }
+
+    private static string BuildHealthLogListUrl(int petId, string? page)
+    {
+        var baseUrl = $"/HealthLogs?petId={petId}";
+
+        if (int.TryParse(page, out var parsedPage) && parsedPage > 0)
+        {
+            return $"{baseUrl}&page={PagingHelper.NormalizePage(parsedPage)}";
+        }
+
+        return baseUrl;
     }
 
     private static string? ToExcerpt(string? value)
