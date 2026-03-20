@@ -42,7 +42,25 @@ public class UserDataDeletionServiceTests
         dbContext.ImageAssets.AddRange(
             NewImageAsset(Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"), "user-a", "Avatar", "images/avatar-a.jpg"),
             NewImageAsset(Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"), "user-a", "PetPhoto", "images/pet-a.jpg"),
+            NewImageAsset(Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd"), "user-a", "HealthLog", "images/log-a.jpg"),
             NewImageAsset(Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc"), "user-b", "Avatar", "images/avatar-b.jpg"));
+
+        dbContext.HealthLogs.Add(new HealthLog
+        {
+            Id = 10,
+            PetId = 1,
+            RecordedAt = DateTimeOffset.UtcNow,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        });
+
+        dbContext.HealthLogImages.Add(new HealthLogImage
+        {
+            Id = 1,
+            HealthLogId = 10,
+            ImageId = Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd"),
+            SortOrder = 1
+        });
 
         await dbContext.SaveChangesAsync();
 
@@ -55,9 +73,11 @@ public class UserDataDeletionServiceTests
         Assert.Null(await dbContext.Users.SingleOrDefaultAsync(x => x.Id == "user-a"));
         Assert.Equal(1, await dbContext.Users.CountAsync());
         Assert.Equal(1, await dbContext.Pets.CountAsync());
+        Assert.Equal(0, await dbContext.HealthLogs.CountAsync());
+        Assert.Equal(0, await dbContext.HealthLogImages.CountAsync());
         Assert.Equal(1, await dbContext.ImageAssets.CountAsync());
         Assert.Equal(
-            ["images/avatar-a.jpg", "images/pet-a.jpg"],
+            ["images/avatar-a.jpg", "images/log-a.jpg", "images/pet-a.jpg"],
             storage.DeletedStorageKeys.OrderBy(x => x).ToArray());
     }
 

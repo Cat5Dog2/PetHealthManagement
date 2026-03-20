@@ -224,6 +224,120 @@ public class ImagesControllerTests
         Assert.IsType<NotFoundResult>(result);
     }
 
+    [Fact]
+    public async Task Get_ReturnsFile_ForOwnerHealthLogImage()
+    {
+        await using var dbContext = CreateDbContext();
+        var imageId = Guid.NewGuid();
+
+        dbContext.ImageAssets.Add(new ImageAsset
+        {
+            ImageId = imageId,
+            StorageKey = "images/healthlog.jpg",
+            ContentType = "image/jpeg",
+            SizeBytes = 100,
+            OwnerId = "user-a",
+            Category = "HealthLog",
+            Status = ImageAssetStatus.Ready,
+            CreatedAt = DateTimeOffset.UtcNow
+        });
+
+        dbContext.Pets.Add(new Pet
+        {
+            Id = 10,
+            OwnerId = "user-a",
+            Name = "Mugi",
+            SpeciesCode = "DOG",
+            IsPublic = false,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        });
+
+        dbContext.HealthLogs.Add(new HealthLog
+        {
+            Id = 20,
+            PetId = 10,
+            RecordedAt = DateTimeOffset.UtcNow,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        });
+
+        dbContext.HealthLogImages.Add(new HealthLogImage
+        {
+            Id = 1,
+            HealthLogId = 20,
+            ImageId = imageId,
+            SortOrder = 1
+        });
+
+        await dbContext.SaveChangesAsync();
+
+        var storage = new FakeImageStorageService();
+        storage.Add("images/healthlog.jpg", [1, 2, 3]);
+
+        var controller = BuildController(dbContext, storage, "user-a");
+        var result = await controller.Get(imageId, CancellationToken.None);
+
+        Assert.IsType<FileStreamResult>(result);
+    }
+
+    [Fact]
+    public async Task Get_ReturnsNotFound_ForOtherUsersHealthLogImage()
+    {
+        await using var dbContext = CreateDbContext();
+        var imageId = Guid.NewGuid();
+
+        dbContext.ImageAssets.Add(new ImageAsset
+        {
+            ImageId = imageId,
+            StorageKey = "images/healthlog.jpg",
+            ContentType = "image/jpeg",
+            SizeBytes = 100,
+            OwnerId = "user-a",
+            Category = "HealthLog",
+            Status = ImageAssetStatus.Ready,
+            CreatedAt = DateTimeOffset.UtcNow
+        });
+
+        dbContext.Pets.Add(new Pet
+        {
+            Id = 10,
+            OwnerId = "user-a",
+            Name = "Mugi",
+            SpeciesCode = "DOG",
+            IsPublic = false,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        });
+
+        dbContext.HealthLogs.Add(new HealthLog
+        {
+            Id = 20,
+            PetId = 10,
+            RecordedAt = DateTimeOffset.UtcNow,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        });
+
+        dbContext.HealthLogImages.Add(new HealthLogImage
+        {
+            Id = 1,
+            HealthLogId = 20,
+            ImageId = imageId,
+            SortOrder = 1
+        });
+
+        await dbContext.SaveChangesAsync();
+
+        var storage = new FakeImageStorageService();
+        storage.Add("images/healthlog.jpg", [1, 2, 3]);
+
+        var controller = BuildController(dbContext, storage, "user-b");
+        var result = await controller.Get(imageId, CancellationToken.None);
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
     private static ImagesController BuildController(ApplicationDbContext dbContext, IImageStorageService storage, string userId)
     {
         var controller = new ImagesController(dbContext, storage);

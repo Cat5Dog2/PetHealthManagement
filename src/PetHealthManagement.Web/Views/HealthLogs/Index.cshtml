@@ -1,0 +1,97 @@
+@model PetHealthManagement.Web.ViewModels.HealthLogs.HealthLogIndexViewModel
+@{
+    ViewData["Title"] = "Health Logs";
+    var currentUrl = $"{Context.Request.Path}{Context.Request.QueryString}";
+}
+
+<div class="d-flex flex-column gap-3">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div>
+            <h1 class="mb-1">@Model.PetName の健康ログ</h1>
+            <p class="text-muted mb-0">記録日時の新しい順に表示しています。</p>
+        </div>
+        <a class="btn btn-outline-secondary"
+           asp-controller="Pets"
+           asp-action="Details"
+           asp-route-petId="@Model.PetId"
+           asp-route-returnUrl="/Pets">
+            ペット詳細へ
+        </a>
+    </div>
+
+    <p class="mb-0">全 @Model.TotalCount 件 / @Model.Page ページ目（1ページ @Model.PageSize 件）</p>
+
+    @if (Model.HealthLogs.Count == 0)
+    {
+        <div class="alert alert-secondary mb-0">
+            まだ健康ログが登録されていません。
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-striped align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>記録日時</th>
+                        <th>体重(kg)</th>
+                        <th>食事量(g)</th>
+                        <th>活動(分)</th>
+                        <th>排せつ</th>
+                        <th>メモ</th>
+                        <th>画像</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var healthLog in Model.HealthLogs)
+                    {
+                        <tr>
+                            <td>@healthLog.RecordedAt.ToString("yyyy/MM/dd HH:mm")</td>
+                            <td>@(healthLog.WeightKg?.ToString("0.0") ?? "-")</td>
+                            <td>@(healthLog.FoodAmountGram?.ToString() ?? "-")</td>
+                            <td>@(healthLog.WalkMinutes?.ToString() ?? "-")</td>
+                            <td>@(string.IsNullOrWhiteSpace(healthLog.StoolCondition) ? "-" : healthLog.StoolCondition)</td>
+                            <td>@(string.IsNullOrWhiteSpace(healthLog.NoteExcerpt) ? "-" : healthLog.NoteExcerpt)</td>
+                            <td>@(healthLog.HasImages ? "あり" : "-")</td>
+                            <td>
+                                <a asp-action="Details"
+                                   asp-route-healthLogId="@healthLog.HealthLogId"
+                                   asp-route-returnUrl="@currentUrl"
+                                   class="btn btn-sm btn-outline-primary">
+                                    詳細
+                                </a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    @if (Model.TotalPages > 1)
+    {
+        <nav aria-label="健康ログ一覧ページャー">
+            <ul class="pagination mb-0">
+                @for (var pageNumber = 1; pageNumber <= Model.TotalPages; pageNumber++)
+                {
+                    if (pageNumber == Model.Page)
+                    {
+                        <li class="page-item active"><span class="page-link">@pageNumber</span></li>
+                    }
+                    else
+                    {
+                        <li class="page-item">
+                            <a class="page-link"
+                               asp-action="Index"
+                               asp-route-petId="@Model.PetId"
+                               asp-route-page="@pageNumber">
+                                @pageNumber
+                            </a>
+                        </li>
+                    }
+                }
+            </ul>
+        </nav>
+    }
+</div>
