@@ -8,6 +8,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 {
     public DbSet<Pet> Pets => Set<Pet>();
     public DbSet<HealthLog> HealthLogs => Set<HealthLog>();
+    public DbSet<ScheduleItem> ScheduleItems => Set<ScheduleItem>();
     public DbSet<HealthLogImage> HealthLogImages => Set<HealthLogImage>();
     public DbSet<ImageAsset> ImageAssets => Set<ImageAsset>();
 
@@ -81,6 +82,33 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
             entity.HasOne(x => x.Pet)
                 .WithMany(x => x.HealthLogs)
+                .HasForeignKey(x => x.PetId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<ScheduleItem>(entity =>
+        {
+            entity.ToTable("ScheduleItems");
+
+            entity.Property(x => x.DueDate)
+                .HasColumnType("date")
+                .IsRequired();
+
+            entity.Property(x => x.Type)
+                .HasMaxLength(20)
+                .IsRequired();
+
+            entity.Property(x => x.Title)
+                .HasMaxLength(100)
+                .IsRequired();
+
+            entity.Property(x => x.Note)
+                .HasMaxLength(1000);
+
+            entity.HasIndex(x => new { x.PetId, x.DueDate, x.Id });
+
+            entity.HasOne(x => x.Pet)
+                .WithMany(x => x.ScheduleItems)
                 .HasForeignKey(x => x.PetId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
