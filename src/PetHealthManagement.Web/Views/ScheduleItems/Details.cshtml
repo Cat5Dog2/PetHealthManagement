@@ -1,6 +1,7 @@
 @model PetHealthManagement.Web.ViewModels.ScheduleItems.ScheduleItemDetailsViewModel
 @{
     ViewData["Title"] = "Schedule Item Details";
+    var currentUrl = $"{Context.Request.Path}{Context.Request.QueryString}";
 }
 
 <div class="d-flex flex-column gap-3">
@@ -9,13 +10,39 @@
             <h1 class="mb-1">予定詳細</h1>
             <p class="text-muted mb-0">@Model.PetName の予定です。</p>
         </div>
-        <div>
+        <div class="d-flex gap-2 align-items-center">
+            <form asp-action="SetDone"
+                  asp-route-scheduleItemId="@Model.ScheduleItemId"
+                  method="post"
+                  class="d-flex align-items-center gap-2">
+                <label class="form-check mb-0">
+                    <input class="form-check-input"
+                           type="checkbox"
+                           name="isDone"
+                           value="true"
+                           @(Model.IsDone ? "checked" : null)
+                           onchange="this.form.submit()" />
+                    <span class="form-check-label">完了</span>
+                </label>
+                <input type="hidden" name="isDone" value="false" />
+                <input type="hidden" name="petId" value="@Model.PetId" />
+                <input type="hidden" name="returnUrl" value="@currentUrl" />
+            </form>
             <a class="btn btn-outline-secondary"
                asp-action="Edit"
                asp-route-scheduleItemId="@Model.ScheduleItemId"
-               asp-route-returnUrl="@Context.Request.Path">
+               asp-route-returnUrl="@currentUrl">
                 編集
             </a>
+            <form asp-action="Delete"
+                  asp-route-scheduleItemId="@Model.ScheduleItemId"
+                  method="post"
+                  class="d-inline"
+                  onsubmit="return confirm('この予定を削除しますか？');">
+                <input type="hidden" name="petId" value="@Model.PetId" />
+                <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+                <button type="submit" class="btn btn-outline-danger">削除</button>
+            </form>
         </div>
     </div>
 

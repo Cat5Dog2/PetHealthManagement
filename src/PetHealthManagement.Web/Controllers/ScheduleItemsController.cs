@@ -119,7 +119,7 @@ public class ScheduleItemsController(ApplicationDbContext dbContext) : Controlle
             Title = scheduleItem.Title,
             Note = scheduleItem.Note,
             IsDone = scheduleItem.IsDone,
-            ReturnUrl = ReturnUrlHelper.ResolveLocalReturnUrl(returnUrl, $"/ScheduleItems?petId={scheduleItem.PetId}")
+            ReturnUrl = ReturnUrlHelper.ResolveLocalReturnUrl(returnUrl, BuildScheduleItemListUrl(scheduleItem.PetId, page: null))
         };
 
         return View(viewModel);
@@ -185,7 +185,7 @@ public class ScheduleItemsController(ApplicationDbContext dbContext) : Controlle
         dbContext.ScheduleItems.Add(scheduleItem);
         await dbContext.SaveChangesAsync(HttpContext.RequestAborted);
 
-        var redirectUrl = ReturnUrlHelper.ResolveLocalReturnUrl(viewModel.ReturnUrl, $"/ScheduleItems?petId={pet.Id}");
+        var redirectUrl = ReturnUrlHelper.ResolveLocalReturnUrl(viewModel.ReturnUrl, BuildScheduleItemListUrl(pet.Id, page: null));
         return Redirect(redirectUrl);
     }
 
@@ -240,6 +240,72 @@ public class ScheduleItemsController(ApplicationDbContext dbContext) : Controlle
         return Redirect(redirectUrl);
     }
 
+    [HttpPost("SetDone/{scheduleItemId:int}")]
+    public async Task<IActionResult> SetDone(int scheduleItemId, string? isDone, string? petId, string? page, string? returnUrl)
+    {
+        _ = petId;
+
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Challenge();
+        }
+
+        if (scheduleItemId <= 0 || !TryParseIsDone(isDone, out var parsedIsDone))
+        {
+            return BadRequest();
+        }
+
+        var scheduleItem = await LoadOwnedScheduleItemAsync(scheduleItemId, userId, asNoTracking: false);
+        if (scheduleItem is null)
+        {
+            return NotFound();
+        }
+
+        scheduleItem.IsDone = parsedIsDone;
+        scheduleItem.UpdatedAt = DateTimeOffset.UtcNow;
+
+        await dbContext.SaveChangesAsync(HttpContext.RequestAborted);
+
+        var redirectUrl = ReturnUrlHelper.ResolveLocalReturnUrl(
+            returnUrl,
+            BuildScheduleItemListUrl(scheduleItem.PetId, page));
+
+        return Redirect(redirectUrl);
+    }
+
+    [HttpPost("Delete/{scheduleItemId:int}")]
+    public async Task<IActionResult> Delete(int scheduleItemId, string? petId, string? page, string? returnUrl)
+    {
+        _ = petId;
+
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Challenge();
+        }
+
+        if (scheduleItemId <= 0)
+        {
+            return BadRequest();
+        }
+
+        var scheduleItem = await LoadOwnedScheduleItemAsync(scheduleItemId, userId, asNoTracking: false);
+        if (scheduleItem is null)
+        {
+            return NotFound();
+        }
+
+        var redirectUrl = ReturnUrlHelper.ResolveLocalReturnUrl(
+            returnUrl,
+            BuildScheduleItemListUrl(scheduleItem.PetId, page));
+
+        dbContext.ScheduleItems.Remove(scheduleItem);
+        await dbContext.SaveChangesAsync(HttpContext.RequestAborted);
+
+        return Redirect(redirectUrl);
+    }
+
     private async Task<Pet?> LoadOwnedPetAsync(int petId, string userId, bool asNoTracking)
     {
         var query = dbContext.Pets.AsQueryable();
@@ -282,7 +348,7 @@ public class ScheduleItemsController(ApplicationDbContext dbContext) : Controlle
             Note = source?.Note,
             IsDone = false,
             ReturnUrl = safeReturnUrl,
-            CancelUrl = ReturnUrlHelper.ResolveLocalReturnUrl(safeReturnUrl, $"/ScheduleItems?petId={pet.Id}"),
+            CancelUrl = ReturnUrlHelper.ResolveLocalReturnUrl(safeReturnUrl, BuildScheduleItemListUrl(pet.Id, page: null)),
             TypeOptions = BuildTypeOptions()
         };
     }
@@ -360,6 +426,12 @@ public class ScheduleItemsController(ApplicationDbContext dbContext) : Controlle
         return PagingHelper.DefaultPage;
     }
 
+    private static string BuildScheduleItemListUrl(int petId, string? page)
+    {
+        var normalizedPage = NormalizePage(page);
+        return $"/ScheduleItems?petId={petId}&page={normalizedPage}";
+    }
+
     private static string? ToExcerpt(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
@@ -386,5 +458,10 @@ public class ScheduleItemsController(ApplicationDbContext dbContext) : Controlle
     {
         var normalized = value?.Trim();
         return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
+    }
+
+    private static bool TryParseIsDone(string? isDone, out bool parsedIsDone)
+    {
+        return bool.TryParse(isDone, out parsedIsDone);
     }
 }
