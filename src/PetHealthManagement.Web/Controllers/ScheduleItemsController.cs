@@ -125,6 +125,231 @@ public class ScheduleItemsController(ApplicationDbContext dbContext) : Controlle
         return View(viewModel);
     }
 
+    [HttpGet("Create")]
+    public async Task<IActionResult> Create(int? petId, string? returnUrl)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Challenge();
+        }
+
+        if (!petId.HasValue || petId.Value <= 0 || !ModelState.IsValid)
+        {
+            return BadRequest();
+        }
+
+        var pet = await LoadOwnedPetAsync(petId.Value, userId, asNoTracking: true);
+        if (pet is null)
+        {
+            return NotFound();
+        }
+
+        return View(BuildCreateViewModel(pet, returnUrl));
+    }
+
+    [HttpPost("Create")]
+    public async Task<IActionResult> Create(ScheduleItemEditViewModel viewModel)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Challenge();
+        }
+
+        var pet = await LoadOwnedPetAsync(viewModel.PetId, userId, asNoTracking: true);
+        if (pet is null)
+        {
+            return NotFound();
+        }
+
+        ValidateScheduleItemInput(viewModel);
+        if (!ModelState.IsValid)
+        {
+            return View(BuildCreateViewModel(pet, viewModel.ReturnUrl, viewModel));
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        var scheduleItem = new ScheduleItem
+        {
+            PetId = pet.Id,
+            DueDate = viewModel.DueDate!.Value.Date,
+            Type = NormalizeItemType(viewModel.ItemType),
+            Title = NormalizeRequiredText(viewModel.Title),
+            Note = NormalizeOptionalText(viewModel.Note),
+            IsDone = false,
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+
+        dbContext.ScheduleItems.Add(scheduleItem);
+        await dbContext.SaveChangesAsync(HttpContext.RequestAborted);
+
+        var redirectUrl = ReturnUrlHelper.ResolveLocalReturnUrl(viewModel.ReturnUrl, $"/ScheduleItems?petId={pet.Id}");
+        return Redirect(redirectUrl);
+    }
+
+    [HttpGet("Edit/{scheduleItemId:int}")]
+    public async Task<IActionResult> Edit(int scheduleItemId, string? returnUrl)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Challenge();
+        }
+
+        var scheduleItem = await LoadOwnedScheduleItemAsync(scheduleItemId, userId, asNoTracking: true);
+        if (scheduleItem is null)
+        {
+            return NotFound();
+        }
+
+        return View(BuildEditViewModel(scheduleItem, returnUrl));
+    }
+
+    [HttpPost("Edit/{scheduleItemId:int}")]
+    public async Task<IActionResult> Edit(int scheduleItemId, ScheduleItemEditViewModel viewModel)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Challenge();
+        }
+
+        var scheduleItem = await LoadOwnedScheduleItemAsync(scheduleItemId, userId, asNoTracking: false);
+        if (scheduleItem is null)
+        {
+            return NotFound();
+        }
+
+        ValidateScheduleItemInput(viewModel);
+        if (!ModelState.IsValid)
+        {
+            return View(BuildEditViewModel(scheduleItem, viewModel.ReturnUrl, viewModel));
+        }
+
+        scheduleItem.DueDate = viewModel.DueDate!.Value.Date;
+        scheduleItem.Type = NormalizeItemType(viewModel.ItemType);
+        scheduleItem.Title = NormalizeRequiredText(viewModel.Title);
+        scheduleItem.Note = NormalizeOptionalText(viewModel.Note);
+        scheduleItem.UpdatedAt = DateTimeOffset.UtcNow;
+
+        await dbContext.SaveChangesAsync(HttpContext.RequestAborted);
+
+        var redirectUrl = ReturnUrlHelper.ResolveLocalReturnUrl(viewModel.ReturnUrl, $"/ScheduleItems/Details/{scheduleItemId}");
+        return Redirect(redirectUrl);
+    }
+
+    private async Task<Pet?> LoadOwnedPetAsync(int petId, string userId, bool asNoTracking)
+    {
+        var query = dbContext.Pets.AsQueryable();
+        if (asNoTracking)
+        {
+            query = query.AsNoTracking();
+        }
+
+        return await query.FirstOrDefaultAsync(x => x.Id == petId && x.OwnerId == userId);
+    }
+
+    private async Task<ScheduleItem?> LoadOwnedScheduleItemAsync(int scheduleItemId, string userId, bool asNoTracking)
+    {
+        var query = dbContext.ScheduleItems
+            .Include(x => x.Pet)
+            .AsQueryable();
+
+        if (asNoTracking)
+        {
+            query = query.AsNoTracking();
+        }
+
+        return await query.FirstOrDefaultAsync(x => x.Id == scheduleItemId && x.Pet.OwnerId == userId);
+    }
+
+    private ScheduleItemEditViewModel BuildCreateViewModel(
+        Pet pet,
+        string? returnUrl,
+        ScheduleItemEditViewModel? source = null)
+    {
+        var safeReturnUrl = ReturnUrlHelper.IsLocalUrl(returnUrl) ? returnUrl : null;
+
+        return new ScheduleItemEditViewModel
+        {
+            PetId = pet.Id,
+            PetName = pet.Name,
+            DueDate = source?.DueDate ?? DateTime.Today,
+            ItemType = source?.ItemType ?? string.Empty,
+            Title = source?.Title ?? string.Empty,
+            Note = source?.Note,
+            IsDone = false,
+            ReturnUrl = safeReturnUrl,
+            CancelUrl = ReturnUrlHelper.ResolveLocalReturnUrl(safeReturnUrl, $"/ScheduleItems?petId={pet.Id}"),
+            TypeOptions = BuildTypeOptions()
+        };
+    }
+
+    private ScheduleItemEditViewModel BuildEditViewModel(
+        ScheduleItem scheduleItem,
+        string? returnUrl,
+        ScheduleItemEditViewModel? source = null)
+    {
+        var safeReturnUrl = ReturnUrlHelper.IsLocalUrl(returnUrl) ? returnUrl : null;
+
+        return new ScheduleItemEditViewModel
+        {
+            ScheduleItemId = scheduleItem.Id,
+            PetId = scheduleItem.PetId,
+            PetName = scheduleItem.Pet.Name,
+            DueDate = source?.DueDate ?? scheduleItem.DueDate,
+            ItemType = source?.ItemType ?? scheduleItem.Type,
+            Title = source?.Title ?? scheduleItem.Title,
+            Note = source?.Note ?? scheduleItem.Note,
+            IsDone = scheduleItem.IsDone,
+            ReturnUrl = safeReturnUrl,
+            CancelUrl = ReturnUrlHelper.ResolveLocalReturnUrl(safeReturnUrl, $"/ScheduleItems/Details/{scheduleItem.Id}"),
+            TypeOptions = BuildTypeOptions()
+        };
+    }
+
+    private void ValidateScheduleItemInput(ScheduleItemEditViewModel viewModel)
+    {
+        if (!viewModel.DueDate.HasValue)
+        {
+            ModelState.AddModelError(nameof(ScheduleItemEditViewModel.DueDate), "期日を入力してください。");
+        }
+
+        if (!ScheduleItemTypeCatalog.IsKnownCode(viewModel.ItemType))
+        {
+            ModelState.AddModelError(nameof(ScheduleItemEditViewModel.ItemType), "種別を選択してください。");
+        }
+
+        var normalizedTitle = viewModel.Title?.Trim();
+        if (string.IsNullOrWhiteSpace(normalizedTitle))
+        {
+            ModelState.AddModelError(nameof(ScheduleItemEditViewModel.Title), "タイトルを入力してください。");
+        }
+        else if (normalizedTitle.Length > 100)
+        {
+            ModelState.AddModelError(nameof(ScheduleItemEditViewModel.Title), "タイトルは100文字以内で入力してください。");
+        }
+
+        var normalizedNote = viewModel.Note?.Trim();
+        if (!string.IsNullOrEmpty(normalizedNote) && normalizedNote.Length > 1000)
+        {
+            ModelState.AddModelError(nameof(ScheduleItemEditViewModel.Note), "メモは1000文字以内で入力してください。");
+        }
+    }
+
+    private static List<ScheduleItemTypeOptionViewModel> BuildTypeOptions()
+    {
+        return ScheduleItemTypeCatalog.All
+            .Select(x => new ScheduleItemTypeOptionViewModel
+            {
+                Code = x.Code,
+                Label = x.Label
+            })
+            .ToList();
+    }
+
     private static int NormalizePage(string? page)
     {
         if (int.TryParse(page, out var parsedPage))
@@ -144,5 +369,22 @@ public class ScheduleItemsController(ApplicationDbContext dbContext) : Controlle
 
         var normalized = value.Trim();
         return normalized.Length <= 60 ? normalized : $"{normalized[..60]}...";
+    }
+
+    private static string NormalizeItemType(string itemType)
+    {
+        var hit = ScheduleItemTypeCatalog.All.First(x => string.Equals(x.Code, itemType, StringComparison.OrdinalIgnoreCase));
+        return hit.Code;
+    }
+
+    private static string NormalizeRequiredText(string value)
+    {
+        return value.Trim();
+    }
+
+    private static string? NormalizeOptionalText(string? value)
+    {
+        var normalized = value?.Trim();
+        return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
     }
 }

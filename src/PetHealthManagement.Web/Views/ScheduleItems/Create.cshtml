@@ -1,0 +1,15 @@
+@model PetHealthManagement.Web.ViewModels.ScheduleItems.ScheduleItemEditViewModel
+@{
+    ViewData["Title"] = "Schedule Item Create";
+}
+
+<h1>予定作成</h1>
+
+<form asp-action="Create" method="post" class="d-flex flex-column gap-3">
+    <partial name="_ScheduleItemForm" model="Model" />
+</form>
+
+@section Scripts
+{
+    <partial name="_ValidationScriptsPartial" />
+}

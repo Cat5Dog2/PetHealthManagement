@@ -1,0 +1,18 @@
+@model PetHealthManagement.Web.ViewModels.ScheduleItems.ScheduleItemEditViewModel
+@{
+    ViewData["Title"] = "Schedule Item Edit";
+}
+
+<h1>予定編集</h1>
+
+<form asp-action="Edit"
+      asp-route-scheduleItemId="@Model.ScheduleItemId"
+      method="post"
+      class="d-flex flex-column gap-3">
+    <partial name="_ScheduleItemForm" model="Model" />
+</form>
+
+@section Scripts
+{
+    <partial name="_ValidationScriptsPartial" />
+}
