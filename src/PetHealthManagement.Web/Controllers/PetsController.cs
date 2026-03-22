@@ -14,7 +14,8 @@ namespace PetHealthManagement.Web.Controllers;
 [Route("Pets")]
 public class PetsController(
     ApplicationDbContext dbContext,
-    IPetPhotoService petPhotoService) : Controller
+    IPetPhotoService petPhotoService,
+    IPetDeletionService petDeletionService) : Controller
 {
     private const string DefaultPetPhotoUrl = "/images/default/pet-placeholder.svg";
 
@@ -364,15 +365,7 @@ public class PetsController(
             return NotFound();
         }
 
-        await petPhotoService.ApplyPetPhotoChangeAsync(
-            pet,
-            userId,
-            newPhotoFile: null,
-            removePhoto: true,
-            HttpContext.RequestAborted);
-
-        dbContext.Pets.Remove(pet);
-        await dbContext.SaveChangesAsync(HttpContext.RequestAborted);
+        await petDeletionService.DeleteAsync(pet, userId, HttpContext.RequestAborted);
 
         var redirectUrl = ReturnUrlHelper.ResolveLocalReturnUrl(returnUrl, "/MyPage");
         return Redirect(redirectUrl);

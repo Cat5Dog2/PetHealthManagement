@@ -188,7 +188,7 @@
 - [x] `GET/POST /Pets/Create`（IsPublic 初期 true）
 - [x] `GET/POST /Pets/Edit/{petId}`（オーナーのみ、他人は404）
 - [x] 画像置換/削除（RemovePhoto 等）
-- [ ] `POST /Pets/Delete/{petId}`（関連データ削除、画像も削除）
+- [x] `POST /Pets/Delete/{petId}`（関連データ削除、画像も削除）
 - [x] すべての POST：PRG（302）+ returnUrl 優先（ローカルのみ）
 
 ### 5.4 完了条件/成果物
