@@ -228,11 +228,11 @@
 ### 7.2 作成/編集/削除
 - [x] `GET/POST /ScheduleItems/Create?petId=`
 - [x] `GET/POST /ScheduleItems/Edit/{scheduleItemId}`
-- [ ] `POST /ScheduleItems/Delete/{scheduleItemId}`
+- [x] `POST /ScheduleItems/Delete/{scheduleItemId}`
 - [ ] Type（Vaccine/Medicine/Visit/Other）の表示/入力（固定値）
 
 ### 7.3 完了トグル
-- [ ] `POST /ScheduleItems/SetDone/{scheduleItemId}`（isDone必須）
+- [x] `POST /ScheduleItems/SetDone/{scheduleItemId}`（isDone必須）
 - [ ] **petIdを信頼しない**：scheduleItemId から PetId を復元して所有者チェック
 - [ ] 302遷移：returnUrl 優先、無効なら一覧へ（page維持）
 
