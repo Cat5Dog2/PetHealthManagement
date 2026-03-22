@@ -10,7 +10,13 @@
             <h1 class="mb-1">@Model.PetName の予定</h1>
             <p class="text-muted mb-0">期日が近い順に確認できます。</p>
         </div>
-        <div>
+        <div class="d-flex gap-2">
+            <a class="btn btn-primary"
+               asp-action="Create"
+               asp-route-petId="@Model.PetId"
+               asp-route-returnUrl="@currentUrl">
+                新しい予定
+            </a>
             <a class="btn btn-outline-secondary"
                asp-controller="Pets"
                asp-action="Details"
@@ -53,12 +59,20 @@
                             <td>@(string.IsNullOrWhiteSpace(scheduleItem.NoteExcerpt) ? "-" : scheduleItem.NoteExcerpt)</td>
                             <td>@(scheduleItem.IsDone ? "完了" : "未完了")</td>
                             <td>
-                                <a asp-action="Details"
-                                   asp-route-scheduleItemId="@scheduleItem.ScheduleItemId"
-                                   asp-route-returnUrl="@currentUrl"
-                                   class="btn btn-sm btn-outline-primary">
-                                    詳細
-                                </a>
+                                <div class="d-flex gap-2">
+                                    <a asp-action="Details"
+                                       asp-route-scheduleItemId="@scheduleItem.ScheduleItemId"
+                                       asp-route-returnUrl="@currentUrl"
+                                       class="btn btn-sm btn-outline-primary">
+                                        詳細
+                                    </a>
+                                    <a asp-action="Edit"
+                                       asp-route-scheduleItemId="@scheduleItem.ScheduleItemId"
+                                       asp-route-returnUrl="@currentUrl"
+                                       class="btn btn-sm btn-outline-secondary">
+                                        編集
+                                    </a>
+                                </div>
                             </td>
                         </tr>
                     }

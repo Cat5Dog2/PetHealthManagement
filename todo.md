@@ -226,8 +226,8 @@
 - [ ] 非オーナーは 404（存在秘匿）
 
 ### 7.2 作成/編集/削除
-- [ ] `GET/POST /ScheduleItems/Create?petId=`
-- [ ] `GET/POST /ScheduleItems/Edit/{scheduleItemId}`
+- [x] `GET/POST /ScheduleItems/Create?petId=`
+- [x] `GET/POST /ScheduleItems/Edit/{scheduleItemId}`
 - [ ] `POST /ScheduleItems/Delete/{scheduleItemId}`
 - [ ] Type（Vaccine/Medicine/Visit/Other）の表示/入力（固定値）
 
