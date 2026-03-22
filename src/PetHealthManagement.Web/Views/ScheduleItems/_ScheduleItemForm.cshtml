@@ -1,0 +1,59 @@
+@model PetHealthManagement.Web.ViewModels.ScheduleItems.ScheduleItemEditViewModel
+
+<div asp-validation-summary="ModelOnly" class="text-danger"></div>
+<input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+<input type="hidden" asp-for="PetId" />
+
+<div class="card shadow-sm">
+    <div class="card-body d-flex flex-column gap-3">
+        <div>
+            <h2 class="h5 mb-1">@Model.PetName</h2>
+            <p class="text-muted mb-0">予定の期日、種別、タイトル、メモを登録します。</p>
+        </div>
+
+        <div>
+            <label asp-for="DueDate" class="form-label">期日</label>
+            <input asp-for="DueDate"
+                   type="date"
+                   class="form-control"
+                   asp-format="{0:yyyy-MM-dd}" />
+            <span asp-validation-for="DueDate" class="text-danger"></span>
+        </div>
+
+        <div>
+            <label asp-for="ItemType" class="form-label">種別</label>
+            <select asp-for="ItemType" class="form-select">
+                <option value="">選択してください</option>
+                @foreach (var option in Model.TypeOptions)
+                {
+                    <option value="@option.Code">@option.Label</option>
+                }
+            </select>
+            <span asp-validation-for="ItemType" class="text-danger"></span>
+        </div>
+
+        <div>
+            <label asp-for="Title" class="form-label">タイトル</label>
+            <input asp-for="Title" class="form-control" />
+            <span asp-validation-for="Title" class="text-danger"></span>
+        </div>
+
+        <div>
+            <label asp-for="Note" class="form-label">メモ</label>
+            <textarea asp-for="Note" class="form-control" rows="5"></textarea>
+            <span asp-validation-for="Note" class="text-danger"></span>
+        </div>
+
+        @if (Model.ScheduleItemId.HasValue)
+        {
+            <div class="alert alert-secondary mb-0">
+                完了状態は一覧または詳細画面から変更します。現在: @(Model.IsDone ? "完了" : "未完了")
+            </div>
+        }
+    </div>
+</div>
+
+<div class="d-flex gap-2">
+    <button type="submit" class="btn btn-primary">保存</button>
+    <a href="@Model.CancelUrl" class="btn btn-outline-secondary">キャンセル</a>
+</div>
