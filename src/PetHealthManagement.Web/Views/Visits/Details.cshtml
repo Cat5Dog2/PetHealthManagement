@@ -1,0 +1,62 @@
+@model PetHealthManagement.Web.ViewModels.Visits.VisitDetailsViewModel
+@{
+    ViewData["Title"] = "Visit Details";
+}
+
+<div class="d-flex flex-column gap-3">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div>
+            <h1 class="mb-1">通院履歴詳細</h1>
+            <p class="text-muted mb-0">@Model.PetName の通院履歴です。</p>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <dl class="row mb-0">
+                <dt class="col-sm-3">通院日</dt>
+                <dd class="col-sm-9">@Model.VisitDate.ToString("yyyy/MM/dd")</dd>
+
+                <dt class="col-sm-3">病院名</dt>
+                <dd class="col-sm-9">@(string.IsNullOrWhiteSpace(Model.ClinicName) ? "-" : Model.ClinicName)</dd>
+
+                <dt class="col-sm-3">診断</dt>
+                <dd class="col-sm-9" style="white-space: pre-wrap;">@(string.IsNullOrWhiteSpace(Model.Diagnosis) ? "-" : Model.Diagnosis)</dd>
+
+                <dt class="col-sm-3">処方</dt>
+                <dd class="col-sm-9" style="white-space: pre-wrap;">@(string.IsNullOrWhiteSpace(Model.Prescription) ? "-" : Model.Prescription)</dd>
+
+                <dt class="col-sm-3">メモ</dt>
+                <dd class="col-sm-9" style="white-space: pre-wrap;">@(string.IsNullOrWhiteSpace(Model.Note) ? "-" : Model.Note)</dd>
+            </dl>
+        </div>
+    </div>
+
+    <section class="card shadow-sm">
+        <div class="card-body">
+            <h2 class="h5">画像</h2>
+
+            @if (Model.Images.Count == 0)
+            {
+                <p class="text-muted mb-0">画像はありません。</p>
+            }
+            else
+            {
+                <div class="d-flex flex-wrap gap-3">
+                    @foreach (var image in Model.Images)
+                    {
+                        <a href="@image.Url" target="_blank" rel="noopener noreferrer">
+                            <img src="@image.Url"
+                                 alt="@image.AltText"
+                                 style="width: 144px; height: 144px; object-fit: cover;" />
+                        </a>
+                    }
+                </div>
+            }
+        </div>
+    </section>
+
+    <div>
+        <a class="btn btn-primary" href="@Model.ReturnUrl">一覧へ戻る</a>
+    </div>
+</div>

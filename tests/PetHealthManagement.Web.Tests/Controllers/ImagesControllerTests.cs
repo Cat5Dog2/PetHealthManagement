@@ -338,6 +338,120 @@ public class ImagesControllerTests
         Assert.IsType<NotFoundResult>(result);
     }
 
+    [Fact]
+    public async Task Get_ReturnsFile_ForOwnerVisitImage()
+    {
+        await using var dbContext = CreateDbContext();
+        var imageId = Guid.NewGuid();
+
+        dbContext.ImageAssets.Add(new ImageAsset
+        {
+            ImageId = imageId,
+            StorageKey = "images/visit.jpg",
+            ContentType = "image/jpeg",
+            SizeBytes = 100,
+            OwnerId = "user-a",
+            Category = "Visit",
+            Status = ImageAssetStatus.Ready,
+            CreatedAt = DateTimeOffset.UtcNow
+        });
+
+        dbContext.Pets.Add(new Pet
+        {
+            Id = 10,
+            OwnerId = "user-a",
+            Name = "Mugi",
+            SpeciesCode = "DOG",
+            IsPublic = false,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        });
+
+        dbContext.Visits.Add(new Visit
+        {
+            Id = 30,
+            PetId = 10,
+            VisitDate = new DateTime(2026, 3, 21),
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        });
+
+        dbContext.VisitImages.Add(new VisitImage
+        {
+            Id = 1,
+            VisitId = 30,
+            ImageId = imageId,
+            SortOrder = 1
+        });
+
+        await dbContext.SaveChangesAsync();
+
+        var storage = new FakeImageStorageService();
+        storage.Add("images/visit.jpg", [1, 2, 3]);
+
+        var controller = BuildController(dbContext, storage, "user-a");
+        var result = await controller.Get(imageId, CancellationToken.None);
+
+        Assert.IsType<FileStreamResult>(result);
+    }
+
+    [Fact]
+    public async Task Get_ReturnsNotFound_ForOtherUsersVisitImage()
+    {
+        await using var dbContext = CreateDbContext();
+        var imageId = Guid.NewGuid();
+
+        dbContext.ImageAssets.Add(new ImageAsset
+        {
+            ImageId = imageId,
+            StorageKey = "images/visit.jpg",
+            ContentType = "image/jpeg",
+            SizeBytes = 100,
+            OwnerId = "user-a",
+            Category = "Visit",
+            Status = ImageAssetStatus.Ready,
+            CreatedAt = DateTimeOffset.UtcNow
+        });
+
+        dbContext.Pets.Add(new Pet
+        {
+            Id = 10,
+            OwnerId = "user-a",
+            Name = "Mugi",
+            SpeciesCode = "DOG",
+            IsPublic = false,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        });
+
+        dbContext.Visits.Add(new Visit
+        {
+            Id = 30,
+            PetId = 10,
+            VisitDate = new DateTime(2026, 3, 21),
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        });
+
+        dbContext.VisitImages.Add(new VisitImage
+        {
+            Id = 1,
+            VisitId = 30,
+            ImageId = imageId,
+            SortOrder = 1
+        });
+
+        await dbContext.SaveChangesAsync();
+
+        var storage = new FakeImageStorageService();
+        storage.Add("images/visit.jpg", [1, 2, 3]);
+
+        var controller = BuildController(dbContext, storage, "user-b");
+        var result = await controller.Get(imageId, CancellationToken.None);
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
     private static ImagesController BuildController(ApplicationDbContext dbContext, IImageStorageService storage, string userId)
     {
         var controller = new ImagesController(dbContext, storage);

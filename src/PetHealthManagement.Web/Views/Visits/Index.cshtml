@@ -1,0 +1,97 @@
+@model PetHealthManagement.Web.ViewModels.Visits.VisitIndexViewModel
+@{
+    ViewData["Title"] = "Visits";
+    var currentUrl = $"{Context.Request.Path}{Context.Request.QueryString}";
+}
+
+<div class="d-flex flex-column gap-3">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div>
+            <h1 class="mb-1">@Model.PetName の通院履歴</h1>
+            <p class="text-muted mb-0">新しい通院日から順に表示しています。</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-secondary"
+               asp-controller="Pets"
+               asp-action="Details"
+               asp-route-petId="@Model.PetId"
+               asp-route-returnUrl="/Pets">
+                ペット詳細へ
+            </a>
+        </div>
+    </div>
+
+    <p class="mb-0">全 @Model.TotalCount 件 / @Model.Page ページ目（1ページ @Model.PageSize 件）</p>
+
+    @if (Model.Visits.Count == 0)
+    {
+        <div class="alert alert-secondary mb-0">
+            まだ通院履歴は登録されていません。
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-striped align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>通院日</th>
+                        <th>病院名</th>
+                        <th>診断</th>
+                        <th>処方</th>
+                        <th>メモ</th>
+                        <th>画像</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var visit in Model.Visits)
+                    {
+                        <tr>
+                            <td>@visit.VisitDate.ToString("yyyy/MM/dd")</td>
+                            <td>@(string.IsNullOrWhiteSpace(visit.ClinicName) ? "-" : visit.ClinicName)</td>
+                            <td>@(string.IsNullOrWhiteSpace(visit.DiagnosisExcerpt) ? "-" : visit.DiagnosisExcerpt)</td>
+                            <td>@(string.IsNullOrWhiteSpace(visit.PrescriptionExcerpt) ? "-" : visit.PrescriptionExcerpt)</td>
+                            <td>@(string.IsNullOrWhiteSpace(visit.NoteExcerpt) ? "-" : visit.NoteExcerpt)</td>
+                            <td>@(visit.HasImages ? "あり" : "-")</td>
+                            <td>
+                                <a asp-action="Details"
+                                   asp-route-visitId="@visit.VisitId"
+                                   asp-route-returnUrl="@currentUrl"
+                                   class="btn btn-sm btn-outline-primary">
+                                    詳細
+                                </a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    @if (Model.TotalPages > 1)
+    {
+        <nav aria-label="通院履歴一覧ページャー">
+            <ul class="pagination mb-0">
+                @for (var pageNumber = 1; pageNumber <= Model.TotalPages; pageNumber++)
+                {
+                    if (pageNumber == Model.Page)
+                    {
+                        <li class="page-item active"><span class="page-link">@pageNumber</span></li>
+                    }
+                    else
+                    {
+                        <li class="page-item">
+                            <a class="page-link"
+                               asp-action="Index"
+                               asp-route-petId="@Model.PetId"
+                               asp-route-page="@pageNumber">
+                                @pageNumber
+                            </a>
+                        </li>
+                    }
+                }
+            </ul>
+        </nav>
+    }
+</div>
