@@ -101,10 +101,10 @@
 ## フェーズ2：DB/ドメイン（EF Core + マイグレーション）
 
 ### 2.1 Entity/DbContext
-- [ ] `ApplicationDbContext`（Identity + アプリテーブル）整備
+- [x] `ApplicationDbContext`（Identity + アプリテーブル）整備
 - [x] エンティティ実装（Pet/HealthLog/ScheduleItem/Visit/ImageAsset/中間テーブル）
 - [ ] RowVersion（同時更新）など必要な列の付与
-- [ ] インデックス・制約（ユニーク、FK、並び順など）
+- [x] インデックス・制約（ユニーク、FK、並び順など）
 
 ### 2.2 マイグレーション/初期データ
 - [ ] 初回 Migration 作成・適用
@@ -229,15 +229,15 @@
 - [x] `GET/POST /ScheduleItems/Create?petId=`
 - [x] `GET/POST /ScheduleItems/Edit/{scheduleItemId}`
 - [x] `POST /ScheduleItems/Delete/{scheduleItemId}`
-- [ ] Type（Vaccine/Medicine/Visit/Other）の表示/入力（固定値）
+- [x] Type（Vaccine/Medicine/Visit/Other）の表示/入力（固定値）
 
 ### 7.3 完了トグル
 - [x] `POST /ScheduleItems/SetDone/{scheduleItemId}`（isDone必須）
-- [ ] **petIdを信頼しない**：scheduleItemId から PetId を復元して所有者チェック
-- [ ] 302遷移：returnUrl 優先、無効なら一覧へ（page維持）
+- [x] **petIdを信頼しない**：scheduleItemId から PetId を復元して所有者チェック
+- [x] 302遷移：returnUrl 優先、無効なら一覧へ（page維持）
 
 ### 7.4 完了条件/成果物
-- [ ] 完了トグルがパラメータ改ざん（petId）に対して耐性を持ち、サーバ側で scheduleItemId 起点の所有者認可を実施したうえで、PRG（Post/Redirect/Get）および returnUrl による遷移保持が担保されていることを確認できる
+- [x] 完了トグルがパラメータ改ざん（petId）に対して耐性を持ち、サーバ側で scheduleItemId 起点の所有者認可を実施したうえで、PRG（Post/Redirect/Get）および returnUrl による遷移保持が担保されていることを確認できる
 
 ---
 
@@ -246,12 +246,12 @@
 ### 8.1 一覧/詳細
 - [x] `GET /Visits?petId=&page=`：VisitDate降順
 - [x] `GET /Visits/Details/{visitId}`：表示専用（画像サムネ→拡大）
-- [ ] 非オーナーは 404（存在秘匿）
+- [x] 非オーナーは 404（存在秘匿）
 
 ### 8.2 作成/編集/削除
 - [x] `GET/POST /Visits/Create?petId=`
 - [x] `GET/POST /Visits/Edit/{visitId}`
-- [ ] `POST /Visits/Delete/{visitId}`
+- [x] `POST /Visits/Delete/{visitId}`
 - [x] 画像追加/削除（最大10枚、ユーザー合計100MB）
 
 ### 8.3 完了条件/成果物

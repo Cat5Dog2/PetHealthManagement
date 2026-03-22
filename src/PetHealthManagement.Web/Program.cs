@@ -20,6 +20,7 @@ builder.Services.AddScoped<IPetPhotoService, PetPhotoService>();
 builder.Services.AddScoped<IHealthLogImageService, HealthLogImageService>();
 builder.Services.AddScoped<IVisitImageService, VisitImageService>();
 builder.Services.AddScoped<IHealthLogDeletionService, HealthLogDeletionService>();
+builder.Services.AddScoped<IVisitDeletionService, VisitDeletionService>();
 builder.Services.AddScoped<IUserAvatarService, UserAvatarService>();
 builder.Services.AddScoped<IUserDataDeletionService, UserDataDeletionService>();
 builder.Services.ConfigureApplicationCookie(options =>

@@ -370,12 +370,99 @@ public class VisitsControllerTests
         Assert.Equal(new DateTime(2026, 3, 21), unchangedVisit.VisitDate);
     }
 
+    [Fact]
+    public async Task DeletePost_ReturnsBadRequest_WhenVisitIdIsInvalid()
+    {
+        await using var dbContext = CreateDbContext();
+        var controller = BuildController(dbContext, "user-a");
+
+        var result = await controller.Delete(0, petId: null, page: null, returnUrl: null);
+
+        Assert.IsType<BadRequestResult>(result);
+    }
+
+    [Fact]
+    public async Task DeletePost_ReturnsNotFound_ForNonOwnerVisit()
+    {
+        await using var dbContext = CreateDbContext();
+        dbContext.Pets.Add(NewPet(1, "user-a", "Mugi"));
+        dbContext.Visits.Add(new Visit
+        {
+            Id = 10,
+            PetId = 1,
+            VisitDate = new DateTime(2026, 3, 21),
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        });
+        await dbContext.SaveChangesAsync();
+
+        var controller = BuildController(dbContext, "user-b");
+        var result = await controller.Delete(10, petId: "1", page: "2", returnUrl: "/Visits?petId=1&page=2");
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task DeletePost_RedirectsToReturnUrl_WhenLocal()
+    {
+        await using var dbContext = CreateDbContext();
+        dbContext.Pets.Add(NewPet(1, "user-a", "Mugi"));
+        dbContext.Visits.Add(new Visit
+        {
+            Id = 10,
+            PetId = 1,
+            VisitDate = new DateTime(2026, 3, 21),
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        });
+        await dbContext.SaveChangesAsync();
+
+        var deletionService = new FakeVisitDeletionService();
+        var controller = BuildController(dbContext, "user-a", deletionService: deletionService);
+
+        var result = await controller.Delete(10, petId: "999", page: "3", returnUrl: "/Visits?petId=1&page=3");
+
+        var redirect = Assert.IsType<RedirectResult>(result);
+        Assert.Equal("/Visits?petId=1&page=3", redirect.Url);
+        Assert.Equal(1, deletionService.CallCount);
+        Assert.Equal(10, deletionService.LastVisitId);
+    }
+
+    [Fact]
+    public async Task DeletePost_RedirectsToFallbackList_WhenReturnUrlIsInvalid()
+    {
+        await using var dbContext = CreateDbContext();
+        dbContext.Pets.Add(NewPet(1, "user-a", "Mugi"));
+        dbContext.Visits.Add(new Visit
+        {
+            Id = 10,
+            PetId = 1,
+            VisitDate = new DateTime(2026, 3, 21),
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        });
+        await dbContext.SaveChangesAsync();
+
+        var deletionService = new FakeVisitDeletionService();
+        var controller = BuildController(dbContext, "user-a", deletionService: deletionService);
+
+        var result = await controller.Delete(10, petId: "999", page: "abc", returnUrl: "https://evil.example/");
+
+        var redirect = Assert.IsType<RedirectResult>(result);
+        Assert.Equal("/Visits?petId=1&page=1", redirect.Url);
+        Assert.Equal(1, deletionService.CallCount);
+    }
+
     private static VisitsController BuildController(
         ApplicationDbContext dbContext,
         string userId,
-        IVisitImageService? imageService = null)
+        IVisitImageService? imageService = null,
+        IVisitDeletionService? deletionService = null)
     {
-        var controller = new VisitsController(dbContext, imageService ?? new FakeVisitImageService());
+        var controller = new VisitsController(
+            dbContext,
+            imageService ?? new FakeVisitImageService(),
+            deletionService ?? new FakeVisitDeletionService());
         var httpContext = new DefaultHttpContext
         {
             User = new ClaimsPrincipal(
@@ -450,10 +537,28 @@ public class VisitsControllerTests
             _ = ownerId;
             _ = newFiles;
             _ = deleteImageIds;
+            _ = cancellationToken;
 
             CallCount += 1;
             LastPetId = visit.PetId;
             return Task.FromResult(NextResult);
+        }
+    }
+
+    private sealed class FakeVisitDeletionService : IVisitDeletionService
+    {
+        public int CallCount { get; private set; }
+
+        public int? LastVisitId { get; private set; }
+
+        public Task DeleteAsync(Visit visit, string ownerId, CancellationToken cancellationToken = default)
+        {
+            _ = ownerId;
+            _ = cancellationToken;
+
+            CallCount += 1;
+            LastVisitId = visit.Id;
+            return Task.CompletedTask;
         }
     }
 
