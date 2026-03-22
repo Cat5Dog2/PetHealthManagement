@@ -71,7 +71,7 @@ public class ScheduleItemsControllerTests
         Assert.Equal(10, model.ScheduleItems.Count);
         Assert.Equal(1, model.ScheduleItems[0].ScheduleItemId);
         Assert.Equal(2, model.ScheduleItems[1].ScheduleItemId);
-        Assert.Equal("ワクチン", model.ScheduleItems[0].TypeLabel);
+        Assert.Equal(ScheduleItemTypeCatalog.ToLabel(ScheduleItemTypeCatalog.Vaccine), model.ScheduleItems[0].TypeLabel);
         Assert.False(model.ScheduleItems[0].IsDone);
     }
 
@@ -80,21 +80,11 @@ public class ScheduleItemsControllerTests
     {
         await using var dbContext = CreateDbContext();
         dbContext.Pets.Add(NewPet(1, "user-a", "Mugi"));
-        dbContext.ScheduleItems.Add(new ScheduleItem
-        {
-            Id = 10,
-            PetId = 1,
-            DueDate = new DateTime(2026, 4, 1),
-            Type = ScheduleItemTypeCatalog.Visit,
-            Title = "定期検診",
-            CreatedAt = DateTimeOffset.UtcNow,
-            UpdatedAt = DateTimeOffset.UtcNow
-        });
-
+        dbContext.ScheduleItems.Add(NewScheduleItem(10, 1, ScheduleItemTypeCatalog.Visit, "Checkup"));
         await dbContext.SaveChangesAsync();
 
         var controller = BuildController(dbContext, "user-b");
-        var result = await controller.Details(10, "/ScheduleItems?petId=1");
+        var result = await controller.Details(10, "/ScheduleItems?petId=1&page=2");
 
         Assert.IsType<NotFoundResult>(result);
     }
@@ -110,8 +100,8 @@ public class ScheduleItemsControllerTests
             PetId = 1,
             DueDate = new DateTime(2026, 4, 15),
             Type = ScheduleItemTypeCatalog.Medicine,
-            Title = "朝の投薬",
-            Note = "朝食後に飲ませる",
+            Title = "Medicine",
+            Note = "After breakfast",
             IsDone = true,
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
@@ -126,10 +116,10 @@ public class ScheduleItemsControllerTests
         var model = Assert.IsType<ScheduleItemDetailsViewModel>(viewResult.Model);
 
         Assert.Equal("Mugi", model.PetName);
-        Assert.Equal("投薬", model.TypeLabel);
-        Assert.Equal("朝の投薬", model.Title);
+        Assert.Equal(ScheduleItemTypeCatalog.ToLabel(ScheduleItemTypeCatalog.Medicine), model.TypeLabel);
+        Assert.Equal("Medicine", model.Title);
         Assert.True(model.IsDone);
-        Assert.Equal("/ScheduleItems?petId=1", model.ReturnUrl);
+        Assert.Equal("/ScheduleItems?petId=1&page=1", model.ReturnUrl);
     }
 
     [Fact]
@@ -151,7 +141,7 @@ public class ScheduleItemsControllerTests
         await dbContext.SaveChangesAsync();
 
         var controller = BuildController(dbContext, "user-b");
-        var result = await controller.Create(1, "/ScheduleItems?petId=1");
+        var result = await controller.Create(1, "/ScheduleItems?petId=1&page=2");
 
         Assert.IsType<NotFoundResult>(result);
     }
@@ -170,8 +160,8 @@ public class ScheduleItemsControllerTests
             PetId = 1,
             DueDate = new DateTime(2026, 5, 10),
             ItemType = "medicine",
-            Title = "  朝の投薬  ",
-            Note = "  朝食後に飲ませる  ",
+            Title = "  Morning medicine  ",
+            Note = "  After breakfast  ",
             ReturnUrl = "/ScheduleItems?petId=1&page=2"
         });
 
@@ -181,8 +171,8 @@ public class ScheduleItemsControllerTests
         Assert.Equal("/ScheduleItems?petId=1&page=2", redirect.Url);
         Assert.Equal(new DateTime(2026, 5, 10), savedScheduleItem.DueDate);
         Assert.Equal(ScheduleItemTypeCatalog.Medicine, savedScheduleItem.Type);
-        Assert.Equal("朝の投薬", savedScheduleItem.Title);
-        Assert.Equal("朝食後に飲ませる", savedScheduleItem.Note);
+        Assert.Equal("Morning medicine", savedScheduleItem.Title);
+        Assert.Equal("After breakfast", savedScheduleItem.Note);
         Assert.False(savedScheduleItem.IsDone);
     }
 
@@ -201,7 +191,7 @@ public class ScheduleItemsControllerTests
             DueDate = null,
             ItemType = "BadType",
             Title = "   ",
-            ReturnUrl = "/ScheduleItems?petId=1"
+            ReturnUrl = "/ScheduleItems?petId=1&page=1"
         });
 
         var viewResult = Assert.IsType<ViewResult>(result);
@@ -209,7 +199,7 @@ public class ScheduleItemsControllerTests
 
         Assert.False(controller.ModelState.IsValid);
         Assert.Equal("Mugi", model.PetName);
-        Assert.Equal("/ScheduleItems?petId=1", model.ReturnUrl);
+        Assert.Equal("/ScheduleItems?petId=1&page=1", model.ReturnUrl);
         Assert.Empty(await dbContext.ScheduleItems.ToListAsync());
     }
 
@@ -224,7 +214,7 @@ public class ScheduleItemsControllerTests
             PetId = 1,
             DueDate = new DateTime(2026, 4, 20),
             Type = ScheduleItemTypeCatalog.Other,
-            Title = "メモ更新",
+            Title = "Memo update",
             Note = "first note",
             IsDone = true,
             CreatedAt = DateTimeOffset.UtcNow,
@@ -233,14 +223,14 @@ public class ScheduleItemsControllerTests
         await dbContext.SaveChangesAsync();
 
         var controller = BuildController(dbContext, "user-a");
-        var result = await controller.Edit(10, "/ScheduleItems?petId=1");
+        var result = await controller.Edit(10, "/ScheduleItems?petId=1&page=2");
 
         var viewResult = Assert.IsType<ViewResult>(result);
         var model = Assert.IsType<ScheduleItemEditViewModel>(viewResult.Model);
 
         Assert.Equal(10, model.ScheduleItemId);
         Assert.Equal("Mugi", model.PetName);
-        Assert.Equal("/ScheduleItems?petId=1", model.ReturnUrl);
+        Assert.Equal("/ScheduleItems?petId=1&page=2", model.ReturnUrl);
         Assert.True(model.IsDone);
     }
 
@@ -249,16 +239,7 @@ public class ScheduleItemsControllerTests
     {
         await using var dbContext = CreateDbContext();
         dbContext.Pets.Add(NewPet(1, "user-a", "Mugi"));
-        dbContext.ScheduleItems.Add(new ScheduleItem
-        {
-            Id = 10,
-            PetId = 1,
-            DueDate = new DateTime(2026, 4, 20),
-            Type = ScheduleItemTypeCatalog.Vaccine,
-            Title = "ワクチン接種",
-            CreatedAt = DateTimeOffset.UtcNow,
-            UpdatedAt = DateTimeOffset.UtcNow
-        });
+        dbContext.ScheduleItems.Add(NewScheduleItem(10, 1, ScheduleItemTypeCatalog.Vaccine, "Vaccine"));
         await dbContext.SaveChangesAsync();
 
         var controller = BuildController(dbContext, "user-b");
@@ -267,7 +248,7 @@ public class ScheduleItemsControllerTests
             PetId = 1,
             DueDate = new DateTime(2026, 4, 22),
             ItemType = ScheduleItemTypeCatalog.Visit,
-            Title = "通院へ変更"
+            Title = "Visit"
         });
 
         Assert.IsType<NotFoundResult>(result);
@@ -284,7 +265,7 @@ public class ScheduleItemsControllerTests
             PetId = 1,
             DueDate = new DateTime(2026, 4, 20),
             Type = ScheduleItemTypeCatalog.Vaccine,
-            Title = "ワクチン接種",
+            Title = "Vaccine",
             Note = "old note",
             IsDone = true,
             CreatedAt = DateTimeOffset.UtcNow,
@@ -298,7 +279,7 @@ public class ScheduleItemsControllerTests
             PetId = 999,
             DueDate = new DateTime(2026, 4, 25),
             ItemType = "visit",
-            Title = "通院予定",
+            Title = "Visit plan",
             Note = "updated note",
             IsDone = false,
             ReturnUrl = "https://evil.example/"
@@ -310,7 +291,7 @@ public class ScheduleItemsControllerTests
         Assert.Equal("/ScheduleItems/Details/10", redirect.Url);
         Assert.Equal(new DateTime(2026, 4, 25), savedScheduleItem.DueDate);
         Assert.Equal(ScheduleItemTypeCatalog.Visit, savedScheduleItem.Type);
-        Assert.Equal("通院予定", savedScheduleItem.Title);
+        Assert.Equal("Visit plan", savedScheduleItem.Title);
         Assert.Equal("updated note", savedScheduleItem.Note);
         Assert.True(savedScheduleItem.IsDone);
     }
@@ -326,7 +307,7 @@ public class ScheduleItemsControllerTests
             PetId = 1,
             DueDate = new DateTime(2026, 4, 20),
             Type = ScheduleItemTypeCatalog.Vaccine,
-            Title = "ワクチン接種",
+            Title = "Vaccine",
             Note = "old note",
             IsDone = false,
             CreatedAt = DateTimeOffset.UtcNow,
@@ -341,7 +322,7 @@ public class ScheduleItemsControllerTests
             DueDate = new DateTime(2026, 4, 21),
             ItemType = ScheduleItemTypeCatalog.Medicine,
             Title = " ",
-            ReturnUrl = "/ScheduleItems?petId=1"
+            ReturnUrl = "/ScheduleItems?petId=1&page=2"
         });
 
         var viewResult = Assert.IsType<ViewResult>(result);
@@ -352,7 +333,134 @@ public class ScheduleItemsControllerTests
         Assert.Equal(10, model.ScheduleItemId);
         Assert.Equal("Mugi", model.PetName);
         Assert.Equal(new DateTime(2026, 4, 20), unchangedScheduleItem.DueDate);
-        Assert.Equal("ワクチン接種", unchangedScheduleItem.Title);
+        Assert.Equal("Vaccine", unchangedScheduleItem.Title);
+    }
+
+    [Fact]
+    public async Task SetDonePost_ReturnsBadRequest_WhenIsDoneIsInvalid()
+    {
+        await using var dbContext = CreateDbContext();
+        var controller = BuildController(dbContext, "user-a");
+
+        var result = await controller.SetDone(10, "abc", petId: "1", page: "2", returnUrl: null);
+
+        Assert.IsType<BadRequestResult>(result);
+    }
+
+    [Fact]
+    public async Task SetDonePost_ReturnsNotFound_ForNonOwnerScheduleItem()
+    {
+        await using var dbContext = CreateDbContext();
+        dbContext.Pets.Add(NewPet(1, "user-a", "Mugi"));
+        dbContext.ScheduleItems.Add(NewScheduleItem(10, 1, ScheduleItemTypeCatalog.Other, "Task"));
+        await dbContext.SaveChangesAsync();
+
+        var controller = BuildController(dbContext, "user-b");
+        var result = await controller.SetDone(10, "true", petId: "1", page: "2", returnUrl: "/ScheduleItems?petId=1&page=2");
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task SetDonePost_RedirectsToReturnUrl_WhenLocal()
+    {
+        await using var dbContext = CreateDbContext();
+        dbContext.Pets.Add(NewPet(1, "user-a", "Mugi"));
+        dbContext.ScheduleItems.Add(new ScheduleItem
+        {
+            Id = 10,
+            PetId = 1,
+            DueDate = new DateTime(2026, 4, 20),
+            Type = ScheduleItemTypeCatalog.Other,
+            Title = "Task",
+            IsDone = false,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        });
+        await dbContext.SaveChangesAsync();
+
+        var controller = BuildController(dbContext, "user-a");
+        var result = await controller.SetDone(10, "true", petId: "999", page: "3", returnUrl: "/ScheduleItems/Details/10");
+
+        var redirect = Assert.IsType<RedirectResult>(result);
+        var savedScheduleItem = await dbContext.ScheduleItems.SingleAsync();
+
+        Assert.Equal("/ScheduleItems/Details/10", redirect.Url);
+        Assert.True(savedScheduleItem.IsDone);
+    }
+
+    [Fact]
+    public async Task SetDonePost_RedirectsToFallbackList_WhenReturnUrlIsInvalid()
+    {
+        await using var dbContext = CreateDbContext();
+        dbContext.Pets.Add(NewPet(1, "user-a", "Mugi"));
+        dbContext.ScheduleItems.Add(NewScheduleItem(10, 1, ScheduleItemTypeCatalog.Other, "Task"));
+        await dbContext.SaveChangesAsync();
+
+        var controller = BuildController(dbContext, "user-a");
+        var result = await controller.SetDone(10, "false", petId: "999", page: "abc", returnUrl: "https://evil.example/");
+
+        var redirect = Assert.IsType<RedirectResult>(result);
+        Assert.Equal("/ScheduleItems?petId=1&page=1", redirect.Url);
+    }
+
+    [Fact]
+    public async Task DeletePost_ReturnsBadRequest_WhenScheduleItemIdIsInvalid()
+    {
+        await using var dbContext = CreateDbContext();
+        var controller = BuildController(dbContext, "user-a");
+
+        var result = await controller.Delete(0, petId: "1", page: "2", returnUrl: null);
+
+        Assert.IsType<BadRequestResult>(result);
+    }
+
+    [Fact]
+    public async Task DeletePost_ReturnsNotFound_ForNonOwnerScheduleItem()
+    {
+        await using var dbContext = CreateDbContext();
+        dbContext.Pets.Add(NewPet(1, "user-a", "Mugi"));
+        dbContext.ScheduleItems.Add(NewScheduleItem(10, 1, ScheduleItemTypeCatalog.Other, "Task"));
+        await dbContext.SaveChangesAsync();
+
+        var controller = BuildController(dbContext, "user-b");
+        var result = await controller.Delete(10, petId: "1", page: "2", returnUrl: "/ScheduleItems?petId=1&page=2");
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task DeletePost_RedirectsToReturnUrl_WhenLocal()
+    {
+        await using var dbContext = CreateDbContext();
+        dbContext.Pets.Add(NewPet(1, "user-a", "Mugi"));
+        dbContext.ScheduleItems.Add(NewScheduleItem(10, 1, ScheduleItemTypeCatalog.Other, "Task"));
+        await dbContext.SaveChangesAsync();
+
+        var controller = BuildController(dbContext, "user-a");
+        var result = await controller.Delete(10, petId: "999", page: "3", returnUrl: "/ScheduleItems?petId=1&page=3");
+
+        var redirect = Assert.IsType<RedirectResult>(result);
+
+        Assert.Equal("/ScheduleItems?petId=1&page=3", redirect.Url);
+        Assert.Empty(await dbContext.ScheduleItems.ToListAsync());
+    }
+
+    [Fact]
+    public async Task DeletePost_RedirectsToFallbackList_WhenReturnUrlIsInvalid()
+    {
+        await using var dbContext = CreateDbContext();
+        dbContext.Pets.Add(NewPet(1, "user-a", "Mugi"));
+        dbContext.ScheduleItems.Add(NewScheduleItem(10, 1, ScheduleItemTypeCatalog.Other, "Task"));
+        await dbContext.SaveChangesAsync();
+
+        var controller = BuildController(dbContext, "user-a");
+        var result = await controller.Delete(10, petId: "999", page: "0", returnUrl: "https://evil.example/");
+
+        var redirect = Assert.IsType<RedirectResult>(result);
+
+        Assert.Equal("/ScheduleItems?petId=1&page=1", redirect.Url);
+        Assert.Empty(await dbContext.ScheduleItems.ToListAsync());
     }
 
     private static ScheduleItemsController BuildController(ApplicationDbContext dbContext, string userId)
@@ -396,6 +504,20 @@ public class ScheduleItemsControllerTests
             IsPublic = false,
             CreatedAt = now,
             UpdatedAt = now
+        };
+    }
+
+    private static ScheduleItem NewScheduleItem(int id, int petId, string type, string title)
+    {
+        return new ScheduleItem
+        {
+            Id = id,
+            PetId = petId,
+            DueDate = new DateTime(2026, 4, 20),
+            Type = type,
+            Title = title,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
         };
     }
 
