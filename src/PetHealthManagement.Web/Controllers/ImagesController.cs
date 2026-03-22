@@ -73,6 +73,17 @@ public class ImagesController(
             return !string.IsNullOrEmpty(ownerId) && string.Equals(ownerId, userId, StringComparison.Ordinal);
         }
 
+        if (string.Equals(imageAsset.Category, "Visit", StringComparison.Ordinal))
+        {
+            var ownerId = await dbContext.VisitImages
+                .AsNoTracking()
+                .Where(x => x.ImageId == imageAsset.ImageId)
+                .Select(x => x.Visit.Pet.OwnerId)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            return !string.IsNullOrEmpty(ownerId) && string.Equals(ownerId, userId, StringComparison.Ordinal);
+        }
+
         if (!string.Equals(imageAsset.Category, "PetPhoto", StringComparison.Ordinal))
         {
             return false;

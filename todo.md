@@ -102,7 +102,7 @@
 
 ### 2.1 Entity/DbContext
 - [ ] `ApplicationDbContext`（Identity + アプリテーブル）整備
-- [ ] エンティティ実装（Pet/HealthLog/ScheduleItem/Visit/ImageAsset/中間テーブル）
+- [x] エンティティ実装（Pet/HealthLog/ScheduleItem/Visit/ImageAsset/中間テーブル）
 - [ ] RowVersion（同時更新）など必要な列の付与
 - [ ] インデックス・制約（ユニーク、FK、並び順など）
 
@@ -141,7 +141,7 @@
 
 ### 3.4 画像配信 `GET /images/{imageId}`
 - [x] `ImagesController.Get(imageId)` 実装
-- [ ] 参照元（Avatar/PetPhoto/HealthLog/Visit）を辿って認可
+- [x] 参照元（Avatar/PetPhoto/HealthLog/Visit）を辿って認可
 - [x] 非許可/存在不明/参照辿れず/Status=Pending 等は 404（存在秘匿）
 - [x] レスポンスヘッダ（Cache-Control/private、nosniff等）
 
@@ -244,8 +244,8 @@
 ## フェーズ8：通院履歴（CRUD + 画像複数）
 
 ### 8.1 一覧/詳細
-- [ ] `GET /Visits?petId=&page=`：VisitDate降順
-- [ ] `GET /Visits/Details/{visitId}`：表示専用（画像サムネ→拡大）
+- [x] `GET /Visits?petId=&page=`：VisitDate降順
+- [x] `GET /Visits/Details/{visitId}`：表示専用（画像サムネ→拡大）
 - [ ] 非オーナーは 404（存在秘匿）
 
 ### 8.2 作成/編集/削除
