@@ -217,6 +217,22 @@ public class PetsControllerTests
     }
 
     [Fact]
+    public async Task Delete_Post_RedirectsToMyPage_WhenReturnUrlIsInvalid()
+    {
+        await using var dbContext = CreateDbContext();
+        dbContext.Users.Add(new ApplicationUser { Id = "user-a", UserName = "userA" });
+        dbContext.Pets.Add(NewPet(32, "user-a", "Delete Target", true));
+        await dbContext.SaveChangesAsync();
+
+        var controller = BuildController(dbContext, "user-a");
+        var result = await controller.Delete(32, "https://evil.example/");
+
+        var redirectResult = Assert.IsType<RedirectResult>(result);
+        Assert.Equal("/MyPage", redirectResult.Url);
+        Assert.Equal(0, await dbContext.Pets.CountAsync());
+    }
+
+    [Fact]
     public async Task Delete_Post_ReturnsNotFound_ForNonOwner()
     {
         await using var dbContext = CreateDbContext();
@@ -233,9 +249,15 @@ public class PetsControllerTests
         Assert.Equal(1, await dbContext.Pets.CountAsync());
     }
 
-    private static PetsController BuildController(ApplicationDbContext dbContext, string userId)
+    private static PetsController BuildController(
+        ApplicationDbContext dbContext,
+        string userId,
+        IPetDeletionService? petDeletionService = null)
     {
-        var controller = new PetsController(dbContext, new FakePetPhotoService());
+        var controller = new PetsController(
+            dbContext,
+            new FakePetPhotoService(),
+            petDeletionService ?? new FakePetDeletionService(dbContext));
         var claimsPrincipal = new ClaimsPrincipal(
             new ClaimsIdentity(
                 [new Claim(ClaimTypes.NameIdentifier, userId)],
@@ -287,6 +309,16 @@ public class PetsControllerTests
             CancellationToken cancellationToken = default)
         {
             return Task.FromResult(PetPhotoUpdateResult.Success());
+        }
+    }
+
+    private sealed class FakePetDeletionService(ApplicationDbContext dbContext) : IPetDeletionService
+    {
+        public async Task DeleteAsync(Pet pet, string ownerId, CancellationToken cancellationToken = default)
+        {
+            _ = ownerId;
+            dbContext.Pets.Remove(pet);
+            await dbContext.SaveChangesAsync(cancellationToken);
         }
     }
 }
