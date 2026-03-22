@@ -4,14 +4,20 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PetHealthManagement.Web.Data;
 using PetHealthManagement.Web.Helpers;
+using PetHealthManagement.Web.Models;
+using PetHealthManagement.Web.Services;
 using PetHealthManagement.Web.ViewModels.Visits;
 
 namespace PetHealthManagement.Web.Controllers;
 
 [Authorize]
 [Route("Visits")]
-public class VisitsController(ApplicationDbContext dbContext) : Controller
+public class VisitsController(
+    ApplicationDbContext dbContext,
+    IVisitImageService visitImageService) : Controller
 {
+    private static readonly TimeSpan JstOffset = TimeSpan.FromHours(9);
+
     [HttpGet("")]
     public async Task<IActionResult> Index(int? petId, string? page)
     {
@@ -140,6 +146,234 @@ public class VisitsController(ApplicationDbContext dbContext) : Controller
         return View(viewModel);
     }
 
+    [HttpGet("Create")]
+    public async Task<IActionResult> Create(int? petId, string? returnUrl)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Challenge();
+        }
+
+        if (!petId.HasValue || petId.Value <= 0 || !ModelState.IsValid)
+        {
+            return BadRequest();
+        }
+
+        var pet = await LoadOwnedPetAsync(petId.Value, userId, asNoTracking: true);
+        if (pet is null)
+        {
+            return NotFound();
+        }
+
+        return View(BuildCreateViewModel(pet, returnUrl));
+    }
+
+    [HttpPost("Create")]
+    public async Task<IActionResult> Create(VisitEditViewModel viewModel)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Challenge();
+        }
+
+        var pet = await LoadOwnedPetAsync(viewModel.PetId, userId, asNoTracking: true);
+        if (pet is null)
+        {
+            return NotFound();
+        }
+
+        if (!ModelState.IsValid)
+        {
+            return View(BuildCreateViewModel(pet, viewModel.ReturnUrl, viewModel));
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        var visit = new Visit
+        {
+            PetId = pet.Id,
+            VisitDate = NormalizeVisitDate(viewModel.VisitDate!.Value),
+            ClinicName = NormalizeOptionalText(viewModel.ClinicName),
+            Diagnosis = NormalizeOptionalText(viewModel.Diagnosis),
+            Prescription = NormalizeOptionalText(viewModel.Prescription),
+            Note = NormalizeOptionalText(viewModel.Note),
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+
+        dbContext.Visits.Add(visit);
+        await dbContext.SaveChangesAsync(HttpContext.RequestAborted);
+
+        var imageUpdateResult = await visitImageService.ApplyImageChangesAsync(
+            visit,
+            userId,
+            viewModel.NewFiles,
+            deleteImageIds: [],
+            HttpContext.RequestAborted);
+
+        if (!imageUpdateResult.Succeeded)
+        {
+            dbContext.Visits.Remove(visit);
+            await dbContext.SaveChangesAsync(HttpContext.RequestAborted);
+
+            ModelState.AddModelError(nameof(VisitEditViewModel.NewFiles), imageUpdateResult.ErrorMessage!);
+            return View(BuildCreateViewModel(pet, viewModel.ReturnUrl, viewModel));
+        }
+
+        var redirectUrl = ReturnUrlHelper.ResolveLocalReturnUrl(viewModel.ReturnUrl, $"/Visits?petId={pet.Id}");
+        return Redirect(redirectUrl);
+    }
+
+    [HttpGet("Edit/{visitId:int}")]
+    public async Task<IActionResult> Edit(int visitId, string? returnUrl)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Challenge();
+        }
+
+        var visit = await LoadOwnedVisitAsync(visitId, userId, asNoTracking: true);
+        if (visit is null)
+        {
+            return NotFound();
+        }
+
+        return View(await BuildEditViewModelAsync(visit, returnUrl));
+    }
+
+    [HttpPost("Edit/{visitId:int}")]
+    public async Task<IActionResult> Edit(int visitId, VisitEditViewModel viewModel)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Challenge();
+        }
+
+        var visit = await LoadOwnedVisitAsync(visitId, userId, asNoTracking: false);
+        if (visit is null)
+        {
+            return NotFound();
+        }
+
+        if (!ModelState.IsValid)
+        {
+            return View(await BuildEditViewModelAsync(visit, viewModel.ReturnUrl, viewModel));
+        }
+
+        var imageUpdateResult = await visitImageService.ApplyImageChangesAsync(
+            visit,
+            userId,
+            viewModel.NewFiles,
+            viewModel.DeleteImageIds,
+            HttpContext.RequestAborted);
+
+        if (!imageUpdateResult.Succeeded)
+        {
+            ModelState.AddModelError(nameof(VisitEditViewModel.NewFiles), imageUpdateResult.ErrorMessage!);
+            return View(await BuildEditViewModelAsync(visit, viewModel.ReturnUrl, viewModel));
+        }
+
+        visit.VisitDate = NormalizeVisitDate(viewModel.VisitDate!.Value);
+        visit.ClinicName = NormalizeOptionalText(viewModel.ClinicName);
+        visit.Diagnosis = NormalizeOptionalText(viewModel.Diagnosis);
+        visit.Prescription = NormalizeOptionalText(viewModel.Prescription);
+        visit.Note = NormalizeOptionalText(viewModel.Note);
+        visit.UpdatedAt = DateTimeOffset.UtcNow;
+
+        await dbContext.SaveChangesAsync(HttpContext.RequestAborted);
+
+        var redirectUrl = ReturnUrlHelper.ResolveLocalReturnUrl(viewModel.ReturnUrl, $"/Visits/Details/{visitId}");
+        return Redirect(redirectUrl);
+    }
+
+    private async Task<Pet?> LoadOwnedPetAsync(int petId, string userId, bool asNoTracking)
+    {
+        var query = dbContext.Pets.AsQueryable();
+        if (asNoTracking)
+        {
+            query = query.AsNoTracking();
+        }
+
+        return await query.FirstOrDefaultAsync(x => x.Id == petId && x.OwnerId == userId);
+    }
+
+    private async Task<Visit?> LoadOwnedVisitAsync(int visitId, string userId, bool asNoTracking)
+    {
+        var query = dbContext.Visits
+            .Include(x => x.Pet)
+            .AsQueryable();
+
+        if (asNoTracking)
+        {
+            query = query.AsNoTracking();
+        }
+
+        return await query.FirstOrDefaultAsync(x => x.Id == visitId && x.Pet.OwnerId == userId);
+    }
+
+    private VisitEditViewModel BuildCreateViewModel(Pet pet, string? returnUrl, VisitEditViewModel? source = null)
+    {
+        var safeReturnUrl = ReturnUrlHelper.IsLocalUrl(returnUrl) ? returnUrl : null;
+
+        return new VisitEditViewModel
+        {
+            PetId = pet.Id,
+            PetName = pet.Name,
+            VisitDate = source?.VisitDate ?? DateTimeOffset.UtcNow.ToOffset(JstOffset).Date,
+            ClinicName = source?.ClinicName,
+            Diagnosis = source?.Diagnosis,
+            Prescription = source?.Prescription,
+            Note = source?.Note,
+            ExistingImages = [],
+            DeleteImageIds = source?.DeleteImageIds ?? [],
+            ReturnUrl = safeReturnUrl,
+            CancelUrl = ReturnUrlHelper.ResolveLocalReturnUrl(safeReturnUrl, $"/Visits?petId={pet.Id}")
+        };
+    }
+
+    private async Task<VisitEditViewModel> BuildEditViewModelAsync(
+        Visit visit,
+        string? returnUrl,
+        VisitEditViewModel? source = null)
+    {
+        var safeReturnUrl = ReturnUrlHelper.IsLocalUrl(returnUrl) ? returnUrl : null;
+
+        return new VisitEditViewModel
+        {
+            VisitId = visit.Id,
+            PetId = visit.PetId,
+            PetName = visit.Pet.Name,
+            VisitDate = source?.VisitDate ?? visit.VisitDate,
+            ClinicName = source?.ClinicName ?? visit.ClinicName,
+            Diagnosis = source?.Diagnosis ?? visit.Diagnosis,
+            Prescription = source?.Prescription ?? visit.Prescription,
+            Note = source?.Note ?? visit.Note,
+            ExistingImages = await LoadVisitImagesAsync(visit.Id, visit.Pet.Name),
+            DeleteImageIds = source?.DeleteImageIds ?? [],
+            ReturnUrl = safeReturnUrl,
+            CancelUrl = ReturnUrlHelper.ResolveLocalReturnUrl(safeReturnUrl, $"/Visits/Details/{visit.Id}")
+        };
+    }
+
+    private async Task<List<VisitExistingImageViewModel>> LoadVisitImagesAsync(int visitId, string petName)
+    {
+        return await dbContext.VisitImages
+            .AsNoTracking()
+            .Where(x => x.VisitId == visitId)
+            .OrderBy(x => x.SortOrder)
+            .ThenBy(x => x.Id)
+            .Select(x => new VisitExistingImageViewModel
+            {
+                ImageId = x.ImageId,
+                Url = $"/images/{x.ImageId:D}",
+                AltText = $"{petName} visit image"
+            })
+            .ToListAsync();
+    }
+
     private static int NormalizePage(string? page)
     {
         if (int.TryParse(page, out var parsedPage))
@@ -159,5 +393,16 @@ public class VisitsController(ApplicationDbContext dbContext) : Controller
 
         var normalized = value.Trim();
         return normalized.Length <= 60 ? normalized : $"{normalized[..60]}...";
+    }
+
+    private static DateTime NormalizeVisitDate(DateTime value)
+    {
+        return DateTime.SpecifyKind(value.Date, DateTimeKind.Unspecified);
+    }
+
+    private static string? NormalizeOptionalText(string? value)
+    {
+        var normalized = value?.Trim();
+        return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
     }
 }

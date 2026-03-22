@@ -1,0 +1,92 @@
+@model PetHealthManagement.Web.ViewModels.Visits.VisitEditViewModel
+
+<div asp-validation-summary="ModelOnly" class="text-danger"></div>
+<input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+<input type="hidden" asp-for="PetId" />
+
+<div class="card shadow-sm">
+    <div class="card-body d-flex flex-column gap-3">
+        <div>
+            <h2 class="h5 mb-1">@Model.PetName</h2>
+            <p class="text-muted mb-0">通院日は日付のみで保存します。</p>
+        </div>
+
+        <div>
+            <label asp-for="VisitDate" class="form-label">通院日</label>
+            <input asp-for="VisitDate"
+                   type="date"
+                   class="form-control"
+                   asp-format="{0:yyyy-MM-dd}" />
+            <span asp-validation-for="VisitDate" class="text-danger"></span>
+        </div>
+
+        <div>
+            <label asp-for="ClinicName" class="form-label">病院名</label>
+            <input asp-for="ClinicName" class="form-control" />
+            <span asp-validation-for="ClinicName" class="text-danger"></span>
+        </div>
+
+        <div>
+            <label asp-for="Diagnosis" class="form-label">診断</label>
+            <textarea asp-for="Diagnosis" class="form-control" rows="4"></textarea>
+            <span asp-validation-for="Diagnosis" class="text-danger"></span>
+        </div>
+
+        <div>
+            <label asp-for="Prescription" class="form-label">処方</label>
+            <textarea asp-for="Prescription" class="form-control" rows="4"></textarea>
+            <span asp-validation-for="Prescription" class="text-danger"></span>
+        </div>
+
+        <div>
+            <label asp-for="Note" class="form-label">メモ</label>
+            <textarea asp-for="Note" class="form-control" rows="5"></textarea>
+            <span asp-validation-for="Note" class="text-danger"></span>
+        </div>
+    </div>
+</div>
+
+@if (Model.ExistingImages.Count > 0)
+{
+    <section class="card shadow-sm">
+        <div class="card-body">
+            <h2 class="h5">登録済み画像</h2>
+            <div class="d-flex flex-wrap gap-3">
+                @foreach (var image in Model.ExistingImages)
+                {
+                    <label class="border rounded p-2 d-flex flex-column gap-2" style="width: 180px;">
+                        <img src="@image.Url"
+                             alt="@image.AltText"
+                             style="width: 100%; height: 140px; object-fit: cover;" />
+                        <span class="form-check mb-0">
+                            <input class="form-check-input"
+                                   type="checkbox"
+                                   name="DeleteImageIds"
+                                   value="@image.ImageId"
+                                   @(Model.DeleteImageIds.Contains(image.ImageId) ? "checked" : null) />
+                            <span class="form-check-label">削除する</span>
+                        </span>
+                    </label>
+                }
+            </div>
+        </div>
+    </section>
+}
+
+<section class="card shadow-sm">
+    <div class="card-body">
+        <h2 class="h5">画像追加</h2>
+        <input asp-for="NewFiles"
+               type="file"
+               class="form-control"
+               multiple
+               accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" />
+        <div class="form-text">jpg / jpeg / png / webp、各2MBまで、1件あたり最大10枚まで追加できます。</div>
+        <span asp-validation-for="NewFiles" class="text-danger"></span>
+    </div>
+</section>
+
+<div class="d-flex gap-2">
+    <button type="submit" class="btn btn-primary">保存</button>
+    <a href="@Model.CancelUrl" class="btn btn-outline-secondary">キャンセル</a>
+</div>
