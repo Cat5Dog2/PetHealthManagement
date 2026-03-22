@@ -32,4 +32,6 @@ public class Pet
     public ICollection<HealthLog> HealthLogs { get; set; } = [];
 
     public ICollection<ScheduleItem> ScheduleItems { get; set; } = [];
+
+    public ICollection<Visit> Visits { get; set; } = [];
 }

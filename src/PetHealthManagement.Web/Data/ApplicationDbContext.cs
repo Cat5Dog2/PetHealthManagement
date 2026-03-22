@@ -8,8 +8,10 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 {
     public DbSet<Pet> Pets => Set<Pet>();
     public DbSet<HealthLog> HealthLogs => Set<HealthLog>();
+    public DbSet<Visit> Visits => Set<Visit>();
     public DbSet<ScheduleItem> ScheduleItems => Set<ScheduleItem>();
     public DbSet<HealthLogImage> HealthLogImages => Set<HealthLogImage>();
+    public DbSet<VisitImage> VisitImages => Set<VisitImage>();
     public DbSet<ImageAsset> ImageAssets => Set<ImageAsset>();
 
     protected override void OnModelCreating(ModelBuilder builder)
@@ -86,6 +88,34 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
+        builder.Entity<Visit>(entity =>
+        {
+            entity.ToTable("Visits");
+
+            entity.Property(x => x.VisitDate)
+                .HasColumnType("date")
+                .IsRequired();
+
+            entity.Property(x => x.ClinicName)
+                .HasMaxLength(100);
+
+            entity.Property(x => x.Diagnosis)
+                .HasMaxLength(500);
+
+            entity.Property(x => x.Prescription)
+                .HasMaxLength(500);
+
+            entity.Property(x => x.Note)
+                .HasMaxLength(1000);
+
+            entity.HasIndex(x => new { x.PetId, x.VisitDate, x.Id });
+
+            entity.HasOne(x => x.Pet)
+                .WithMany(x => x.Visits)
+                .HasForeignKey(x => x.PetId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
         builder.Entity<ScheduleItem>(entity =>
         {
             entity.ToTable("ScheduleItems");
@@ -125,6 +155,26 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.HasOne(x => x.HealthLog)
                 .WithMany(x => x.Images)
                 .HasForeignKey(x => x.HealthLogId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(x => x.Image)
+                .WithMany()
+                .HasForeignKey(x => x.ImageId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<VisitImage>(entity =>
+        {
+            entity.ToTable("VisitImages");
+
+            entity.HasIndex(x => new { x.VisitId, x.SortOrder });
+
+            entity.HasIndex(x => x.ImageId)
+                .IsUnique();
+
+            entity.HasOne(x => x.Visit)
+                .WithMany(x => x.Images)
+                .HasForeignKey(x => x.VisitId)
                 .OnDelete(DeleteBehavior.Cascade);
 
             entity.HasOne(x => x.Image)
