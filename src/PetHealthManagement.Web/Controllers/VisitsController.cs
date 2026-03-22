@@ -14,7 +14,8 @@ namespace PetHealthManagement.Web.Controllers;
 [Route("Visits")]
 public class VisitsController(
     ApplicationDbContext dbContext,
-    IVisitImageService visitImageService) : Controller
+    IVisitImageService visitImageService,
+    IVisitDeletionService visitDeletionService) : Controller
 {
     private static readonly TimeSpan JstOffset = TimeSpan.FromHours(9);
 
@@ -289,6 +290,37 @@ public class VisitsController(
         return Redirect(redirectUrl);
     }
 
+    [HttpPost("Delete/{visitId:int}")]
+    public async Task<IActionResult> Delete(int visitId, string? petId, string? page, string? returnUrl)
+    {
+        _ = petId;
+
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Challenge();
+        }
+
+        if (visitId <= 0)
+        {
+            return BadRequest();
+        }
+
+        var visit = await LoadOwnedVisitAsync(visitId, userId, asNoTracking: false);
+        if (visit is null)
+        {
+            return NotFound();
+        }
+
+        var redirectUrl = ReturnUrlHelper.ResolveLocalReturnUrl(
+            returnUrl,
+            BuildVisitListUrl(visit.PetId, page));
+
+        await visitDeletionService.DeleteAsync(visit, userId, HttpContext.RequestAborted);
+
+        return Redirect(redirectUrl);
+    }
+
     private async Task<Pet?> LoadOwnedPetAsync(int petId, string userId, bool asNoTracking)
     {
         var query = dbContext.Pets.AsQueryable();
@@ -404,5 +436,21 @@ public class VisitsController(
     {
         var normalized = value?.Trim();
         return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
+    }
+
+    private static string BuildVisitListUrl(int petId, string? page)
+    {
+        var baseUrl = $"/Visits?petId={petId}";
+        if (string.IsNullOrWhiteSpace(page))
+        {
+            return baseUrl;
+        }
+
+        if (int.TryParse(page, out var parsedPage) && parsedPage > 0)
+        {
+            return $"{baseUrl}&page={PagingHelper.NormalizePage(parsedPage)}";
+        }
+
+        return $"{baseUrl}&page={PagingHelper.DefaultPage}";
     }
 }
