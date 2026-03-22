@@ -1,0 +1,15 @@
+@model PetHealthManagement.Web.ViewModels.Visits.VisitEditViewModel
+@{
+    ViewData["Title"] = "Visit Create";
+}
+
+<h1>通院履歴作成</h1>
+
+<form asp-action="Create" method="post" enctype="multipart/form-data" class="d-flex flex-column gap-3">
+    <partial name="_VisitForm" model="Model" />
+</form>
+
+@section Scripts
+{
+    <partial name="_ValidationScriptsPartial" />
+}
