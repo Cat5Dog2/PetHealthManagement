@@ -57,7 +57,23 @@
                             <td>@scheduleItem.TypeLabel</td>
                             <td>@scheduleItem.Title</td>
                             <td>@(string.IsNullOrWhiteSpace(scheduleItem.NoteExcerpt) ? "-" : scheduleItem.NoteExcerpt)</td>
-                            <td>@(scheduleItem.IsDone ? "完了" : "未完了")</td>
+                            <td>
+                                <form asp-action="SetDone"
+                                      asp-route-scheduleItemId="@scheduleItem.ScheduleItemId"
+                                      method="post"
+                                      class="d-inline">
+                                    <input class="form-check-input"
+                                           type="checkbox"
+                                           name="isDone"
+                                           value="true"
+                                           @(scheduleItem.IsDone ? "checked" : null)
+                                           onchange="this.form.submit()" />
+                                    <input type="hidden" name="isDone" value="false" />
+                                    <input type="hidden" name="petId" value="@Model.PetId" />
+                                    <input type="hidden" name="page" value="@Model.Page" />
+                                    <input type="hidden" name="returnUrl" value="@currentUrl" />
+                                </form>
+                            </td>
                             <td>
                                 <div class="d-flex gap-2">
                                     <a asp-action="Details"
@@ -72,6 +88,16 @@
                                        class="btn btn-sm btn-outline-secondary">
                                         編集
                                     </a>
+                                    <form asp-action="Delete"
+                                          asp-route-scheduleItemId="@scheduleItem.ScheduleItemId"
+                                          method="post"
+                                          class="d-inline"
+                                          onsubmit="return confirm('この予定を削除しますか？');">
+                                        <input type="hidden" name="petId" value="@Model.PetId" />
+                                        <input type="hidden" name="page" value="@Model.Page" />
+                                        <input type="hidden" name="returnUrl" value="@currentUrl" />
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">削除</button>
+                                    </form>
                                 </div>
                             </td>
                         </tr>
