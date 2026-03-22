@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using PetHealthManagement.Web.Controllers;
 using PetHealthManagement.Web.Data;
 using PetHealthManagement.Web.Models;
+using PetHealthManagement.Web.Services;
 using PetHealthManagement.Web.ViewModels.Visits;
 
 namespace PetHealthManagement.Web.Tests.Controllers;
@@ -144,9 +145,237 @@ public class VisitsControllerTests
         Assert.Equal($"/images/{secondImageId:D}", model.Images[0].Url);
     }
 
-    private static VisitsController BuildController(ApplicationDbContext dbContext, string userId)
+    [Fact]
+    public async Task CreateGet_ReturnsBadRequest_WhenPetIdIsMissing()
     {
-        var controller = new VisitsController(dbContext);
+        await using var dbContext = CreateDbContext();
+        var controller = BuildController(dbContext, "user-a");
+
+        var result = await controller.Create(petId: null, returnUrl: null);
+
+        Assert.IsType<BadRequestResult>(result);
+    }
+
+    [Fact]
+    public async Task CreateGet_ReturnsNotFound_ForNonOwnerPet()
+    {
+        await using var dbContext = CreateDbContext();
+        dbContext.Pets.Add(NewPet(1, "user-a", "Mugi"));
+        await dbContext.SaveChangesAsync();
+
+        var controller = BuildController(dbContext, "user-b");
+        var result = await controller.Create(1, "/Visits?petId=1");
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task CreatePost_RedirectsToReturnUrl_WhenSuccessful()
+    {
+        await using var dbContext = CreateDbContext();
+        dbContext.Pets.Add(NewPet(1, "user-a", "Mugi"));
+        await dbContext.SaveChangesAsync();
+
+        var imageService = new FakeVisitImageService();
+        var controller = BuildController(dbContext, "user-a", imageService);
+
+        var result = await controller.Create(new VisitEditViewModel
+        {
+            PetId = 1,
+            VisitDate = new DateTime(2026, 3, 22),
+            ClinicName = " Smile Animal Clinic ",
+            Diagnosis = " Seasonal allergy ",
+            Prescription = " Antihistamine ",
+            Note = " Follow up in two weeks. ",
+            ReturnUrl = "/Visits?petId=1&page=2"
+        });
+
+        var redirect = Assert.IsType<RedirectResult>(result);
+        var savedVisit = await dbContext.Visits.SingleAsync();
+
+        Assert.Equal("/Visits?petId=1&page=2", redirect.Url);
+        Assert.Equal(1, imageService.CallCount);
+        Assert.Equal(1, imageService.LastPetId);
+        Assert.Equal(new DateTime(2026, 3, 22), savedVisit.VisitDate);
+        Assert.Equal("Smile Animal Clinic", savedVisit.ClinicName);
+        Assert.Equal("Seasonal allergy", savedVisit.Diagnosis);
+    }
+
+    [Fact]
+    public async Task CreatePost_RollsBackAndReturnsView_WhenImageUpdateFails()
+    {
+        await using var dbContext = CreateDbContext();
+        dbContext.Pets.Add(NewPet(1, "user-a", "Mugi"));
+        await dbContext.SaveChangesAsync();
+
+        var imageService = new FakeVisitImageService
+        {
+            NextResult = VisitImageUpdateResult.Fail("Image error")
+        };
+
+        var controller = BuildController(dbContext, "user-a", imageService);
+
+        var result = await controller.Create(new VisitEditViewModel
+        {
+            PetId = 1,
+            VisitDate = new DateTime(2026, 3, 22),
+            ReturnUrl = "/Visits?petId=1"
+        });
+
+        var viewResult = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<VisitEditViewModel>(viewResult.Model);
+
+        Assert.False(controller.ModelState.IsValid);
+        Assert.Equal(0, await dbContext.Visits.CountAsync());
+        Assert.Equal("Mugi", model.PetName);
+    }
+
+    [Fact]
+    public async Task EditGet_ReturnsView_ForOwner_WithExistingImages()
+    {
+        await using var dbContext = CreateDbContext();
+        dbContext.Pets.Add(NewPet(1, "user-a", "Mugi"));
+        dbContext.Visits.Add(new Visit
+        {
+            Id = 10,
+            PetId = 1,
+            VisitDate = new DateTime(2026, 3, 21),
+            ClinicName = "Clinic",
+            Note = "memo",
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        });
+
+        var imageId = Guid.Parse("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee");
+        dbContext.ImageAssets.Add(NewImageAsset(imageId, "user-a", "images/existing-visit.jpg"));
+        dbContext.VisitImages.Add(new VisitImage
+        {
+            Id = 1,
+            VisitId = 10,
+            ImageId = imageId,
+            SortOrder = 1
+        });
+
+        await dbContext.SaveChangesAsync();
+
+        var controller = BuildController(dbContext, "user-a");
+        var result = await controller.Edit(10, "/Visits?petId=1");
+
+        var viewResult = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<VisitEditViewModel>(viewResult.Model);
+
+        Assert.Equal(10, model.VisitId);
+        Assert.Equal("Mugi", model.PetName);
+        Assert.Equal("/Visits?petId=1", model.ReturnUrl);
+        Assert.Single(model.ExistingImages);
+        Assert.Equal(imageId, model.ExistingImages[0].ImageId);
+    }
+
+    [Fact]
+    public async Task EditPost_ReturnsNotFound_ForNonOwnerVisit()
+    {
+        await using var dbContext = CreateDbContext();
+        dbContext.Pets.Add(NewPet(1, "user-a", "Mugi"));
+        dbContext.Visits.Add(new Visit
+        {
+            Id = 10,
+            PetId = 1,
+            VisitDate = new DateTime(2026, 3, 21),
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        });
+        await dbContext.SaveChangesAsync();
+
+        var controller = BuildController(dbContext, "user-b");
+        var result = await controller.Edit(10, new VisitEditViewModel
+        {
+            PetId = 1,
+            VisitDate = new DateTime(2026, 3, 22)
+        });
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task EditPost_RedirectsToDefaultDetails_WhenReturnUrlIsInvalid()
+    {
+        await using var dbContext = CreateDbContext();
+        dbContext.Pets.Add(NewPet(1, "user-a", "Mugi"));
+        dbContext.Visits.Add(new Visit
+        {
+            Id = 10,
+            PetId = 1,
+            VisitDate = new DateTime(2026, 3, 21),
+            ClinicName = "Clinic",
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        });
+        await dbContext.SaveChangesAsync();
+
+        var imageService = new FakeVisitImageService();
+        var controller = BuildController(dbContext, "user-a", imageService);
+
+        var result = await controller.Edit(10, new VisitEditViewModel
+        {
+            PetId = 1,
+            VisitDate = new DateTime(2026, 3, 23),
+            ClinicName = "Updated Clinic",
+            ReturnUrl = "https://evil.example/"
+        });
+
+        var redirect = Assert.IsType<RedirectResult>(result);
+        var savedVisit = await dbContext.Visits.SingleAsync();
+
+        Assert.Equal("/Visits/Details/10", redirect.Url);
+        Assert.Equal(1, imageService.CallCount);
+        Assert.Equal(new DateTime(2026, 3, 23), savedVisit.VisitDate);
+        Assert.Equal("Updated Clinic", savedVisit.ClinicName);
+    }
+
+    [Fact]
+    public async Task EditPost_ReturnsView_WhenImageUpdateFails()
+    {
+        await using var dbContext = CreateDbContext();
+        dbContext.Pets.Add(NewPet(1, "user-a", "Mugi"));
+        dbContext.Visits.Add(new Visit
+        {
+            Id = 10,
+            PetId = 1,
+            VisitDate = new DateTime(2026, 3, 21),
+            ClinicName = "Clinic",
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        });
+        await dbContext.SaveChangesAsync();
+
+        var imageService = new FakeVisitImageService
+        {
+            NextResult = VisitImageUpdateResult.Fail("Image error")
+        };
+
+        var controller = BuildController(dbContext, "user-a", imageService);
+
+        var result = await controller.Edit(10, new VisitEditViewModel
+        {
+            PetId = 1,
+            VisitDate = new DateTime(2026, 3, 23)
+        });
+
+        var viewResult = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<VisitEditViewModel>(viewResult.Model);
+        var unchangedVisit = await dbContext.Visits.SingleAsync();
+
+        Assert.False(controller.ModelState.IsValid);
+        Assert.Equal(10, model.VisitId);
+        Assert.Equal(new DateTime(2026, 3, 21), unchangedVisit.VisitDate);
+    }
+
+    private static VisitsController BuildController(
+        ApplicationDbContext dbContext,
+        string userId,
+        IVisitImageService? imageService = null)
+    {
+        var controller = new VisitsController(dbContext, imageService ?? new FakeVisitImageService());
         var httpContext = new DefaultHttpContext
         {
             User = new ClaimsPrincipal(
@@ -201,6 +430,31 @@ public class VisitsControllerTests
             Status = ImageAssetStatus.Ready,
             CreatedAt = DateTimeOffset.UtcNow
         };
+    }
+
+    private sealed class FakeVisitImageService : IVisitImageService
+    {
+        public int CallCount { get; private set; }
+
+        public int? LastPetId { get; private set; }
+
+        public VisitImageUpdateResult NextResult { get; init; } = VisitImageUpdateResult.Success();
+
+        public Task<VisitImageUpdateResult> ApplyImageChangesAsync(
+            Visit visit,
+            string ownerId,
+            IReadOnlyCollection<IFormFile>? newFiles,
+            IReadOnlyCollection<Guid>? deleteImageIds,
+            CancellationToken cancellationToken = default)
+        {
+            _ = ownerId;
+            _ = newFiles;
+            _ = deleteImageIds;
+
+            CallCount += 1;
+            LastPetId = visit.PetId;
+            return Task.FromResult(NextResult);
+        }
     }
 
     private sealed class TestTempDataProvider : ITempDataProvider

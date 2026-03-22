@@ -18,6 +18,7 @@ builder.Services.Configure<StorageOptions>(builder.Configuration.GetSection("Sto
 builder.Services.AddScoped<IImageStorageService, FileSystemImageStorageService>();
 builder.Services.AddScoped<IPetPhotoService, PetPhotoService>();
 builder.Services.AddScoped<IHealthLogImageService, HealthLogImageService>();
+builder.Services.AddScoped<IVisitImageService, VisitImageService>();
 builder.Services.AddScoped<IHealthLogDeletionService, HealthLogDeletionService>();
 builder.Services.AddScoped<IUserAvatarService, UserAvatarService>();
 builder.Services.AddScoped<IUserDataDeletionService, UserDataDeletionService>();

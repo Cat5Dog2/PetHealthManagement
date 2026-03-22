@@ -11,6 +11,12 @@
             <p class="text-muted mb-0">新しい通院日から順に表示しています。</p>
         </div>
         <div class="d-flex gap-2">
+            <a class="btn btn-primary"
+               asp-action="Create"
+               asp-route-petId="@Model.PetId"
+               asp-route-returnUrl="@currentUrl">
+                ＋通院履歴追加
+            </a>
             <a class="btn btn-outline-secondary"
                asp-controller="Pets"
                asp-action="Details"
@@ -55,12 +61,20 @@
                             <td>@(string.IsNullOrWhiteSpace(visit.NoteExcerpt) ? "-" : visit.NoteExcerpt)</td>
                             <td>@(visit.HasImages ? "あり" : "-")</td>
                             <td>
-                                <a asp-action="Details"
-                                   asp-route-visitId="@visit.VisitId"
-                                   asp-route-returnUrl="@currentUrl"
-                                   class="btn btn-sm btn-outline-primary">
-                                    詳細
-                                </a>
+                                <div class="d-flex gap-2">
+                                    <a asp-action="Details"
+                                       asp-route-visitId="@visit.VisitId"
+                                       asp-route-returnUrl="@currentUrl"
+                                       class="btn btn-sm btn-outline-primary">
+                                        詳細
+                                    </a>
+                                    <a asp-action="Edit"
+                                       asp-route-visitId="@visit.VisitId"
+                                       asp-route-returnUrl="@currentUrl"
+                                       class="btn btn-sm btn-outline-secondary">
+                                        編集
+                                    </a>
+                                </div>
                             </td>
                         </tr>
                     }

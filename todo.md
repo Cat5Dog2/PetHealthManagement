@@ -137,7 +137,7 @@
 
 ### 3.3 容量制限
 - [x] ユーザー合計100MB管理（UsedImageBytes 更新）
-- [ ] HealthLog/Visit 添付は最大10枚（既存+追加合算）
+- [x] HealthLog/Visit 添付は最大10枚（既存+追加合算）
 
 ### 3.4 画像配信 `GET /images/{imageId}`
 - [x] `ImagesController.Get(imageId)` 実装
@@ -223,7 +223,7 @@
 ### 7.1 一覧/詳細
 - [x] `GET /ScheduleItems?petId=&page=`：DueDate昇順
 - [x] `GET /ScheduleItems/Details/{scheduleItemId}`：表示専用
-- [ ] 非オーナーは 404（存在秘匿）
+- [x] 非オーナーは 404（存在秘匿）
 
 ### 7.2 作成/編集/削除
 - [x] `GET/POST /ScheduleItems/Create?petId=`
@@ -249,10 +249,10 @@
 - [ ] 非オーナーは 404（存在秘匿）
 
 ### 8.2 作成/編集/削除
-- [ ] `GET/POST /Visits/Create?petId=`
-- [ ] `GET/POST /Visits/Edit/{visitId}`
+- [x] `GET/POST /Visits/Create?petId=`
+- [x] `GET/POST /Visits/Edit/{visitId}`
 - [ ] `POST /Visits/Delete/{visitId}`
-- [ ] 画像追加/削除（最大10枚、ユーザー合計100MB）
+- [x] 画像追加/削除（最大10枚、ユーザー合計100MB）
 
 ### 8.3 完了条件/成果物
 - [ ] CRUD + 画像複数 + 制限が確認できる
