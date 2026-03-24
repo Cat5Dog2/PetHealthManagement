@@ -167,7 +167,7 @@
 - [x] 画像ファイル削除失敗時：DB削除は継続し、失敗識別子をログ出力
 
 ### 4.4 完了条件/成果物
-- [ ] 未ログイン→保護URL→Login→returnUrl復帰が確認できる
+- [x] 未ログイン→保護URL→Login→returnUrl復帰が確認できる
 - [x] アカウント削除で「関連データが消える/画像削除失敗でも処理継続」が確認できる
 
 ---
@@ -268,10 +268,10 @@
 ### 9.2 ユーザー削除
 - [x] `POST /Admin/Users/Delete/{userId}`（Adminのみ）
 - [x] ユーザー関連データの一括削除（画像含む）
-- [ ] Adminでも閲覧権限は増やさない（削除のみ）
+- [x] Adminでも閲覧権限は増やさない（削除のみ）
 
 ### 9.3 完了条件/成果物
-- [ ] 非Adminは403、Adminは削除のみ可能であることが確認できる
+- [x] 非Adminは403、Adminは削除のみ可能であることが確認できる
 
 ---
 
@@ -282,7 +282,7 @@
 - [x] Query→hidden→POST の統一ルール化（画面項目定義に沿う）
 
 ### 10.2 ステータスコード・存在秘匿
-- [ ] 所有者不一致は原則 404（秘匿対象：Pet/HealthLog/ScheduleItem/Visit/Image）
+- [x] 所有者不一致は原則 404（秘匿対象：Pet/HealthLog/ScheduleItem/Visit/Image）
 - [x] Adminルート非許可は 403
 - [x] 400/403/404/500 を `/Error/{statusCode}` に統一表示
 
@@ -314,11 +314,11 @@
 - [ ] ストレージ（画像）テスト戦略（テスト用StorageRoot、クリーンアップ）
 
 ### 11.2 重要シナリオ
-- [ ] 認証：未ログイン→保護URL→Login→returnUrl復帰
-- [ ] 存在秘匿：他人の非公開Pet/健康情報/画像が404
+- [x] 認証：未ログイン→保護URL→Login→returnUrl復帰
+- [x] 存在秘匿：他人の非公開Pet/健康情報/画像が404
 - [ ] 画像：拡張子偽装、2MB超、解像度超、合計100MB超、最大10枚超
 - [x] PRG：POST成功→302→一覧/詳細、returnUrl優先
-- [ ] Admin：非Admin 403、Admin削除の一括削除
+- [x] Admin：非Admin 403、Admin削除の一括削除
 
 ### 11.3 既存のテスト設計書
 - [x] 画面単位テストケース表（`test-cases-by-screen.md`）
