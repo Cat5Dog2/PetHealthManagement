@@ -81,7 +81,7 @@
 ### 1.3 ミドルウェア・共通UI
 - [x] ルーティング/エリア（Admin）設定
 - [x] `UseStatusCodePagesWithReExecute("/Error/{0}")` 等でエラーページ統一
-- [ ] 共通レイアウト（ヘッダ：未ログイン/ログイン/Admin表示切替）
+- [x] 共通レイアウト（ヘッダ：未ログイン/ログイン/Admin表示切替）
 - [x] CSRF（Anti-forgery）をフォームPOSTへ適用
 
 ### 1.4 横断共通部品
@@ -263,11 +263,11 @@
 
 ### 9.1 ユーザー一覧
 - [x] `GET /Admin/Users`（Adminのみ、非Adminは403）
-- [ ] 一覧表示（検索/ページング必要なら追加）
+- [x] 一覧表示（検索/ページング必要なら追加）
 
 ### 9.2 ユーザー削除
-- [ ] `POST /Admin/Users/Delete/{userId}`（Adminのみ）
-- [ ] ユーザー関連データの一括削除（画像含む）
+- [x] `POST /Admin/Users/Delete/{userId}`（Adminのみ）
+- [x] ユーザー関連データの一括削除（画像含む）
 - [ ] Adminでも閲覧権限は増やさない（削除のみ）
 
 ### 9.3 完了条件/成果物

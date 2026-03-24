@@ -1,6 +1,85 @@
+@model PetHealthManagement.Web.ViewModels.Admin.Users.AdminUserIndexViewModel
 @{
     ViewData["Title"] = "Admin Users";
 }
 
-<h1>Admin Users</h1>
-<p>管理者向けユーザー管理画面（実装準備中）。</p>
+<div class="d-flex flex-column gap-3">
+    <div>
+        <h1 class="mb-1">Admin Users</h1>
+        <p class="text-muted mb-0">Deleting a user permanently removes related pets, logs, visits, schedules, and images.</p>
+    </div>
+
+    <p class="mb-0">Total @Model.TotalCount users / Page @Model.Page / @Model.PageSize per page</p>
+
+    @if (Model.Users.Count == 0)
+    {
+        <div class="alert alert-secondary mb-0">
+            No users were found for this page.
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-striped align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>User ID</th>
+                        <th>Display Name</th>
+                        <th>Email</th>
+                        <th>Pets</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var user in Model.Users)
+                    {
+                        <tr>
+                            <td><code>@user.UserId</code></td>
+                            <td>@user.DisplayName</td>
+                            <td>@(string.IsNullOrWhiteSpace(user.Email) ? "-" : user.Email)</td>
+                            <td>@user.PetCount</td>
+                            <td>
+                                <form asp-area="Admin"
+                                      asp-controller="Users"
+                                      asp-action="Delete"
+                                      asp-route-userId="@user.UserId"
+                                      method="post"
+                                      class="d-inline"
+                                      onsubmit="return confirm('Delete this user and all related data?');">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    @if (Model.TotalPages > 1)
+    {
+        <nav aria-label="Admin user pagination">
+            <ul class="pagination mb-0">
+                @for (var pageNumber = 1; pageNumber <= Model.TotalPages; pageNumber++)
+                {
+                    if (pageNumber == Model.Page)
+                    {
+                        <li class="page-item active"><span class="page-link">@pageNumber</span></li>
+                    }
+                    else
+                    {
+                        <li class="page-item">
+                            <a class="page-link"
+                               asp-area="Admin"
+                               asp-controller="Users"
+                               asp-action="Index"
+                               asp-route-page="@pageNumber">
+                                @pageNumber
+                            </a>
+                        </li>
+                    }
+                }
+            </ul>
+        </nav>
+    }
+</div>
