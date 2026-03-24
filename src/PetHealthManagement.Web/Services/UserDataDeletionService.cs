@@ -32,17 +32,43 @@ public class UserDataDeletionService(
             .Select(x => x.Id)
             .ToList();
 
-        var healthLogs = await dbContext.HealthLogs
-            .Where(x => petIds.Contains(x.PetId))
-            .ToListAsync(cancellationToken);
+        var healthLogs = petIds.Count == 0
+            ? []
+            : await dbContext.HealthLogs
+                .Where(x => petIds.Contains(x.PetId))
+                .ToListAsync(cancellationToken);
 
         var healthLogIds = healthLogs
             .Select(x => x.Id)
             .ToList();
 
-        var healthLogImages = await dbContext.HealthLogImages
-            .Where(x => healthLogIds.Contains(x.HealthLogId))
-            .ToListAsync(cancellationToken);
+        var visits = petIds.Count == 0
+            ? []
+            : await dbContext.Visits
+                .Where(x => petIds.Contains(x.PetId))
+                .ToListAsync(cancellationToken);
+
+        var visitIds = visits
+            .Select(x => x.Id)
+            .ToList();
+
+        var scheduleItems = petIds.Count == 0
+            ? []
+            : await dbContext.ScheduleItems
+                .Where(x => petIds.Contains(x.PetId))
+                .ToListAsync(cancellationToken);
+
+        var healthLogImages = healthLogIds.Count == 0
+            ? []
+            : await dbContext.HealthLogImages
+                .Where(x => healthLogIds.Contains(x.HealthLogId))
+                .ToListAsync(cancellationToken);
+
+        var visitImages = visitIds.Count == 0
+            ? []
+            : await dbContext.VisitImages
+                .Where(x => visitIds.Contains(x.VisitId))
+                .ToListAsync(cancellationToken);
 
         var imageAssets = await dbContext.ImageAssets
             .Where(x => x.OwnerId == userId)
@@ -61,10 +87,41 @@ public class UserDataDeletionService(
 
         try
         {
-            dbContext.HealthLogImages.RemoveRange(healthLogImages);
-            dbContext.HealthLogs.RemoveRange(healthLogs);
-            dbContext.Pets.RemoveRange(pets);
-            dbContext.ImageAssets.RemoveRange(imageAssets);
+            if (healthLogImages.Count > 0)
+            {
+                dbContext.HealthLogImages.RemoveRange(healthLogImages);
+            }
+
+            if (visitImages.Count > 0)
+            {
+                dbContext.VisitImages.RemoveRange(visitImages);
+            }
+
+            if (imageAssets.Count > 0)
+            {
+                dbContext.ImageAssets.RemoveRange(imageAssets);
+            }
+
+            if (healthLogs.Count > 0)
+            {
+                dbContext.HealthLogs.RemoveRange(healthLogs);
+            }
+
+            if (visits.Count > 0)
+            {
+                dbContext.Visits.RemoveRange(visits);
+            }
+
+            if (scheduleItems.Count > 0)
+            {
+                dbContext.ScheduleItems.RemoveRange(scheduleItems);
+            }
+
+            if (pets.Count > 0)
+            {
+                dbContext.Pets.RemoveRange(pets);
+            }
+
             dbContext.Users.Remove(user);
 
             await dbContext.SaveChangesAsync(cancellationToken);
