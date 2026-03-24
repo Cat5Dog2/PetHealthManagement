@@ -10,7 +10,7 @@ namespace PetHealthManagement.Web.Tests.Services;
 public class UserDataDeletionServiceTests
 {
     [Fact]
-    public async Task DeleteUserAsync_RemovesOwnedUserPetsAndImages()
+    public async Task DeleteUserAsync_RemovesOwnedUserPetsAndRelatedDataAndImages()
     {
         await using var dbContext = CreateDbContext();
 
@@ -43,6 +43,7 @@ public class UserDataDeletionServiceTests
             NewImageAsset(Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"), "user-a", "Avatar", "images/avatar-a.jpg"),
             NewImageAsset(Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"), "user-a", "PetPhoto", "images/pet-a.jpg"),
             NewImageAsset(Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd"), "user-a", "HealthLog", "images/log-a.jpg"),
+            NewImageAsset(Guid.Parse("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"), "user-a", "Visit", "images/visit-a.jpg"),
             NewImageAsset(Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc"), "user-b", "Avatar", "images/avatar-b.jpg"));
 
         dbContext.HealthLogs.Add(new HealthLog
@@ -54,11 +55,50 @@ public class UserDataDeletionServiceTests
             UpdatedAt = DateTimeOffset.UtcNow
         });
 
+        dbContext.Visits.Add(new Visit
+        {
+            Id = 20,
+            PetId = 1,
+            VisitDate = new DateTime(2026, 3, 24),
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        });
+
+        dbContext.ScheduleItems.AddRange(
+            new ScheduleItem
+            {
+                Id = 30,
+                PetId = 1,
+                DueDate = new DateTime(2026, 3, 28),
+                Type = ScheduleItemTypeCatalog.Vaccine,
+                Title = "Rabies",
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow
+            },
+            new ScheduleItem
+            {
+                Id = 31,
+                PetId = 2,
+                DueDate = new DateTime(2026, 4, 1),
+                Type = ScheduleItemTypeCatalog.Other,
+                Title = "Reminder",
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow
+            });
+
         dbContext.HealthLogImages.Add(new HealthLogImage
         {
             Id = 1,
             HealthLogId = 10,
             ImageId = Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd"),
+            SortOrder = 1
+        });
+
+        dbContext.VisitImages.Add(new VisitImage
+        {
+            Id = 1,
+            VisitId = 20,
+            ImageId = Guid.Parse("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"),
             SortOrder = 1
         });
 
@@ -75,9 +115,12 @@ public class UserDataDeletionServiceTests
         Assert.Equal(1, await dbContext.Pets.CountAsync());
         Assert.Equal(0, await dbContext.HealthLogs.CountAsync());
         Assert.Equal(0, await dbContext.HealthLogImages.CountAsync());
+        Assert.Equal(0, await dbContext.Visits.CountAsync());
+        Assert.Equal(0, await dbContext.VisitImages.CountAsync());
+        Assert.Equal(1, await dbContext.ScheduleItems.CountAsync());
         Assert.Equal(1, await dbContext.ImageAssets.CountAsync());
         Assert.Equal(
-            ["images/avatar-a.jpg", "images/log-a.jpg", "images/pet-a.jpg"],
+            ["images/avatar-a.jpg", "images/log-a.jpg", "images/pet-a.jpg", "images/visit-a.jpg"],
             storage.DeletedStorageKeys.OrderBy(x => x).ToArray());
     }
 
