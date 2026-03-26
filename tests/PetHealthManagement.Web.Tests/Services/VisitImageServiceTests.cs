@@ -114,6 +114,7 @@ public class VisitImageServiceTests
             []);
 
         Assert.False(result.Succeeded);
+        Assert.Equal(ImageUploadErrorMessages.TooManyAttachments, result.ErrorMessage);
         Assert.Equal(10, await dbContext.VisitImages.CountAsync(x => x.VisitId == 10));
         Assert.Empty(storage.MovedStorageKeys);
     }

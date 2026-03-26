@@ -43,17 +43,17 @@ public class UserAvatarService(
         var extension = Path.GetExtension(newAvatarFile.FileName);
         if (!AllowedExtensions.Contains(extension))
         {
-            return UserAvatarUpdateResult.Fail("画像ファイルは jpg / jpeg / png / webp のみアップロードできます。");
+            return UserAvatarUpdateResult.Fail(ImageUploadErrorMessages.UnsupportedFormat);
         }
 
         if (!AllowedContentTypes.Contains(newAvatarFile.ContentType))
         {
-            return UserAvatarUpdateResult.Fail("画像ファイルの Content-Type が不正です。");
+            return UserAvatarUpdateResult.Fail(ImageUploadErrorMessages.UnsupportedFormat);
         }
 
         if (newAvatarFile.Length <= 0 || newAvatarFile.Length > MaxFileSizeBytes)
         {
-            return UserAvatarUpdateResult.Fail("画像ファイルは 2MB 以下にしてください。");
+            return UserAvatarUpdateResult.Fail(ImageUploadErrorMessages.FileTooLarge);
         }
 
         var originalTempPath = imageStorageService.CreateTemporaryPath(extension);
@@ -81,7 +81,7 @@ public class UserAvatarService(
             var projectedTotal = userUsedBytes - currentImageBytes + processed.SizeBytes;
             if (projectedTotal > MaxUserTotalBytes)
             {
-                return UserAvatarUpdateResult.Fail("ユーザーの画像合計サイズ（100MB）を超えています。");
+                return UserAvatarUpdateResult.Fail(ImageUploadErrorMessages.TotalStorageExceeded);
             }
 
             var newImageId = Guid.NewGuid();
@@ -117,7 +117,7 @@ public class UserAvatarService(
                 user.UsedImageBytes = userUsedBytes;
                 await dbContext.SaveChangesAsync(cancellationToken);
 
-                return UserAvatarUpdateResult.Fail("画像の保存に失敗しました。時間をおいて再試行してください。");
+                return UserAvatarUpdateResult.Fail(ImageUploadErrorMessages.SaveFailed);
             }
 
             newAsset.Status = ImageAssetStatus.Ready;
@@ -145,7 +145,7 @@ public class UserAvatarService(
         }
         catch (SixLabors.ImageSharp.UnknownImageFormatException)
         {
-            return UserAvatarUpdateResult.Fail("画像データを読み取れません。");
+            return UserAvatarUpdateResult.Fail(ImageUploadErrorMessages.UnsupportedFormat);
         }
         finally
         {
@@ -164,13 +164,13 @@ public class UserAvatarService(
         var detectedFormat = await Image.DetectFormatAsync(originalStream, cancellationToken);
         if (detectedFormat is null)
         {
-            return ImageProcessingResult.Fail("画像データを判定できませんでした。");
+            return ImageProcessingResult.Fail(ImageUploadErrorMessages.UnsupportedFormat);
         }
 
         var mappedFormat = MapFormat(detectedFormat);
         if (mappedFormat is null)
         {
-            return ImageProcessingResult.Fail("画像形式は jpeg / png / webp のみ対応しています。");
+            return ImageProcessingResult.Fail(ImageUploadErrorMessages.UnsupportedFormat);
         }
 
         var format = mappedFormat.Value;
@@ -182,13 +182,13 @@ public class UserAvatarService(
 
         if (image.Width > MaxEdgePixels || image.Height > MaxEdgePixels)
         {
-            return ImageProcessingResult.Fail("画像の最大辺は 4096px 以下にしてください。");
+            return ImageProcessingResult.Fail(ImageUploadErrorMessages.DimensionsExceeded);
         }
 
         var totalPixels = (long)image.Width * image.Height;
         if (totalPixels > MaxTotalPixels)
         {
-            return ImageProcessingResult.Fail("画像の総画素数が上限（16,777,216px）を超えています。");
+            return ImageProcessingResult.Fail(ImageUploadErrorMessages.DimensionsExceeded);
         }
 
         await using var processedStream = new FileStream(processedTempPath, FileMode.Create, FileAccess.Write, FileShare.None);
@@ -197,12 +197,12 @@ public class UserAvatarService(
         var processedSize = new FileInfo(processedTempPath).Length;
         if (processedSize <= 0)
         {
-            return ImageProcessingResult.Fail("画像処理に失敗しました。");
+            return ImageProcessingResult.Fail(ImageUploadErrorMessages.SaveFailed);
         }
 
         if (processedSize > MaxFileSizeBytes)
         {
-            return ImageProcessingResult.Fail("画像ファイルは 2MB 以下にしてください。");
+            return ImageProcessingResult.Fail(ImageUploadErrorMessages.FileTooLarge);
         }
 
         return ImageProcessingResult.Success(format.Extension, format.ContentType, processedSize);
