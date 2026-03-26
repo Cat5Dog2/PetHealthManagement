@@ -49,7 +49,8 @@ public class VisitImageService(
         var owner = await dbContext.Users.FirstOrDefaultAsync(x => x.Id == ownerId, cancellationToken);
         if (owner is null)
         {
-            return VisitImageUpdateResult.Fail("User was not found.");
+            logger.LogError("Visit image upload owner was not found. ownerId={OwnerId}, visitId={VisitId}", ownerId, visit.Id);
+            return VisitImageUpdateResult.Fail(ImageUploadErrorMessages.SaveFailed);
         }
 
         var existingImages = await dbContext.VisitImages
@@ -66,7 +67,7 @@ public class VisitImageService(
         var remainingImageCount = existingImages.Count - imagesToDelete.Count;
         if (remainingImageCount + normalizedNewFiles.Count > MaxImagesPerVisit)
         {
-            return VisitImageUpdateResult.Fail("You can attach up to 10 images per visit.");
+            return VisitImageUpdateResult.Fail(ImageUploadErrorMessages.TooManyAttachments);
         }
 
         var processedUploads = new List<ProcessedUpload>();
@@ -98,7 +99,7 @@ public class VisitImageService(
             var projectedTotal = currentUserUsedBytes - deletedBytes + addedBytes;
             if (projectedTotal > MaxUserTotalBytes)
             {
-                return VisitImageUpdateResult.Fail("The total image storage would exceed 100MB.");
+                return VisitImageUpdateResult.Fail(ImageUploadErrorMessages.TotalStorageExceeded);
             }
 
             foreach (var processedUpload in processedUploads)
@@ -114,7 +115,7 @@ public class VisitImageService(
                 {
                     logger.LogError(ex, "Failed to move visit image to storage. storageKey={StorageKey}", storageKey);
                     await CleanupMovedFilesAsync(movedUploads, cancellationToken);
-                    return VisitImageUpdateResult.Fail("Failed to save the image. Please try again.");
+                    return VisitImageUpdateResult.Fail(ImageUploadErrorMessages.SaveFailed);
                 }
 
                 movedUploads.Add(new MovedUpload(
@@ -175,7 +176,7 @@ public class VisitImageService(
                 logger.LogError(ex, "Failed to save visit image changes. visitId={VisitId}", visit.Id);
                 dbContext.ChangeTracker.Clear();
                 await CleanupMovedFilesAsync(movedUploads, cancellationToken);
-                return VisitImageUpdateResult.Fail("Failed to save the image. Please try again.");
+                return VisitImageUpdateResult.Fail(ImageUploadErrorMessages.SaveFailed);
             }
 
             foreach (var deletedAsset in deletedAssets)
@@ -194,7 +195,7 @@ public class VisitImageService(
         }
         catch (SixLabors.ImageSharp.UnknownImageFormatException)
         {
-            return VisitImageUpdateResult.Fail("The uploaded file is not a supported image.");
+            return VisitImageUpdateResult.Fail(ImageUploadErrorMessages.UnsupportedFormat);
         }
         finally
         {
@@ -211,17 +212,17 @@ public class VisitImageService(
         var extension = Path.GetExtension(newFile.FileName);
         if (!AllowedExtensions.Contains(extension))
         {
-            return ProcessedUpload.Fail("Supported image extensions are jpg, jpeg, png, and webp.");
+            return ProcessedUpload.Fail(ImageUploadErrorMessages.UnsupportedFormat);
         }
 
         if (!AllowedContentTypes.Contains(newFile.ContentType))
         {
-            return ProcessedUpload.Fail("The uploaded image Content-Type is invalid.");
+            return ProcessedUpload.Fail(ImageUploadErrorMessages.UnsupportedFormat);
         }
 
         if (newFile.Length <= 0 || newFile.Length > MaxFileSizeBytes)
         {
-            return ProcessedUpload.Fail("Each image must be 2MB or smaller.");
+            return ProcessedUpload.Fail(ImageUploadErrorMessages.FileTooLarge);
         }
 
         var originalTempPath = imageStorageService.CreateTemporaryPath(extension);
@@ -261,13 +262,13 @@ public class VisitImageService(
         var detectedFormat = await Image.DetectFormatAsync(originalStream, cancellationToken);
         if (detectedFormat is null)
         {
-            return ImageProcessingResult.Fail("The uploaded file could not be parsed as an image.");
+            return ImageProcessingResult.Fail(ImageUploadErrorMessages.UnsupportedFormat);
         }
 
         var mappedFormat = MapFormat(detectedFormat);
         if (mappedFormat is null)
         {
-            return ImageProcessingResult.Fail("Only jpeg, png, and webp images are supported.");
+            return ImageProcessingResult.Fail(ImageUploadErrorMessages.UnsupportedFormat);
         }
 
         var format = mappedFormat.Value;
@@ -279,13 +280,13 @@ public class VisitImageService(
 
         if (image.Width > MaxEdgePixels || image.Height > MaxEdgePixels)
         {
-            return ImageProcessingResult.Fail("The image must be 4096px or smaller on each side.");
+            return ImageProcessingResult.Fail(ImageUploadErrorMessages.DimensionsExceeded);
         }
 
         var totalPixels = (long)image.Width * image.Height;
         if (totalPixels > MaxTotalPixels)
         {
-            return ImageProcessingResult.Fail("The image exceeds the total pixel limit.");
+            return ImageProcessingResult.Fail(ImageUploadErrorMessages.DimensionsExceeded);
         }
 
         await using var processedStream = new FileStream(processedTempPath, FileMode.Create, FileAccess.Write, FileShare.None);
@@ -294,12 +295,12 @@ public class VisitImageService(
         var processedSize = new FileInfo(processedTempPath).Length;
         if (processedSize <= 0)
         {
-            return ImageProcessingResult.Fail("Failed to save the processed image.");
+            return ImageProcessingResult.Fail(ImageUploadErrorMessages.SaveFailed);
         }
 
         if (processedSize > MaxFileSizeBytes)
         {
-            return ImageProcessingResult.Fail("Each image must be 2MB or smaller.");
+            return ImageProcessingResult.Fail(ImageUploadErrorMessages.FileTooLarge);
         }
 
         return ImageProcessingResult.Success(format.Extension, format.ContentType, processedSize);

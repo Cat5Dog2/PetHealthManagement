@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using PetHealthManagement.Web.Data;
 using PetHealthManagement.Web.Infrastructure;
 using PetHealthManagement.Web.Models;
+using PetHealthManagement.Web.Services;
 using PetHealthManagement.Web.Tests.Infrastructure;
 using PetHealthManagement.Web.ViewModels.Visits;
 using SixLabors.ImageSharp;
@@ -33,6 +34,10 @@ public class ImageUploadIntegrationTests
         using var response = await client.PostAsync("/Visits/Create", content);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var html = await response.Content.ReadAsStringAsync();
+        var decodedHtml = WebUtility.HtmlDecode(html);
+        Assert.Contains(ImageUploadErrorMessages.UnsupportedFormat, decodedHtml, StringComparison.Ordinal);
 
         var state = await factory.ExecuteDbContextAsync(async dbContext => new
         {
@@ -67,7 +72,8 @@ public class ImageUploadIntegrationTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var html = await response.Content.ReadAsStringAsync();
-        Assert.Contains("2MB or smaller", html, StringComparison.Ordinal);
+        var decodedHtml = WebUtility.HtmlDecode(html);
+        Assert.Contains(ImageUploadErrorMessages.FileTooLarge, decodedHtml, StringComparison.Ordinal);
 
         var state = await factory.ExecuteDbContextAsync(async dbContext => new
         {
@@ -102,7 +108,8 @@ public class ImageUploadIntegrationTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var html = await response.Content.ReadAsStringAsync();
-        Assert.Contains("4096px or smaller", html, StringComparison.Ordinal);
+        var decodedHtml = WebUtility.HtmlDecode(html);
+        Assert.Contains(ImageUploadErrorMessages.DimensionsExceeded, decodedHtml, StringComparison.Ordinal);
 
         var state = await factory.ExecuteDbContextAsync(async dbContext => new
         {
@@ -139,7 +146,8 @@ public class ImageUploadIntegrationTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var html = await response.Content.ReadAsStringAsync();
-        Assert.Contains("up to 10 images per visit", html, StringComparison.Ordinal);
+        var decodedHtml = WebUtility.HtmlDecode(html);
+        Assert.Contains(ImageUploadErrorMessages.TooManyAttachments, decodedHtml, StringComparison.Ordinal);
 
         var state = await factory.ExecuteDbContextAsync(async dbContext => new
         {
@@ -186,7 +194,8 @@ public class ImageUploadIntegrationTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var html = await response.Content.ReadAsStringAsync();
-        Assert.Contains("would exceed 100MB", html, StringComparison.Ordinal);
+        var decodedHtml = WebUtility.HtmlDecode(html);
+        Assert.Contains(ImageUploadErrorMessages.TotalStorageExceeded, decodedHtml, StringComparison.Ordinal);
 
         var state = await factory.ExecuteDbContextAsync(async dbContext => new
         {
