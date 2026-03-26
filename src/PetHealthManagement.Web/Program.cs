@@ -1,6 +1,9 @@
+using System.Globalization;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using PetHealthManagement.Web.Data;
 using PetHealthManagement.Web.Infrastructure;
@@ -47,6 +50,30 @@ builder.Services.ConfigureApplicationCookie(options =>
 builder.Services.AddControllersWithViews(options =>
 {
     options.Filters.Add(new AutoValidateAntiforgeryTokenAttribute());
+});
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.OnRejected = (context, cancellationToken) =>
+    {
+        var logger = context.HttpContext.RequestServices
+            .GetRequiredService<ILoggerFactory>()
+            .CreateLogger("UploadRateLimiting");
+
+        if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
+        {
+            context.HttpContext.Response.Headers.RetryAfter =
+                Math.Ceiling(retryAfter.TotalSeconds).ToString(CultureInfo.InvariantCulture);
+        }
+
+        logger.LogWarning(
+            "Rejected upload request due to rate limiting. path={Path}, partitionKey={PartitionKey}",
+            context.HttpContext.Request.Path,
+            UploadRateLimiting.ResolvePartitionKey(context.HttpContext));
+
+        return ValueTask.CompletedTask;
+    };
+    options.AddPolicy(UploadRateLimiting.ImageUploadPolicyName, UploadRateLimiting.BuildImageUploadPolicy());
 });
 
 var app = builder.Build();
@@ -104,6 +131,7 @@ app.UseHttpsRedirection();
 app.UseRouting();
 
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
 
 app.MapStaticAssets();

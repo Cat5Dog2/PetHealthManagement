@@ -1,9 +1,11 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using PetHealthManagement.Web.Data;
 using PetHealthManagement.Web.Helpers;
+using PetHealthManagement.Web.Infrastructure;
 using PetHealthManagement.Web.Models;
 using PetHealthManagement.Web.Services;
 using PetHealthManagement.Web.ViewModels.Visits;
@@ -171,6 +173,7 @@ public class VisitsController(
     }
 
     [HttpPost("Create")]
+    [EnableRateLimiting(UploadRateLimiting.ImageUploadPolicyName)]
     public async Task<IActionResult> Create(VisitEditViewModel viewModel)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -245,6 +248,7 @@ public class VisitsController(
     }
 
     [HttpPost("Edit/{visitId:int}")]
+    [EnableRateLimiting(UploadRateLimiting.ImageUploadPolicyName)]
     public async Task<IActionResult> Edit(int visitId, VisitEditViewModel viewModel)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
