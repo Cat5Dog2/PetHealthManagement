@@ -1,7 +1,9 @@
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PetHealthManagement.Web.Data;
+using PetHealthManagement.Web.Infrastructure;
 using PetHealthManagement.Web.Models;
 using PetHealthManagement.Web.Services;
 
@@ -9,9 +11,17 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize = UploadRequestLimits.MaxMultipartRequestBodySizeBytes;
+});
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(connectionString));
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = UploadRequestLimits.MaxMultipartRequestBodySizeBytes;
+});
 
 builder.Services.AddDefaultIdentity<ApplicationUser>(options => options.SignIn.RequireConfirmedAccount = true)
     .AddRoles<IdentityRole>()
@@ -40,6 +50,7 @@ builder.Services.AddControllersWithViews(options =>
 });
 
 var app = builder.Build();
+var uploadRequestLimitLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("UploadRequestLimits");
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -54,6 +65,41 @@ else
 }
 
 app.UseStatusCodePagesWithReExecute("/Error/{0}");
+app.Use(async (context, next) =>
+{
+    try
+    {
+        await next();
+    }
+    catch (InvalidDataException ex) when (IsMultipartRequestParsingFailure(context, ex))
+    {
+        if (context.Response.HasStarted)
+        {
+            throw;
+        }
+
+        uploadRequestLimitLogger.LogWarning(
+            ex,
+            "Rejected multipart request that exceeded the configured upload limit. path={Path}",
+            context.Request.Path);
+
+        await WriteBadRequestPageAsync(context);
+    }
+    catch (BadHttpRequestException ex) when (ex.StatusCode == StatusCodes.Status413PayloadTooLarge)
+    {
+        if (context.Response.HasStarted)
+        {
+            throw;
+        }
+
+        uploadRequestLimitLogger.LogWarning(
+            ex,
+            "Rejected request that exceeded the configured upload limit. path={Path}",
+            context.Request.Path);
+
+        await WriteBadRequestPageAsync(context);
+    }
+});
 app.UseHttpsRedirection();
 app.UseRouting();
 
@@ -75,5 +121,33 @@ app.MapRazorPages()
    .WithStaticAssets();
 
 app.Run();
+
+static bool IsMultipartRequestParsingFailure(HttpContext context, InvalidDataException exception)
+{
+    return context.Request.HasFormContentType
+           && exception.Message.Contains("multipart", StringComparison.OrdinalIgnoreCase);
+}
+
+static Task WriteBadRequestPageAsync(HttpContext context)
+{
+    context.Response.Clear();
+    context.Response.StatusCode = StatusCodes.Status400BadRequest;
+    context.Response.ContentType = "text/html; charset=utf-8";
+
+    return context.Response.WriteAsync(
+        """
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="utf-8" />
+            <title>400 Bad Request</title>
+        </head>
+        <body>
+            <h1 class="text-danger">400 Bad Request</h1>
+            <p>Please review your request and try again.</p>
+        </body>
+        </html>
+        """);
+}
 
 public partial class Program;

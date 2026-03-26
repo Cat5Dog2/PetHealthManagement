@@ -9,7 +9,7 @@ public class ErrorController : Controller
 {
     private static readonly HashSet<int> SupportedStatusCodes = [400, 403, 404, 500];
 
-    [HttpGet("{statusCode:int}")]
+    [Route("{statusCode:int}")]
     [SkipStatusCodePages]
     [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
     public IActionResult Index(int statusCode)
