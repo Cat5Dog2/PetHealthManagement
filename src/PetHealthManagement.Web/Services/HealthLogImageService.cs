@@ -49,7 +49,8 @@ public class HealthLogImageService(
         var owner = await dbContext.Users.FirstOrDefaultAsync(x => x.Id == ownerId, cancellationToken);
         if (owner is null)
         {
-            return HealthLogImageUpdateResult.Fail("ユーザー情報が見つかりません。");
+            logger.LogError("Health log image upload owner was not found. ownerId={OwnerId}, healthLogId={HealthLogId}", ownerId, healthLog.Id);
+            return HealthLogImageUpdateResult.Fail(ImageUploadErrorMessages.SaveFailed);
         }
 
         var existingImages = await dbContext.HealthLogImages
@@ -66,7 +67,7 @@ public class HealthLogImageService(
         var remainingImageCount = existingImages.Count - imagesToDelete.Count;
         if (remainingImageCount + normalizedNewFiles.Count > MaxImagesPerLog)
         {
-            return HealthLogImageUpdateResult.Fail("健康ログの画像は1件あたり10枚までです。");
+            return HealthLogImageUpdateResult.Fail(ImageUploadErrorMessages.TooManyAttachments);
         }
 
         var processedUploads = new List<ProcessedUpload>();
@@ -98,7 +99,7 @@ public class HealthLogImageService(
             var projectedTotal = currentUserUsedBytes - deletedBytes + addedBytes;
             if (projectedTotal > MaxUserTotalBytes)
             {
-                return HealthLogImageUpdateResult.Fail("ユーザーの画像保存サイズ上限 100MB を超えています。");
+                return HealthLogImageUpdateResult.Fail(ImageUploadErrorMessages.TotalStorageExceeded);
             }
 
             foreach (var processedUpload in processedUploads)
@@ -114,7 +115,7 @@ public class HealthLogImageService(
                 {
                     logger.LogError(ex, "Failed to move health log image to storage. storageKey={StorageKey}", storageKey);
                     await CleanupMovedFilesAsync(movedUploads, cancellationToken);
-                    return HealthLogImageUpdateResult.Fail("画像の保存に失敗しました。時間をおいて再試行してください。");
+                    return HealthLogImageUpdateResult.Fail(ImageUploadErrorMessages.SaveFailed);
                 }
 
                 movedUploads.Add(new MovedUpload(
@@ -175,7 +176,7 @@ public class HealthLogImageService(
                 logger.LogError(ex, "Failed to save health log image changes. healthLogId={HealthLogId}", healthLog.Id);
                 dbContext.ChangeTracker.Clear();
                 await CleanupMovedFilesAsync(movedUploads, cancellationToken);
-                return HealthLogImageUpdateResult.Fail("画像の保存に失敗しました。時間をおいて再試行してください。");
+                return HealthLogImageUpdateResult.Fail(ImageUploadErrorMessages.SaveFailed);
             }
 
             foreach (var deletedAsset in deletedAssets)
@@ -194,7 +195,7 @@ public class HealthLogImageService(
         }
         catch (SixLabors.ImageSharp.UnknownImageFormatException)
         {
-            return HealthLogImageUpdateResult.Fail("画像データを読み取れませんでした。");
+            return HealthLogImageUpdateResult.Fail(ImageUploadErrorMessages.UnsupportedFormat);
         }
         finally
         {
@@ -211,17 +212,17 @@ public class HealthLogImageService(
         var extension = Path.GetExtension(newFile.FileName);
         if (!AllowedExtensions.Contains(extension))
         {
-            return ProcessedUpload.Fail("画像ファイルは jpg / jpeg / png / webp のみアップロードできます。");
+            return ProcessedUpload.Fail(ImageUploadErrorMessages.UnsupportedFormat);
         }
 
         if (!AllowedContentTypes.Contains(newFile.ContentType))
         {
-            return ProcessedUpload.Fail("画像ファイルの Content-Type が不正です。");
+            return ProcessedUpload.Fail(ImageUploadErrorMessages.UnsupportedFormat);
         }
 
         if (newFile.Length <= 0 || newFile.Length > MaxFileSizeBytes)
         {
-            return ProcessedUpload.Fail("画像ファイルは 2MB 以下にしてください。");
+            return ProcessedUpload.Fail(ImageUploadErrorMessages.FileTooLarge);
         }
 
         var originalTempPath = imageStorageService.CreateTemporaryPath(extension);
@@ -261,13 +262,13 @@ public class HealthLogImageService(
         var detectedFormat = await Image.DetectFormatAsync(originalStream, cancellationToken);
         if (detectedFormat is null)
         {
-            return ImageProcessingResult.Fail("画像データを判定できませんでした。");
+            return ImageProcessingResult.Fail(ImageUploadErrorMessages.UnsupportedFormat);
         }
 
         var mappedFormat = MapFormat(detectedFormat);
         if (mappedFormat is null)
         {
-            return ImageProcessingResult.Fail("画像形式は jpeg / png / webp のみ対応しています。");
+            return ImageProcessingResult.Fail(ImageUploadErrorMessages.UnsupportedFormat);
         }
 
         var format = mappedFormat.Value;
@@ -279,13 +280,13 @@ public class HealthLogImageService(
 
         if (image.Width > MaxEdgePixels || image.Height > MaxEdgePixels)
         {
-            return ImageProcessingResult.Fail("画像の最大辺は 4096px 以下にしてください。");
+            return ImageProcessingResult.Fail(ImageUploadErrorMessages.DimensionsExceeded);
         }
 
         var totalPixels = (long)image.Width * image.Height;
         if (totalPixels > MaxTotalPixels)
         {
-            return ImageProcessingResult.Fail("画像の総画素数が上限 16,777,216px を超えています。");
+            return ImageProcessingResult.Fail(ImageUploadErrorMessages.DimensionsExceeded);
         }
 
         await using var processedStream = new FileStream(processedTempPath, FileMode.Create, FileAccess.Write, FileShare.None);
@@ -294,12 +295,12 @@ public class HealthLogImageService(
         var processedSize = new FileInfo(processedTempPath).Length;
         if (processedSize <= 0)
         {
-            return ImageProcessingResult.Fail("画像変換後の保存に失敗しました。");
+            return ImageProcessingResult.Fail(ImageUploadErrorMessages.SaveFailed);
         }
 
         if (processedSize > MaxFileSizeBytes)
         {
-            return ImageProcessingResult.Fail("画像ファイルは 2MB 以下にしてください。");
+            return ImageProcessingResult.Fail(ImageUploadErrorMessages.FileTooLarge);
         }
 
         return ImageProcessingResult.Success(format.Extension, format.ContentType, processedSize);

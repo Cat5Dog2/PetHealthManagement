@@ -61,17 +61,17 @@ public class PetPhotoService(
         var extension = Path.GetExtension(newPhotoFile.FileName);
         if (!AllowedExtensions.Contains(extension))
         {
-            return PetPhotoUpdateResult.Fail("画像ファイルは jpg / jpeg / png / webp のみアップロードできます。");
+            return PetPhotoUpdateResult.Fail(ImageUploadErrorMessages.UnsupportedFormat);
         }
 
         if (!AllowedContentTypes.Contains(newPhotoFile.ContentType))
         {
-            return PetPhotoUpdateResult.Fail("画像ファイルの Content-Type が不正です。");
+            return PetPhotoUpdateResult.Fail(ImageUploadErrorMessages.UnsupportedFormat);
         }
 
         if (newPhotoFile.Length <= 0 || newPhotoFile.Length > MaxFileSizeBytes)
         {
-            return PetPhotoUpdateResult.Fail("画像ファイルは 2MB 以下にしてください。");
+            return PetPhotoUpdateResult.Fail(ImageUploadErrorMessages.FileTooLarge);
         }
 
         var originalTempPath = imageStorageService.CreateTemporaryPath(extension);
@@ -99,13 +99,14 @@ public class PetPhotoService(
             var projectedTotal = userUsedBytes - currentImageBytes + processed.SizeBytes;
             if (projectedTotal > MaxUserTotalBytes)
             {
-                return PetPhotoUpdateResult.Fail("ユーザーの画像合計サイズ（100MB）を超えています。");
+                return PetPhotoUpdateResult.Fail(ImageUploadErrorMessages.TotalStorageExceeded);
             }
 
             var owner = await dbContext.Users.FirstOrDefaultAsync(x => x.Id == ownerId, cancellationToken);
             if (owner is null)
             {
-                return PetPhotoUpdateResult.Fail("ユーザー情報が見つかりません。");
+                logger.LogError("Pet photo upload owner was not found. ownerId={OwnerId}, petId={PetId}", ownerId, pet.Id);
+                return PetPhotoUpdateResult.Fail(ImageUploadErrorMessages.SaveFailed);
             }
 
             var newImageId = Guid.NewGuid();
@@ -140,7 +141,7 @@ public class PetPhotoService(
                 pet.PhotoImageId = currentImageId;
                 owner.UsedImageBytes = userUsedBytes;
                 await dbContext.SaveChangesAsync(cancellationToken);
-                return PetPhotoUpdateResult.Fail("画像の保存に失敗しました。時間をおいて再試行してください。");
+                return PetPhotoUpdateResult.Fail(ImageUploadErrorMessages.SaveFailed);
             }
 
             newAsset.Status = ImageAssetStatus.Ready;
@@ -168,7 +169,7 @@ public class PetPhotoService(
         }
         catch (SixLabors.ImageSharp.UnknownImageFormatException)
         {
-            return PetPhotoUpdateResult.Fail("画像データを読み取れません。");
+            return PetPhotoUpdateResult.Fail(ImageUploadErrorMessages.UnsupportedFormat);
         }
         finally
         {
@@ -228,13 +229,13 @@ public class PetPhotoService(
         var detectedFormat = await Image.DetectFormatAsync(originalStream, cancellationToken);
         if (detectedFormat is null)
         {
-            return ImageProcessingResult.Fail("画像データを判定できませんでした。");
+            return ImageProcessingResult.Fail(ImageUploadErrorMessages.UnsupportedFormat);
         }
 
         var mappedFormat = MapFormat(detectedFormat);
         if (mappedFormat is null)
         {
-            return ImageProcessingResult.Fail("画像形式は jpeg / png / webp のみ対応しています。");
+            return ImageProcessingResult.Fail(ImageUploadErrorMessages.UnsupportedFormat);
         }
 
         var format = mappedFormat.Value;
@@ -246,13 +247,13 @@ public class PetPhotoService(
 
         if (image.Width > MaxEdgePixels || image.Height > MaxEdgePixels)
         {
-            return ImageProcessingResult.Fail("画像の最大辺は 4096px 以下にしてください。");
+            return ImageProcessingResult.Fail(ImageUploadErrorMessages.DimensionsExceeded);
         }
 
         var totalPixels = (long)image.Width * image.Height;
         if (totalPixels > MaxTotalPixels)
         {
-            return ImageProcessingResult.Fail("画像の総画素数が上限（16,777,216px）を超えています。");
+            return ImageProcessingResult.Fail(ImageUploadErrorMessages.DimensionsExceeded);
         }
 
         await using var processedStream = new FileStream(processedTempPath, FileMode.Create, FileAccess.Write, FileShare.None);
@@ -261,12 +262,12 @@ public class PetPhotoService(
         var processedSize = new FileInfo(processedTempPath).Length;
         if (processedSize <= 0)
         {
-            return ImageProcessingResult.Fail("画像処理に失敗しました。");
+            return ImageProcessingResult.Fail(ImageUploadErrorMessages.SaveFailed);
         }
 
         if (processedSize > MaxFileSizeBytes)
         {
-            return ImageProcessingResult.Fail("画像ファイルは 2MB 以下にしてください。");
+            return ImageProcessingResult.Fail(ImageUploadErrorMessages.FileTooLarge);
         }
 
         return ImageProcessingResult.Success(format.Extension, format.ContentType, processedSize);

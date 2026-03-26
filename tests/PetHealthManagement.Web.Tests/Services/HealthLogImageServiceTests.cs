@@ -114,6 +114,7 @@ public class HealthLogImageServiceTests
             []);
 
         Assert.False(result.Succeeded);
+        Assert.Equal(ImageUploadErrorMessages.TooManyAttachments, result.ErrorMessage);
         Assert.Equal(10, await dbContext.HealthLogImages.CountAsync(x => x.HealthLogId == 10));
         Assert.Empty(storage.MovedStorageKeys);
     }

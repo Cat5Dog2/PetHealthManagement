@@ -133,7 +133,7 @@
 ### 3.2a 濫用対策
 - [x] **リクエストサイズ上限**：Kestrel/`FormOptions.MultipartBodyLengthLimit` 等で上限を設定
 - [ ] **同時アップロード/連投対策**：ASP.NET Core Rate Limiting（IP/ユーザー）を導入（まずは緩めでOK）
-- [ ] 画像アップロード失敗時のエラーメッセージ（ユーザー向け/ログ向け）を整理
+- [x] 画像アップロード失敗時のエラーメッセージ（ユーザー向け/ログ向け）を整理
 
 ### 3.3 容量制限
 - [x] ユーザー合計100MB管理（UsedImageBytes 更新）
