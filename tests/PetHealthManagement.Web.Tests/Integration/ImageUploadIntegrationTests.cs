@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using PetHealthManagement.Web.Data;
+using PetHealthManagement.Web.Infrastructure;
 using PetHealthManagement.Web.Models;
 using PetHealthManagement.Web.Tests.Infrastructure;
 using PetHealthManagement.Web.ViewModels.Visits;
@@ -199,6 +200,41 @@ public class ImageUploadIntegrationTests
         Assert.Equal(0, state.VisitImageCount);
         Assert.Equal(0, state.VisitAssetCount);
         Assert.Equal(1, state.ExistingAssetCount);
+    }
+
+    [Fact]
+    public async Task VisitCreate_WhenMultipartRequestExceedsConfiguredLimit_ReturnsError400_AndDoesNotPersistData()
+    {
+        await using var factory = new IntegrationTestWebApplicationFactory();
+        await factory.ResetDatabaseAsync(dbContext =>
+        {
+            SeedOwnedPetScenario(dbContext);
+            return Task.CompletedTask;
+        });
+
+        var antiforgeryRequestData = await factory.CreateAntiforgeryRequestDataAsync("owner-user");
+        using var client = CreateAuthenticatedClientWithAntiforgery(factory, antiforgeryRequestData);
+        using var content = CreateVisitCreateContent(
+            antiforgeryRequestData,
+            NewUploadFile(
+                "request-too-large.png",
+                "image/png",
+                new byte[(int)UploadRequestLimits.MaxMultipartRequestBodySizeBytes + 1024]));
+
+        using var response = await client.PostAsync("/Visits/Create", content);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        var state = await factory.ExecuteDbContextAsync(async dbContext => new
+        {
+            VisitCount = await dbContext.Visits.CountAsync(),
+            VisitImageCount = await dbContext.VisitImages.CountAsync(),
+            VisitAssetCount = await dbContext.ImageAssets.CountAsync(x => x.Category == "Visit")
+        });
+
+        Assert.Equal(0, state.VisitCount);
+        Assert.Equal(0, state.VisitImageCount);
+        Assert.Equal(0, state.VisitAssetCount);
     }
 
     private static HttpClient CreateAuthenticatedClientWithAntiforgery(
