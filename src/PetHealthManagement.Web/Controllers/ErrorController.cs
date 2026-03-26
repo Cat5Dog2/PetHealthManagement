@@ -7,7 +7,7 @@ namespace PetHealthManagement.Web.Controllers;
 [Route("Error")]
 public class ErrorController : Controller
 {
-    private static readonly HashSet<int> SupportedStatusCodes = [400, 403, 404, 500];
+    private static readonly HashSet<int> SupportedStatusCodes = [400, 403, 404, 429, 500];
 
     [Route("{statusCode:int}")]
     [SkipStatusCodePages]

@@ -3,9 +3,11 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using PetHealthManagement.Web.Data;
 using PetHealthManagement.Web.Helpers;
+using PetHealthManagement.Web.Infrastructure;
 using PetHealthManagement.Web.Models;
 using PetHealthManagement.Web.Services;
 using PetHealthManagement.Web.ViewModels.Account;
@@ -34,6 +36,7 @@ public class AccountController(
     }
 
     [HttpPost("EditProfile")]
+    [EnableRateLimiting(UploadRateLimiting.ImageUploadPolicyName)]
     public async Task<IActionResult> EditProfile(EditProfileViewModel viewModel, string? returnUrl)
     {
         var user = await GetCurrentUserAsync(asNoTracking: false);
