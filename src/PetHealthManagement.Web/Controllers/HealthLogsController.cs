@@ -283,28 +283,73 @@ public class HealthLogsController(
             return View(await BuildEditViewModelAsync(healthLog, viewModel.ReturnUrl, viewModel));
         }
 
-        var imageUpdateResult = await healthLogImageService.ApplyImageChangesAsync(
-            healthLog,
-            userId,
-            viewModel.NewFiles,
-            viewModel.DeleteImageIds,
-            HttpContext.RequestAborted);
-
-        if (!imageUpdateResult.Succeeded)
+        if (!RowVersionCodec.TryDecode(viewModel.RowVersion, out var postedRowVersion))
         {
-            ModelState.AddModelError(nameof(HealthLogEditViewModel.NewFiles), imageUpdateResult.ErrorMessage!);
-            return View(await BuildEditViewModelAsync(healthLog, viewModel.ReturnUrl, viewModel));
+            return BadRequest();
         }
 
-        healthLog.RecordedAt = ToJstDateTimeOffset(viewModel.RecordedAt!.Value);
-        healthLog.WeightKg = viewModel.WeightKg;
-        healthLog.FoodAmountGram = viewModel.FoodAmountGram;
-        healthLog.WalkMinutes = viewModel.WalkMinutes;
-        healthLog.StoolCondition = NormalizeOptionalText(viewModel.StoolCondition);
-        healthLog.Note = NormalizeOptionalText(viewModel.Note);
-        healthLog.UpdatedAt = DateTimeOffset.UtcNow;
+        if (!HasExpectedRowVersion(healthLog.RowVersion, postedRowVersion))
+        {
+            return await BuildConcurrencyConflictResultAsync(healthLog, viewModel.ReturnUrl);
+        }
 
-        await dbContext.SaveChangesAsync(HttpContext.RequestAborted);
+        dbContext.Entry(healthLog).Property(x => x.RowVersion).OriginalValue = postedRowVersion;
+        var originalValues = CaptureHealthLogEditValues(healthLog);
+        ApplyHealthLogEditValues(healthLog, viewModel);
+
+        if (HasImageChanges(viewModel))
+        {
+            var imageUpdateResult = await healthLogImageService.ApplyImageChangesAsync(
+                healthLog,
+                userId,
+                viewModel.NewFiles,
+                viewModel.DeleteImageIds,
+                HttpContext.RequestAborted);
+
+            if (imageUpdateResult.IsConcurrencyConflict)
+            {
+                var currentHealthLog = await ownershipAuthorizer.FindOwnedHealthLogAsync(
+                    healthLogId,
+                    userId,
+                    asNoTracking: true,
+                    HttpContext.RequestAborted);
+                if (currentHealthLog is null)
+                {
+                    return NotFound();
+                }
+
+                return await BuildConcurrencyConflictResultAsync(currentHealthLog, viewModel.ReturnUrl);
+            }
+
+            if (!imageUpdateResult.Succeeded)
+            {
+                RestoreHealthLogEditValues(healthLog, originalValues);
+                ModelState.AddModelError(nameof(HealthLogEditViewModel.NewFiles), imageUpdateResult.ErrorMessage!);
+                return View(await BuildEditViewModelAsync(healthLog, viewModel.ReturnUrl, viewModel));
+            }
+
+            var imageRedirectUrl = ReturnUrlHelper.ResolveLocalReturnUrl(viewModel.ReturnUrl, $"/HealthLogs/Details/{healthLogId}");
+            return Redirect(imageRedirectUrl);
+        }
+
+        try
+        {
+            await dbContext.SaveChangesAsync(HttpContext.RequestAborted);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            var currentHealthLog = await ownershipAuthorizer.FindOwnedHealthLogAsync(
+                healthLogId,
+                userId,
+                asNoTracking: true,
+                HttpContext.RequestAborted);
+            if (currentHealthLog is null)
+            {
+                return NotFound();
+            }
+
+            return await BuildConcurrencyConflictResultAsync(currentHealthLog, viewModel.ReturnUrl);
+        }
 
         var redirectUrl = ReturnUrlHelper.ResolveLocalReturnUrl(viewModel.ReturnUrl, $"/HealthLogs/Details/{healthLogId}");
         return Redirect(redirectUrl);
@@ -361,6 +406,7 @@ public class HealthLogsController(
             Note = source?.Note,
             DeleteImageIds = source?.DeleteImageIds ?? [],
             ExistingImages = [],
+            RowVersion = source?.RowVersion,
             ReturnUrl = safeReturnUrl,
             CancelUrl = ReturnUrlHelper.ResolveLocalReturnUrl(safeReturnUrl, $"/HealthLogs?petId={pet.Id}")
         };
@@ -386,6 +432,7 @@ public class HealthLogsController(
             Note = source?.Note ?? healthLog.Note,
             ExistingImages = await LoadHealthLogImagesAsync(healthLog.Id, healthLog.Pet.Name),
             DeleteImageIds = source?.DeleteImageIds ?? [],
+            RowVersion = source?.RowVersion ?? RowVersionCodec.Encode(healthLog.RowVersion),
             ReturnUrl = safeReturnUrl,
             CancelUrl = ReturnUrlHelper.ResolveLocalReturnUrl(safeReturnUrl, $"/HealthLogs/Details/{healthLog.Id}")
         };
@@ -451,4 +498,65 @@ public class HealthLogsController(
         var normalized = value.Trim();
         return normalized.Length <= 60 ? normalized : $"{normalized[..60]}...";
     }
+
+    private async Task<ViewResult> BuildConcurrencyConflictResultAsync(HealthLog healthLog, string? returnUrl)
+    {
+        ModelState.Clear();
+        ModelState.AddModelError(string.Empty, ConcurrencyMessages.RecordModified);
+        return View("Edit", await BuildEditViewModelAsync(healthLog, returnUrl));
+    }
+
+    private static bool HasImageChanges(HealthLogEditViewModel viewModel)
+    {
+        return viewModel.NewFiles.Count > 0 || viewModel.DeleteImageIds.Length > 0;
+    }
+
+    private static void ApplyHealthLogEditValues(HealthLog healthLog, HealthLogEditViewModel viewModel)
+    {
+        healthLog.RecordedAt = ToJstDateTimeOffset(viewModel.RecordedAt!.Value);
+        healthLog.WeightKg = viewModel.WeightKg;
+        healthLog.FoodAmountGram = viewModel.FoodAmountGram;
+        healthLog.WalkMinutes = viewModel.WalkMinutes;
+        healthLog.StoolCondition = NormalizeOptionalText(viewModel.StoolCondition);
+        healthLog.Note = NormalizeOptionalText(viewModel.Note);
+        healthLog.UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    private static HealthLogEditSnapshot CaptureHealthLogEditValues(HealthLog healthLog)
+    {
+        return new HealthLogEditSnapshot(
+            healthLog.RecordedAt,
+            healthLog.WeightKg,
+            healthLog.FoodAmountGram,
+            healthLog.WalkMinutes,
+            healthLog.StoolCondition,
+            healthLog.Note,
+            healthLog.UpdatedAt);
+    }
+
+    private static void RestoreHealthLogEditValues(HealthLog healthLog, HealthLogEditSnapshot snapshot)
+    {
+        healthLog.RecordedAt = snapshot.RecordedAt;
+        healthLog.WeightKg = snapshot.WeightKg;
+        healthLog.FoodAmountGram = snapshot.FoodAmountGram;
+        healthLog.WalkMinutes = snapshot.WalkMinutes;
+        healthLog.StoolCondition = snapshot.StoolCondition;
+        healthLog.Note = snapshot.Note;
+        healthLog.UpdatedAt = snapshot.UpdatedAt;
+    }
+
+    private static bool HasExpectedRowVersion(byte[]? currentRowVersion, byte[] postedRowVersion)
+    {
+        return currentRowVersion is not null
+            && currentRowVersion.AsSpan().SequenceEqual(postedRowVersion);
+    }
+
+    private sealed record HealthLogEditSnapshot(
+        DateTimeOffset RecordedAt,
+        double? WeightKg,
+        int? FoodAmountGram,
+        int? WalkMinutes,
+        string? StoolCondition,
+        string? Note,
+        DateTimeOffset UpdatedAt);
 }

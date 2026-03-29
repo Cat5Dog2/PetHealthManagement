@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PetHealthManagement.Web.Data;
 using PetHealthManagement.Web.Helpers;
+using PetHealthManagement.Web.Infrastructure;
 using PetHealthManagement.Web.Models;
 using PetHealthManagement.Web.ViewModels.ScheduleItems;
 
@@ -228,13 +229,37 @@ public class ScheduleItemsController(ApplicationDbContext dbContext) : Controlle
             return View(BuildEditViewModel(scheduleItem, viewModel.ReturnUrl, viewModel));
         }
 
+        if (!RowVersionCodec.TryDecode(viewModel.RowVersion, out var postedRowVersion))
+        {
+            return BadRequest();
+        }
+
+        if (!HasExpectedRowVersion(scheduleItem.RowVersion, postedRowVersion))
+        {
+            return BuildConcurrencyConflictResult(scheduleItem, viewModel.ReturnUrl);
+        }
+
+        dbContext.Entry(scheduleItem).Property(x => x.RowVersion).OriginalValue = postedRowVersion;
         scheduleItem.DueDate = viewModel.DueDate!.Value.Date;
         scheduleItem.Type = NormalizeItemType(viewModel.ItemType);
         scheduleItem.Title = NormalizeRequiredText(viewModel.Title);
         scheduleItem.Note = NormalizeOptionalText(viewModel.Note);
         scheduleItem.UpdatedAt = DateTimeOffset.UtcNow;
 
-        await dbContext.SaveChangesAsync(HttpContext.RequestAborted);
+        try
+        {
+            await dbContext.SaveChangesAsync(HttpContext.RequestAborted);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            var currentScheduleItem = await LoadOwnedScheduleItemAsync(scheduleItemId, userId, asNoTracking: true);
+            if (currentScheduleItem is null)
+            {
+                return NotFound();
+            }
+
+            return BuildConcurrencyConflictResult(currentScheduleItem, viewModel.ReturnUrl);
+        }
 
         var redirectUrl = ReturnUrlHelper.ResolveLocalReturnUrl(viewModel.ReturnUrl, $"/ScheduleItems/Details/{scheduleItemId}");
         return Redirect(redirectUrl);
@@ -370,6 +395,7 @@ public class ScheduleItemsController(ApplicationDbContext dbContext) : Controlle
             Title = source?.Title ?? scheduleItem.Title,
             Note = source?.Note ?? scheduleItem.Note,
             IsDone = scheduleItem.IsDone,
+            RowVersion = source?.RowVersion ?? RowVersionCodec.Encode(scheduleItem.RowVersion),
             ReturnUrl = safeReturnUrl,
             CancelUrl = ReturnUrlHelper.ResolveLocalReturnUrl(safeReturnUrl, $"/ScheduleItems/Details/{scheduleItem.Id}"),
             TypeOptions = BuildTypeOptions()
@@ -463,5 +489,18 @@ public class ScheduleItemsController(ApplicationDbContext dbContext) : Controlle
     private static bool TryParseIsDone(string? isDone, out bool parsedIsDone)
     {
         return bool.TryParse(isDone, out parsedIsDone);
+    }
+
+    private ViewResult BuildConcurrencyConflictResult(ScheduleItem scheduleItem, string? returnUrl)
+    {
+        ModelState.Clear();
+        ModelState.AddModelError(string.Empty, ConcurrencyMessages.RecordModified);
+        return View("Edit", BuildEditViewModel(scheduleItem, returnUrl));
+    }
+
+    private static bool HasExpectedRowVersion(byte[]? currentRowVersion, byte[] postedRowVersion)
+    {
+        return currentRowVersion is not null
+            && currentRowVersion.AsSpan().SequenceEqual(postedRowVersion);
     }
 }

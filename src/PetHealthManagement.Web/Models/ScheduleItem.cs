@@ -28,4 +28,7 @@ public class ScheduleItem
     public DateTimeOffset CreatedAt { get; set; }
 
     public DateTimeOffset UpdatedAt { get; set; }
+
+    [Timestamp]
+    public byte[]? RowVersion { get; set; }
 }

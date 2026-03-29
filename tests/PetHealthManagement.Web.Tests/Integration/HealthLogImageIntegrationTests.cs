@@ -238,6 +238,9 @@ public class HealthLogImageIntegrationTests
         var createdState = await factory.ExecuteDbContextAsync(async dbContext =>
         {
             var healthLog = await dbContext.HealthLogs.SingleAsync();
+            healthLog.RowVersion ??= [1, 0, 0, 0];
+            await dbContext.SaveChangesAsync();
+
             var imageIds = await dbContext.HealthLogImages
                 .Where(x => x.HealthLogId == healthLog.Id)
                 .OrderBy(x => x.SortOrder)
@@ -250,6 +253,7 @@ public class HealthLogImageIntegrationTests
             return new
             {
                 healthLog.Id,
+                RowVersion = Convert.ToBase64String(healthLog.RowVersion),
                 ImageIds = imageIds,
                 ContentTypes = contentTypes
             };
@@ -276,6 +280,7 @@ public class HealthLogImageIntegrationTests
         using (var editContent = CreateHealthLogEditContent(
                    antiforgery,
                    createdState.Id,
+                   createdState.RowVersion,
                    createdState.ImageIds[0],
                    NewUploadFile("log-3.png", "image/png", CreatePngBytes(72, 72))))
         using (var editResponse = await ownerClient.PostAsync($"/HealthLogs/Edit/{createdState.Id}", editContent))
@@ -367,6 +372,7 @@ public class HealthLogImageIntegrationTests
     private static MultipartFormDataContent CreateHealthLogEditContent(
         AntiforgeryRequestData antiforgeryRequestData,
         int healthLogId,
+        string rowVersion,
         Guid deleteImageId,
         params UploadFile[] files)
     {
@@ -375,7 +381,8 @@ public class HealthLogImageIntegrationTests
             note: "updated note",
             deleteImageId,
             files,
-            healthLogId);
+            healthLogId,
+            rowVersion);
     }
 
     private static MultipartFormDataContent CreateHealthLogEditPayload(
@@ -383,7 +390,8 @@ public class HealthLogImageIntegrationTests
         string note,
         Guid? deleteImageId,
         UploadFile[] files,
-        int? healthLogId = null)
+        int? healthLogId = null,
+        string? rowVersion = null)
     {
         var content = new MultipartFormDataContent();
         content.Add(new StringContent(antiforgeryRequestData.RequestToken), antiforgeryRequestData.FormFieldName);
@@ -399,6 +407,11 @@ public class HealthLogImageIntegrationTests
         if (healthLogId.HasValue)
         {
             content.Add(new StringContent(healthLogId.Value.ToString(CultureInfo.InvariantCulture)), nameof(HealthLogEditViewModel.HealthLogId));
+        }
+
+        if (!string.IsNullOrWhiteSpace(rowVersion))
+        {
+            content.Add(new StringContent(rowVersion), nameof(HealthLogEditViewModel.RowVersion));
         }
 
         if (deleteImageId.HasValue)
