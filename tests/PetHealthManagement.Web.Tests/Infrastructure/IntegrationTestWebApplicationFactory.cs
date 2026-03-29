@@ -67,7 +67,8 @@ internal sealed class IntegrationTestWebApplicationFactory : WebApplicationFacto
         return CreateClient(new WebApplicationFactoryClientOptions
         {
             AllowAutoRedirect = allowAutoRedirect,
-            HandleCookies = true
+            HandleCookies = true,
+            BaseAddress = new Uri("https://localhost")
         });
     }
 
@@ -136,6 +137,7 @@ internal sealed class IntegrationTestWebApplicationFactory : WebApplicationFacto
             RequestServices = scope.ServiceProvider,
             User = CreatePrincipal(userId, userName, roles)
         };
+        httpContext.Request.Scheme = Uri.UriSchemeHttps;
 
         var tokenSet = antiforgery.GetAndStoreTokens(httpContext);
         var cookieHeaderValue = httpContext.Response.Headers.SetCookie.ToString().Split(';', 2)[0];
