@@ -31,6 +31,7 @@ builder.Services.AddDefaultIdentity<ApplicationUser>(options => options.SignIn.R
     .AddEntityFrameworkStores<ApplicationDbContext>();
 builder.Services.Configure<StorageOptions>(builder.Configuration.GetSection("Storage"));
 builder.Services.AddScoped<IImageStorageService, FileSystemImageStorageService>();
+builder.Services.AddScoped<IOwnershipAuthorizer, OwnershipAuthorizer>();
 builder.Services.AddScoped<IPetPhotoService, PetPhotoService>();
 builder.Services.AddScoped<IPetDeletionService, PetDeletionService>();
 builder.Services.AddScoped<IHealthLogImageService, HealthLogImageService>();

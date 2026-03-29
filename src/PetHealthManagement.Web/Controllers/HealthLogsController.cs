@@ -16,6 +16,7 @@ namespace PetHealthManagement.Web.Controllers;
 [Route("HealthLogs")]
 public class HealthLogsController(
     ApplicationDbContext dbContext,
+    IOwnershipAuthorizer ownershipAuthorizer,
     IHealthLogImageService healthLogImageService,
     IHealthLogDeletionService healthLogDeletionService) : Controller
 {
@@ -35,18 +36,12 @@ public class HealthLogsController(
             return BadRequest();
         }
 
-        var pet = await dbContext.Pets
-            .AsNoTracking()
-            .Where(x => x.Id == petId.Value)
-            .Select(x => new
-            {
-                x.Id,
-                x.Name,
-                x.OwnerId
-            })
-            .FirstOrDefaultAsync();
-
-        if (pet is null || !string.Equals(pet.OwnerId, userId, StringComparison.Ordinal))
+        var pet = await ownershipAuthorizer.FindOwnedPetAsync(
+            petId.Value,
+            userId,
+            asNoTracking: true,
+            HttpContext.RequestAborted);
+        if (pet is null)
         {
             return NotFound();
         }
@@ -111,12 +106,12 @@ public class HealthLogsController(
             return Challenge();
         }
 
-        var healthLog = await dbContext.HealthLogs
-            .AsNoTracking()
-            .Include(x => x.Pet)
-            .FirstOrDefaultAsync(x => x.Id == healthLogId);
-
-        if (healthLog is null || !string.Equals(healthLog.Pet.OwnerId, userId, StringComparison.Ordinal))
+        var healthLog = await ownershipAuthorizer.FindOwnedHealthLogAsync(
+            healthLogId,
+            userId,
+            asNoTracking: true,
+            HttpContext.RequestAborted);
+        if (healthLog is null)
         {
             return NotFound();
         }
@@ -166,7 +161,11 @@ public class HealthLogsController(
             return BadRequest();
         }
 
-        var pet = await LoadOwnedPetAsync(petId.Value, userId, asNoTracking: true);
+        var pet = await ownershipAuthorizer.FindOwnedPetAsync(
+            petId.Value,
+            userId,
+            asNoTracking: true,
+            HttpContext.RequestAborted);
         if (pet is null)
         {
             return NotFound();
@@ -185,7 +184,11 @@ public class HealthLogsController(
             return Challenge();
         }
 
-        var pet = await LoadOwnedPetAsync(viewModel.PetId, userId, asNoTracking: true);
+        var pet = await ownershipAuthorizer.FindOwnedPetAsync(
+            viewModel.PetId,
+            userId,
+            asNoTracking: true,
+            HttpContext.RequestAborted);
         if (pet is null)
         {
             return NotFound();
@@ -242,7 +245,11 @@ public class HealthLogsController(
             return Challenge();
         }
 
-        var healthLog = await LoadOwnedHealthLogAsync(healthLogId, userId, asNoTracking: true);
+        var healthLog = await ownershipAuthorizer.FindOwnedHealthLogAsync(
+            healthLogId,
+            userId,
+            asNoTracking: true,
+            HttpContext.RequestAborted);
         if (healthLog is null)
         {
             return NotFound();
@@ -261,7 +268,11 @@ public class HealthLogsController(
             return Challenge();
         }
 
-        var healthLog = await LoadOwnedHealthLogAsync(healthLogId, userId, asNoTracking: false);
+        var healthLog = await ownershipAuthorizer.FindOwnedHealthLogAsync(
+            healthLogId,
+            userId,
+            asNoTracking: false,
+            HttpContext.RequestAborted);
         if (healthLog is null)
         {
             return NotFound();
@@ -315,7 +326,11 @@ public class HealthLogsController(
             return BadRequest();
         }
 
-        var healthLog = await LoadOwnedHealthLogAsync(healthLogId, userId, asNoTracking: false);
+        var healthLog = await ownershipAuthorizer.FindOwnedHealthLogAsync(
+            healthLogId,
+            userId,
+            asNoTracking: false,
+            HttpContext.RequestAborted);
         if (healthLog is null)
         {
             return NotFound();
@@ -328,31 +343,6 @@ public class HealthLogsController(
         await healthLogDeletionService.DeleteAsync(healthLog, userId, HttpContext.RequestAborted);
 
         return Redirect(redirectUrl);
-    }
-
-    private async Task<Pet?> LoadOwnedPetAsync(int petId, string userId, bool asNoTracking)
-    {
-        var query = dbContext.Pets.AsQueryable();
-        if (asNoTracking)
-        {
-            query = query.AsNoTracking();
-        }
-
-        return await query.FirstOrDefaultAsync(x => x.Id == petId && x.OwnerId == userId);
-    }
-
-    private async Task<HealthLog?> LoadOwnedHealthLogAsync(int healthLogId, string userId, bool asNoTracking)
-    {
-        var query = dbContext.HealthLogs
-            .Include(x => x.Pet)
-            .AsQueryable();
-
-        if (asNoTracking)
-        {
-            query = query.AsNoTracking();
-        }
-
-        return await query.FirstOrDefaultAsync(x => x.Id == healthLogId && x.Pet.OwnerId == userId);
     }
 
     private HealthLogEditViewModel BuildCreateViewModel(Pet pet, string? returnUrl, HealthLogEditViewModel? source = null)
