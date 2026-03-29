@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using PetHealthManagement.Web.Data;
 using PetHealthManagement.Web.Models;
 using PetHealthManagement.Web.Services;
+using PetHealthManagement.Web.Tests.Infrastructure;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 
@@ -77,6 +79,7 @@ public class VisitImageServiceTests
     {
         await using var dbContext = CreateDbContext();
         using var storage = new FakeImageStorageService();
+        var logger = new TestLogger<VisitImageService>();
 
         dbContext.Users.Add(new ApplicationUser { Id = "user-a", UserName = "userA" });
         dbContext.Pets.Add(NewPet(1, "user-a"));
@@ -104,7 +107,7 @@ public class VisitImageServiceTests
 
         await dbContext.SaveChangesAsync();
 
-        var service = new VisitImageService(dbContext, storage, NullLogger<VisitImageService>.Instance);
+        var service = new VisitImageService(dbContext, storage, logger);
         var visit = await dbContext.Visits.SingleAsync(x => x.Id == 10);
 
         var result = await service.ApplyImageChangesAsync(
@@ -117,6 +120,14 @@ public class VisitImageServiceTests
         Assert.Equal(ImageUploadErrorMessages.TooManyAttachments, result.ErrorMessage);
         Assert.Equal(10, await dbContext.VisitImages.CountAsync(x => x.VisitId == 10));
         Assert.Empty(storage.MovedStorageKeys);
+        var rejectionLog = Assert.Single(logger.Entries);
+        Assert.Equal(LogLevel.Warning, rejectionLog.LogLevel);
+        Assert.Equal(ImageOperationLogging.Reasons.AttachmentLimitExceeded, rejectionLog.Properties["Reason"]);
+        Assert.Equal("Visit", rejectionLog.Properties["ImageCategory"]);
+        Assert.Equal("Visit", rejectionLog.Properties["ResourceType"]);
+        Assert.Equal(10, rejectionLog.Properties["ResourceId"]);
+        Assert.Equal(10, rejectionLog.Properties["ExistingImageCount"]);
+        Assert.Equal(1, rejectionLog.Properties["RequestedNewFileCount"]);
     }
 
     [Fact]
@@ -160,6 +171,47 @@ public class VisitImageServiceTests
         Assert.Empty(await dbContext.VisitImages.ToListAsync());
         Assert.Empty(await dbContext.ImageAssets.ToListAsync());
         Assert.Contains("images/delete.jpg", storage.DeletedStorageKeys);
+    }
+
+    [Fact]
+    public async Task ApplyImageChangesAsync_FailsWithWarningLog_WhenUploadedFileIsNotAnImage()
+    {
+        await using var dbContext = CreateDbContext();
+        using var storage = new FakeImageStorageService();
+        var logger = new TestLogger<VisitImageService>();
+
+        dbContext.Users.Add(new ApplicationUser { Id = "user-a", UserName = "userA" });
+        dbContext.Pets.Add(NewPet(1, "user-a"));
+        dbContext.Visits.Add(new Visit
+        {
+            Id = 10,
+            PetId = 1,
+            VisitDate = new DateTime(2026, 3, 21),
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        });
+
+        await dbContext.SaveChangesAsync();
+
+        var service = new VisitImageService(dbContext, storage, logger);
+        var visit = await dbContext.Visits.SingleAsync(x => x.Id == 10);
+
+        var result = await service.ApplyImageChangesAsync(
+            visit,
+            "user-a",
+            [CreateTextFormFile("fake.png", "image/png")],
+            []);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(ImageUploadErrorMessages.UnsupportedFormat, result.ErrorMessage);
+        Assert.Empty(storage.MovedStorageKeys);
+        var rejectionLog = Assert.Single(logger.Entries);
+        Assert.Equal(LogLevel.Warning, rejectionLog.LogLevel);
+        Assert.Equal(ImageOperationLogging.Reasons.UnsupportedImageData, rejectionLog.Properties["Reason"]);
+        Assert.Equal("Visit", rejectionLog.Properties["ImageCategory"]);
+        Assert.Equal("user-a", rejectionLog.Properties["OwnerId"]);
+        Assert.Equal("Visit", rejectionLog.Properties["ResourceType"]);
+        Assert.Equal(10, rejectionLog.Properties["ResourceId"]);
     }
 
     private static ApplicationDbContext CreateDbContext()
@@ -206,6 +258,18 @@ public class VisitImageServiceTests
         var stream = new MemoryStream();
         image.SaveAsPng(stream);
         stream.Position = 0;
+
+        return new FormFile(stream, 0, stream.Length, "NewFiles", fileName)
+        {
+            Headers = new HeaderDictionary(),
+            ContentType = contentType
+        };
+    }
+
+    private static IFormFile CreateTextFormFile(string fileName, string contentType)
+    {
+        var bytes = System.Text.Encoding.UTF8.GetBytes("this is not a real image");
+        var stream = new MemoryStream(bytes);
 
         return new FormFile(stream, 0, stream.Length, "NewFiles", fileName)
         {

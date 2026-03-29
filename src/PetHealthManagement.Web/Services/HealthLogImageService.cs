@@ -49,7 +49,7 @@ public class HealthLogImageService(
         var owner = await dbContext.Users.FirstOrDefaultAsync(x => x.Id == ownerId, cancellationToken);
         if (owner is null)
         {
-            logger.LogError("Health log image upload owner was not found. ownerId={OwnerId}, healthLogId={HealthLogId}", ownerId, healthLog.Id);
+            ImageOperationLogging.LogOwnerNotFound(logger, "HealthLog", ownerId, "HealthLog", healthLog.Id);
             return HealthLogImageUpdateResult.Fail(ImageUploadErrorMessages.SaveFailed);
         }
 
@@ -67,6 +67,15 @@ public class HealthLogImageService(
         var remainingImageCount = existingImages.Count - imagesToDelete.Count;
         if (remainingImageCount + normalizedNewFiles.Count > MaxImagesPerLog)
         {
+            ImageOperationLogging.LogUploadRejected(
+                logger,
+                "HealthLog",
+                ownerId,
+                "HealthLog",
+                healthLog.Id,
+                ImageOperationLogging.Reasons.AttachmentLimitExceeded,
+                existingImageCount: remainingImageCount,
+                requestedNewFileCount: normalizedNewFiles.Count);
             return HealthLogImageUpdateResult.Fail(ImageUploadErrorMessages.TooManyAttachments);
         }
 
@@ -84,6 +93,14 @@ public class HealthLogImageService(
                 var processed = await ProcessUploadAsync(newFile, cancellationToken);
                 if (!processed.Succeeded)
                 {
+                    ImageOperationLogging.LogUploadRejected(
+                        logger,
+                        "HealthLog",
+                        ownerId,
+                        "HealthLog",
+                        healthLog.Id,
+                        ImageOperationLogging.MapDisplayedErrorMessageToReason(processed.ErrorMessage!),
+                        newFile);
                     return HealthLogImageUpdateResult.Fail(processed.ErrorMessage!);
                 }
 
@@ -99,6 +116,16 @@ public class HealthLogImageService(
             var projectedTotal = currentUserUsedBytes - deletedBytes + addedBytes;
             if (projectedTotal > MaxUserTotalBytes)
             {
+                ImageOperationLogging.LogUploadRejected(
+                    logger,
+                    "HealthLog",
+                    ownerId,
+                    "HealthLog",
+                    healthLog.Id,
+                    ImageOperationLogging.Reasons.UserTotalStorageLimitExceeded,
+                    projectedTotalBytes: projectedTotal,
+                    existingImageCount: remainingImageCount,
+                    requestedNewFileCount: normalizedNewFiles.Count);
                 return HealthLogImageUpdateResult.Fail(ImageUploadErrorMessages.TotalStorageExceeded);
             }
 
@@ -113,8 +140,16 @@ public class HealthLogImageService(
                 }
                 catch (Exception ex)
                 {
-                    logger.LogError(ex, "Failed to move health log image to storage. storageKey={StorageKey}", storageKey);
-                    await CleanupMovedFilesAsync(movedUploads, cancellationToken);
+                    ImageOperationLogging.LogPersistenceFailed(
+                        logger,
+                        ex,
+                        "HealthLog",
+                        ownerId,
+                        "HealthLog",
+                        healthLog.Id,
+                        ImageOperationLogging.Phases.MoveToStorage,
+                        storageKey);
+                    await CleanupMovedFilesAsync(ownerId, healthLog.Id, movedUploads, cancellationToken);
                     return HealthLogImageUpdateResult.Fail(ImageUploadErrorMessages.SaveFailed);
                 }
 
@@ -173,9 +208,16 @@ public class HealthLogImageService(
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Failed to save health log image changes. healthLogId={HealthLogId}", healthLog.Id);
+                ImageOperationLogging.LogPersistenceFailed(
+                    logger,
+                    ex,
+                    "HealthLog",
+                    ownerId,
+                    "HealthLog",
+                    healthLog.Id,
+                    ImageOperationLogging.Phases.SaveChanges);
                 dbContext.ChangeTracker.Clear();
-                await CleanupMovedFilesAsync(movedUploads, cancellationToken);
+                await CleanupMovedFilesAsync(ownerId, healthLog.Id, movedUploads, cancellationToken);
                 return HealthLogImageUpdateResult.Fail(ImageUploadErrorMessages.SaveFailed);
             }
 
@@ -187,7 +229,16 @@ public class HealthLogImageService(
                 }
                 catch (Exception ex)
                 {
-                    logger.LogWarning(ex, "Failed to delete old health log image file. storageKey={StorageKey}", deletedAsset.StorageKey);
+                    ImageOperationLogging.LogDeleteFailed(
+                        logger,
+                        ex,
+                        "HealthLog",
+                        ownerId,
+                        "HealthLog",
+                        healthLog.Id,
+                        ImageOperationLogging.Phases.ReplaceCleanup,
+                        deletedAsset.ImageId,
+                        deletedAsset.StorageKey);
                 }
             }
 
@@ -195,6 +246,13 @@ public class HealthLogImageService(
         }
         catch (SixLabors.ImageSharp.UnknownImageFormatException)
         {
+            ImageOperationLogging.LogUploadRejected(
+                logger,
+                "HealthLog",
+                ownerId,
+                "HealthLog",
+                healthLog.Id,
+                ImageOperationLogging.Reasons.UnsupportedImageData);
             return HealthLogImageUpdateResult.Fail(ImageUploadErrorMessages.UnsupportedFormat);
         }
         finally
@@ -326,7 +384,11 @@ public class HealthLogImageService(
         return null;
     }
 
-    private async Task CleanupMovedFilesAsync(IEnumerable<MovedUpload> movedUploads, CancellationToken cancellationToken)
+    private async Task CleanupMovedFilesAsync(
+        string ownerId,
+        int healthLogId,
+        IEnumerable<MovedUpload> movedUploads,
+        CancellationToken cancellationToken)
     {
         foreach (var movedUpload in movedUploads)
         {
@@ -336,7 +398,16 @@ public class HealthLogImageService(
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "Failed to cleanup moved health log image file. storageKey={StorageKey}", movedUpload.StorageKey);
+                ImageOperationLogging.LogDeleteFailed(
+                    logger,
+                    ex,
+                    "HealthLog",
+                    ownerId,
+                    "HealthLog",
+                    healthLogId,
+                    ImageOperationLogging.Phases.RollbackCleanup,
+                    movedUpload.ImageId,
+                    movedUpload.StorageKey);
             }
         }
     }
