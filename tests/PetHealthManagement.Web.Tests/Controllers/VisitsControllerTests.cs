@@ -461,6 +461,7 @@ public class VisitsControllerTests
     {
         var controller = new VisitsController(
             dbContext,
+            new OwnershipAuthorizer(dbContext),
             imageService ?? new FakeVisitImageService(),
             deletionService ?? new FakeVisitDeletionService());
         var httpContext = new DefaultHttpContext

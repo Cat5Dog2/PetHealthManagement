@@ -454,7 +454,7 @@ public class ImagesControllerTests
 
     private static ImagesController BuildController(ApplicationDbContext dbContext, IImageStorageService storage, string userId)
     {
-        var controller = new ImagesController(dbContext, storage);
+        var controller = new ImagesController(new OwnershipAuthorizer(dbContext), storage);
         var claimsPrincipal = new ClaimsPrincipal(
             new ClaimsIdentity(
                 [new Claim(ClaimTypes.NameIdentifier, userId)],

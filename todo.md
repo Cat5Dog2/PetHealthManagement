@@ -87,14 +87,14 @@
 ### 1.4 横断共通部品
 - [x] `ReturnUrlHelper`（validate + Query→hidden→POST のテンプレ）を作成
 - [x] `PagingHelper`（page補正）を作成
-- [ ] `OwnershipAuthorizer`（リソースID → PetId/UserId復元 → 所有者チェック → 404秘匿）を作成
+- [x] `OwnershipAuthorizer`（リソースID → PetId/UserId復元 → 所有者チェック → 404秘匿）を作成
 - [x] `ErrorController`（`/Error/{statusCode}`：400/403/404/500 の共通表示）を用意
 - [ ] **命名規約テスト**（Query/Route と、`returnUrl`/`page`/`petId` 等の hidden/リンク用キーが lowerCamelCase になっている）をスモーク的に追加（必要なら）
 
 ### 1.5 完了条件/成果物
 - [ ] ローカル起動→ログイン→基本画面遷移が一周できる（エラーページ含む）
 - [ ] 環境別設定の読み分け（Development/Staging/Production）が確認できる
-- [ ] 共通部品（returnUrl/page/認可/秘匿）が最初の1画面で利用されている
+- [x] 共通部品（returnUrl/page/認可/秘匿）が最初の1画面で利用されている
 
 ---
 

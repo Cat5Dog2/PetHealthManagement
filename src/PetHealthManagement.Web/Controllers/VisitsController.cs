@@ -16,6 +16,7 @@ namespace PetHealthManagement.Web.Controllers;
 [Route("Visits")]
 public class VisitsController(
     ApplicationDbContext dbContext,
+    IOwnershipAuthorizer ownershipAuthorizer,
     IVisitImageService visitImageService,
     IVisitDeletionService visitDeletionService) : Controller
 {
@@ -35,18 +36,12 @@ public class VisitsController(
             return BadRequest();
         }
 
-        var pet = await dbContext.Pets
-            .AsNoTracking()
-            .Where(x => x.Id == petId.Value)
-            .Select(x => new
-            {
-                x.Id,
-                x.Name,
-                x.OwnerId
-            })
-            .FirstOrDefaultAsync();
-
-        if (pet is null || !string.Equals(pet.OwnerId, userId, StringComparison.Ordinal))
+        var pet = await ownershipAuthorizer.FindOwnedPetAsync(
+            petId.Value,
+            userId,
+            asNoTracking: true,
+            HttpContext.RequestAborted);
+        if (pet is null)
         {
             return NotFound();
         }
@@ -109,12 +104,12 @@ public class VisitsController(
             return Challenge();
         }
 
-        var visit = await dbContext.Visits
-            .AsNoTracking()
-            .Include(x => x.Pet)
-            .FirstOrDefaultAsync(x => x.Id == visitId);
-
-        if (visit is null || !string.Equals(visit.Pet.OwnerId, userId, StringComparison.Ordinal))
+        var visit = await ownershipAuthorizer.FindOwnedVisitAsync(
+            visitId,
+            userId,
+            asNoTracking: true,
+            HttpContext.RequestAborted);
+        if (visit is null)
         {
             return NotFound();
         }
@@ -163,7 +158,11 @@ public class VisitsController(
             return BadRequest();
         }
 
-        var pet = await LoadOwnedPetAsync(petId.Value, userId, asNoTracking: true);
+        var pet = await ownershipAuthorizer.FindOwnedPetAsync(
+            petId.Value,
+            userId,
+            asNoTracking: true,
+            HttpContext.RequestAborted);
         if (pet is null)
         {
             return NotFound();
@@ -182,7 +181,11 @@ public class VisitsController(
             return Challenge();
         }
 
-        var pet = await LoadOwnedPetAsync(viewModel.PetId, userId, asNoTracking: true);
+        var pet = await ownershipAuthorizer.FindOwnedPetAsync(
+            viewModel.PetId,
+            userId,
+            asNoTracking: true,
+            HttpContext.RequestAborted);
         if (pet is null)
         {
             return NotFound();
@@ -238,7 +241,11 @@ public class VisitsController(
             return Challenge();
         }
 
-        var visit = await LoadOwnedVisitAsync(visitId, userId, asNoTracking: true);
+        var visit = await ownershipAuthorizer.FindOwnedVisitAsync(
+            visitId,
+            userId,
+            asNoTracking: true,
+            HttpContext.RequestAborted);
         if (visit is null)
         {
             return NotFound();
@@ -257,7 +264,11 @@ public class VisitsController(
             return Challenge();
         }
 
-        var visit = await LoadOwnedVisitAsync(visitId, userId, asNoTracking: false);
+        var visit = await ownershipAuthorizer.FindOwnedVisitAsync(
+            visitId,
+            userId,
+            asNoTracking: false,
+            HttpContext.RequestAborted);
         if (visit is null)
         {
             return NotFound();
@@ -310,7 +321,11 @@ public class VisitsController(
             return BadRequest();
         }
 
-        var visit = await LoadOwnedVisitAsync(visitId, userId, asNoTracking: false);
+        var visit = await ownershipAuthorizer.FindOwnedVisitAsync(
+            visitId,
+            userId,
+            asNoTracking: false,
+            HttpContext.RequestAborted);
         if (visit is null)
         {
             return NotFound();
@@ -323,31 +338,6 @@ public class VisitsController(
         await visitDeletionService.DeleteAsync(visit, userId, HttpContext.RequestAborted);
 
         return Redirect(redirectUrl);
-    }
-
-    private async Task<Pet?> LoadOwnedPetAsync(int petId, string userId, bool asNoTracking)
-    {
-        var query = dbContext.Pets.AsQueryable();
-        if (asNoTracking)
-        {
-            query = query.AsNoTracking();
-        }
-
-        return await query.FirstOrDefaultAsync(x => x.Id == petId && x.OwnerId == userId);
-    }
-
-    private async Task<Visit?> LoadOwnedVisitAsync(int visitId, string userId, bool asNoTracking)
-    {
-        var query = dbContext.Visits
-            .Include(x => x.Pet)
-            .AsQueryable();
-
-        if (asNoTracking)
-        {
-            query = query.AsNoTracking();
-        }
-
-        return await query.FirstOrDefaultAsync(x => x.Id == visitId && x.Pet.OwnerId == userId);
     }
 
     private VisitEditViewModel BuildCreateViewModel(Pet pet, string? returnUrl, VisitEditViewModel? source = null)
