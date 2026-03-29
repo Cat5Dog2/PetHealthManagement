@@ -445,6 +445,7 @@ public class HealthLogsControllerTests
     {
         var controller = new HealthLogsController(
             dbContext,
+            new OwnershipAuthorizer(dbContext),
             imageService ?? new FakeHealthLogImageService(),
             deletionService ?? new FakeHealthLogDeletionService());
         var httpContext = new DefaultHttpContext
