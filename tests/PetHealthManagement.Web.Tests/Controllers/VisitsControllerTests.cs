@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.EntityFrameworkCore;
 using PetHealthManagement.Web.Controllers;
 using PetHealthManagement.Web.Data;
+using PetHealthManagement.Web.Infrastructure;
 using PetHealthManagement.Web.Models;
 using PetHealthManagement.Web.Services;
 using PetHealthManagement.Web.ViewModels.Visits;
@@ -242,6 +243,7 @@ public class VisitsControllerTests
             VisitDate = new DateTime(2026, 3, 21),
             ClinicName = "Clinic",
             Note = "memo",
+            RowVersion = NewRowVersion(),
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
         });
@@ -269,6 +271,7 @@ public class VisitsControllerTests
         Assert.Equal("/Visits?petId=1", model.ReturnUrl);
         Assert.Single(model.ExistingImages);
         Assert.Equal(imageId, model.ExistingImages[0].ImageId);
+        Assert.False(string.IsNullOrWhiteSpace(model.RowVersion));
     }
 
     [Fact]
@@ -281,6 +284,7 @@ public class VisitsControllerTests
             Id = 10,
             PetId = 1,
             VisitDate = new DateTime(2026, 3, 21),
+            RowVersion = NewRowVersion(),
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
         });
@@ -307,6 +311,7 @@ public class VisitsControllerTests
             PetId = 1,
             VisitDate = new DateTime(2026, 3, 21),
             ClinicName = "Clinic",
+            RowVersion = NewRowVersion(),
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
         });
@@ -320,14 +325,15 @@ public class VisitsControllerTests
             PetId = 1,
             VisitDate = new DateTime(2026, 3, 23),
             ClinicName = "Updated Clinic",
-            ReturnUrl = "https://evil.example/"
+            ReturnUrl = "https://evil.example/",
+            RowVersion = EncodeRowVersion()
         });
 
         var redirect = Assert.IsType<RedirectResult>(result);
         var savedVisit = await dbContext.Visits.SingleAsync();
 
         Assert.Equal("/Visits/Details/10", redirect.Url);
-        Assert.Equal(1, imageService.CallCount);
+        Assert.Equal(0, imageService.CallCount);
         Assert.Equal(new DateTime(2026, 3, 23), savedVisit.VisitDate);
         Assert.Equal("Updated Clinic", savedVisit.ClinicName);
     }
@@ -343,6 +349,7 @@ public class VisitsControllerTests
             PetId = 1,
             VisitDate = new DateTime(2026, 3, 21),
             ClinicName = "Clinic",
+            RowVersion = NewRowVersion(),
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
         });
@@ -358,7 +365,9 @@ public class VisitsControllerTests
         var result = await controller.Edit(10, new VisitEditViewModel
         {
             PetId = 1,
-            VisitDate = new DateTime(2026, 3, 23)
+            VisitDate = new DateTime(2026, 3, 23),
+            DeleteImageIds = [Guid.NewGuid()],
+            RowVersion = EncodeRowVersion()
         });
 
         var viewResult = Assert.IsType<ViewResult>(result);
@@ -367,6 +376,48 @@ public class VisitsControllerTests
 
         Assert.False(controller.ModelState.IsValid);
         Assert.Equal(10, model.VisitId);
+        Assert.Equal(new DateTime(2026, 3, 21), unchangedVisit.VisitDate);
+        Assert.Equal(1, imageService.CallCount);
+    }
+
+    [Fact]
+    public async Task EditPost_ReturnsView_WhenRowVersionIsStale()
+    {
+        await using var dbContext = CreateDbContext();
+        dbContext.Pets.Add(NewPet(1, "user-a", "Mugi"));
+        dbContext.Visits.Add(new Visit
+        {
+            Id = 11,
+            PetId = 1,
+            VisitDate = new DateTime(2026, 3, 21),
+            ClinicName = "Clinic",
+            RowVersion = NewRowVersion(),
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        });
+        await dbContext.SaveChangesAsync();
+
+        var imageService = new FakeVisitImageService();
+        var controller = BuildController(dbContext, "user-a", imageService);
+
+        var result = await controller.Edit(11, new VisitEditViewModel
+        {
+            PetId = 1,
+            VisitDate = new DateTime(2026, 3, 23),
+            ClinicName = "Updated Clinic",
+            RowVersion = EncodeRowVersion(version: 9)
+        });
+
+        var viewResult = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<VisitEditViewModel>(viewResult.Model);
+        var unchangedVisit = await dbContext.Visits.SingleAsync(x => x.Id == 11);
+
+        Assert.False(controller.ModelState.IsValid);
+        Assert.Contains(
+            controller.ModelState[string.Empty]!.Errors,
+            error => error.ErrorMessage == ConcurrencyMessages.RecordModified);
+        Assert.Equal(11, model.VisitId);
+        Assert.Equal(0, imageService.CallCount);
         Assert.Equal(new DateTime(2026, 3, 21), unchangedVisit.VisitDate);
     }
 
@@ -573,5 +624,15 @@ public class VisitsControllerTests
         public void SaveTempData(HttpContext context, IDictionary<string, object> values)
         {
         }
+    }
+
+    private static byte[] NewRowVersion(byte version = 1)
+    {
+        return [version, 0, 0, 0];
+    }
+
+    private static string EncodeRowVersion(byte version = 1)
+    {
+        return Convert.ToBase64String(NewRowVersion(version));
     }
 }

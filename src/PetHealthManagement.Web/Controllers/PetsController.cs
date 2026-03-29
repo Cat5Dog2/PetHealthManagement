@@ -173,6 +173,7 @@ public class PetsController(
             breed: null,
             isPublic: true,
             currentPhotoUrl: null,
+            rowVersion: null,
             returnUrl: returnUrl,
             fallbackCancelUrl: "/MyPage");
 
@@ -199,6 +200,7 @@ public class PetsController(
                 breed: viewModel.Breed,
                 isPublic: viewModel.IsPublic,
                 currentPhotoUrl: null,
+                rowVersion: null,
                 returnUrl: returnUrl,
                 fallbackCancelUrl: "/MyPage");
 
@@ -240,6 +242,7 @@ public class PetsController(
                 breed: viewModel.Breed,
                 isPublic: viewModel.IsPublic,
                 currentPhotoUrl: null,
+                rowVersion: null,
                 returnUrl: returnUrl,
                 fallbackCancelUrl: "/MyPage");
 
@@ -277,6 +280,7 @@ public class PetsController(
             breed: pet.Breed,
             isPublic: pet.IsPublic,
             currentPhotoUrl: ResolvePetPhotoUrl(pet.PhotoImageId),
+            rowVersion: RowVersionCodec.Encode(pet.RowVersion),
             returnUrl: returnUrl,
             fallbackCancelUrl: $"/Pets/Details/{petId}");
 
@@ -311,42 +315,107 @@ public class PetsController(
                 breed: viewModel.Breed,
                 isPublic: viewModel.IsPublic,
                 currentPhotoUrl: ResolvePetPhotoUrl(pet.PhotoImageId),
+                rowVersion: viewModel.RowVersion,
                 returnUrl: returnUrl,
                 fallbackCancelUrl: $"/Pets/Details/{petId}");
 
             return View(invalidViewModel);
         }
 
-        var photoUpdateResult = await petPhotoService.ApplyPetPhotoChangeAsync(
-            pet,
-            userId,
-            viewModel.PhotoFile,
-            viewModel.RemovePhoto,
-            HttpContext.RequestAborted);
-
-        if (!photoUpdateResult.Succeeded)
+        if (!RowVersionCodec.TryDecode(viewModel.RowVersion, out var postedRowVersion))
         {
-            ModelState.AddModelError(nameof(PetEditViewModel.PhotoFile), photoUpdateResult.ErrorMessage!);
-            var invalidPhotoViewModel = BuildPetEditViewModel(
-                petId: petId,
-                name: viewModel.Name,
-                speciesCode: viewModel.SpeciesCode,
-                breed: viewModel.Breed,
-                isPublic: viewModel.IsPublic,
-                currentPhotoUrl: ResolvePetPhotoUrl(pet.PhotoImageId),
-                returnUrl: returnUrl,
-                fallbackCancelUrl: $"/Pets/Details/{petId}");
-
-            return View(invalidPhotoViewModel);
+            return BadRequest();
         }
 
-        pet.Name = viewModel.Name.Trim();
-        pet.SpeciesCode = viewModel.SpeciesCode.Trim().ToUpperInvariant();
-        pet.Breed = NormalizeBreed(viewModel.Breed);
-        pet.IsPublic = viewModel.IsPublic;
-        pet.UpdatedAt = DateTimeOffset.UtcNow;
+        if (!HasExpectedRowVersion(pet.RowVersion, postedRowVersion))
+        {
+            return BuildConcurrencyConflictResult(pet, returnUrl);
+        }
 
-        await dbContext.SaveChangesAsync(HttpContext.RequestAborted);
+        dbContext.Entry(pet).Property(x => x.RowVersion).OriginalValue = postedRowVersion;
+        var originalValues = CapturePetEditValues(pet);
+        ApplyPetEditValues(pet, viewModel);
+
+        if (HasPhotoChange(viewModel))
+        {
+            PetPhotoUpdateResult photoUpdateResult;
+            try
+            {
+                photoUpdateResult = await petPhotoService.ApplyPetPhotoChangeAsync(
+                    pet,
+                    userId,
+                    viewModel.PhotoFile,
+                    viewModel.RemovePhoto,
+                    HttpContext.RequestAborted);
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                var currentPet = await dbContext.Pets
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(x => x.Id == petId && x.OwnerId == userId, HttpContext.RequestAborted);
+                if (currentPet is null)
+                {
+                    return NotFound();
+                }
+
+                return BuildConcurrencyConflictResult(currentPet, returnUrl);
+            }
+
+            if (!photoUpdateResult.Succeeded)
+            {
+                try
+                {
+                    RestorePetEditValues(pet, originalValues);
+                    await dbContext.SaveChangesAsync(HttpContext.RequestAborted);
+                }
+                catch (DbUpdateConcurrencyException)
+                {
+                    var currentPet = await dbContext.Pets
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(x => x.Id == petId && x.OwnerId == userId, HttpContext.RequestAborted);
+                    if (currentPet is null)
+                    {
+                        return NotFound();
+                    }
+
+                    return BuildConcurrencyConflictResult(currentPet, returnUrl);
+                }
+
+                ModelState.AddModelError(nameof(PetEditViewModel.PhotoFile), photoUpdateResult.ErrorMessage!);
+                var invalidPhotoViewModel = BuildPetEditViewModel(
+                    petId: petId,
+                    name: viewModel.Name,
+                    speciesCode: viewModel.SpeciesCode,
+                    breed: viewModel.Breed,
+                    isPublic: viewModel.IsPublic,
+                    currentPhotoUrl: ResolvePetPhotoUrl(pet.PhotoImageId),
+                    rowVersion: RowVersionCodec.Encode(pet.RowVersion),
+                    returnUrl: returnUrl,
+                    fallbackCancelUrl: $"/Pets/Details/{petId}");
+
+                return View(invalidPhotoViewModel);
+            }
+
+            var photoRedirectUrl = ReturnUrlHelper.ResolveLocalReturnUrl(returnUrl, $"/Pets/Details/{petId}");
+            return Redirect(photoRedirectUrl);
+        }
+
+        try
+        {
+            await dbContext.SaveChangesAsync(HttpContext.RequestAborted);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            var currentPet = await dbContext.Pets
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Id == petId && x.OwnerId == userId, HttpContext.RequestAborted);
+            if (currentPet is null)
+            {
+                return NotFound();
+            }
+
+            return BuildConcurrencyConflictResult(currentPet, returnUrl);
+        }
 
         var redirectUrl = ReturnUrlHelper.ResolveLocalReturnUrl(returnUrl, $"/Pets/Details/{petId}");
         return Redirect(redirectUrl);
@@ -382,6 +451,7 @@ public class PetsController(
         string? breed,
         bool isPublic,
         string? currentPhotoUrl,
+        string? rowVersion,
         string? returnUrl,
         string fallbackCancelUrl)
     {
@@ -396,6 +466,7 @@ public class PetsController(
             Breed = breed,
             IsPublic = isPublic,
             CurrentPhotoUrl = currentPhotoUrl,
+            RowVersion = rowVersion,
             ReturnUrl = safeReturnUrl,
             CancelUrl = cancelUrl,
             SpeciesOptions = SpeciesCatalog.All
@@ -448,4 +519,66 @@ public class PetsController(
         var normalized = speciesFilter?.Trim();
         return string.IsNullOrWhiteSpace(normalized) ? null : normalized.ToUpperInvariant();
     }
+
+    private ViewResult BuildConcurrencyConflictResult(Pet pet, string? returnUrl)
+    {
+        ModelState.Clear();
+        ModelState.AddModelError(string.Empty, ConcurrencyMessages.RecordModified);
+        return View("Edit", BuildPetEditViewModel(
+            petId: pet.Id,
+            name: pet.Name,
+            speciesCode: pet.SpeciesCode,
+            breed: pet.Breed,
+            isPublic: pet.IsPublic,
+            currentPhotoUrl: ResolvePetPhotoUrl(pet.PhotoImageId),
+            rowVersion: RowVersionCodec.Encode(pet.RowVersion),
+            returnUrl: returnUrl,
+            fallbackCancelUrl: $"/Pets/Details/{pet.Id}"));
+    }
+
+    private static bool HasExpectedRowVersion(byte[]? currentRowVersion, byte[] postedRowVersion)
+    {
+        return currentRowVersion is not null
+            && currentRowVersion.AsSpan().SequenceEqual(postedRowVersion);
+    }
+
+    private static bool HasPhotoChange(PetEditViewModel viewModel)
+    {
+        return viewModel.PhotoFile is not null || viewModel.RemovePhoto;
+    }
+
+    private static void ApplyPetEditValues(Pet pet, PetEditViewModel viewModel)
+    {
+        pet.Name = viewModel.Name.Trim();
+        pet.SpeciesCode = viewModel.SpeciesCode.Trim().ToUpperInvariant();
+        pet.Breed = NormalizeBreed(viewModel.Breed);
+        pet.IsPublic = viewModel.IsPublic;
+        pet.UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    private static PetEditSnapshot CapturePetEditValues(Pet pet)
+    {
+        return new PetEditSnapshot(
+            pet.Name,
+            pet.SpeciesCode,
+            pet.Breed,
+            pet.IsPublic,
+            pet.UpdatedAt);
+    }
+
+    private static void RestorePetEditValues(Pet pet, PetEditSnapshot snapshot)
+    {
+        pet.Name = snapshot.Name;
+        pet.SpeciesCode = snapshot.SpeciesCode;
+        pet.Breed = snapshot.Breed;
+        pet.IsPublic = snapshot.IsPublic;
+        pet.UpdatedAt = snapshot.UpdatedAt;
+    }
+
+    private sealed record PetEditSnapshot(
+        string Name,
+        string SpeciesCode,
+        string? Breed,
+        bool IsPublic,
+        DateTimeOffset UpdatedAt);
 }

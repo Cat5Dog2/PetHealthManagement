@@ -12,9 +12,11 @@ public interface IHealthLogImageService
         CancellationToken cancellationToken = default);
 }
 
-public sealed record HealthLogImageUpdateResult(bool Succeeded, string? ErrorMessage)
+public sealed record HealthLogImageUpdateResult(bool Succeeded, string? ErrorMessage, bool IsConcurrencyConflict)
 {
-    public static HealthLogImageUpdateResult Success() => new(true, null);
+    public static HealthLogImageUpdateResult Success() => new(true, null, false);
 
-    public static HealthLogImageUpdateResult Fail(string errorMessage) => new(false, errorMessage);
+    public static HealthLogImageUpdateResult Fail(string errorMessage) => new(false, errorMessage, false);
+
+    public static HealthLogImageUpdateResult ConcurrencyConflict() => new(false, null, true);
 }

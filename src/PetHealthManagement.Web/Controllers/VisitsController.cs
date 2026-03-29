@@ -279,27 +279,73 @@ public class VisitsController(
             return View(await BuildEditViewModelAsync(visit, viewModel.ReturnUrl, viewModel));
         }
 
-        var imageUpdateResult = await visitImageService.ApplyImageChangesAsync(
-            visit,
-            userId,
-            viewModel.NewFiles,
-            viewModel.DeleteImageIds,
-            HttpContext.RequestAborted);
-
-        if (!imageUpdateResult.Succeeded)
+        if (!RowVersionCodec.TryDecode(viewModel.RowVersion, out var postedRowVersion))
         {
-            ModelState.AddModelError(nameof(VisitEditViewModel.NewFiles), imageUpdateResult.ErrorMessage!);
-            return View(await BuildEditViewModelAsync(visit, viewModel.ReturnUrl, viewModel));
+            return BadRequest();
         }
 
-        visit.VisitDate = NormalizeVisitDate(viewModel.VisitDate!.Value);
-        visit.ClinicName = NormalizeOptionalText(viewModel.ClinicName);
-        visit.Diagnosis = NormalizeOptionalText(viewModel.Diagnosis);
-        visit.Prescription = NormalizeOptionalText(viewModel.Prescription);
-        visit.Note = NormalizeOptionalText(viewModel.Note);
-        visit.UpdatedAt = DateTimeOffset.UtcNow;
+        if (!HasExpectedRowVersion(visit.RowVersion, postedRowVersion))
+        {
+            return await BuildConcurrencyConflictResultAsync(visit, viewModel.ReturnUrl);
+        }
 
-        await dbContext.SaveChangesAsync(HttpContext.RequestAborted);
+        dbContext.Entry(visit).Property(x => x.RowVersion).OriginalValue = postedRowVersion;
+        var originalValues = CaptureVisitEditValues(visit);
+        ApplyVisitEditValues(visit, viewModel);
+
+        if (HasImageChanges(viewModel))
+        {
+            var imageUpdateResult = await visitImageService.ApplyImageChangesAsync(
+                visit,
+                userId,
+                viewModel.NewFiles,
+                viewModel.DeleteImageIds,
+                HttpContext.RequestAborted);
+
+            if (imageUpdateResult.IsConcurrencyConflict)
+            {
+                var currentVisit = await ownershipAuthorizer.FindOwnedVisitAsync(
+                    visitId,
+                    userId,
+                    asNoTracking: true,
+                    HttpContext.RequestAborted);
+                if (currentVisit is null)
+                {
+                    return NotFound();
+                }
+
+                return await BuildConcurrencyConflictResultAsync(currentVisit, viewModel.ReturnUrl);
+            }
+
+            if (!imageUpdateResult.Succeeded)
+            {
+                RestoreVisitEditValues(visit, originalValues);
+                ModelState.AddModelError(nameof(VisitEditViewModel.NewFiles), imageUpdateResult.ErrorMessage!);
+                return View(await BuildEditViewModelAsync(visit, viewModel.ReturnUrl, viewModel));
+            }
+
+            var imageRedirectUrl = ReturnUrlHelper.ResolveLocalReturnUrl(viewModel.ReturnUrl, $"/Visits/Details/{visitId}");
+            return Redirect(imageRedirectUrl);
+        }
+
+        try
+        {
+            await dbContext.SaveChangesAsync(HttpContext.RequestAborted);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            var currentVisit = await ownershipAuthorizer.FindOwnedVisitAsync(
+                visitId,
+                userId,
+                asNoTracking: true,
+                HttpContext.RequestAborted);
+            if (currentVisit is null)
+            {
+                return NotFound();
+            }
+
+            return await BuildConcurrencyConflictResultAsync(currentVisit, viewModel.ReturnUrl);
+        }
 
         var redirectUrl = ReturnUrlHelper.ResolveLocalReturnUrl(viewModel.ReturnUrl, $"/Visits/Details/{visitId}");
         return Redirect(redirectUrl);
@@ -355,6 +401,7 @@ public class VisitsController(
             Note = source?.Note,
             ExistingImages = [],
             DeleteImageIds = source?.DeleteImageIds ?? [],
+            RowVersion = source?.RowVersion,
             ReturnUrl = safeReturnUrl,
             CancelUrl = ReturnUrlHelper.ResolveLocalReturnUrl(safeReturnUrl, $"/Visits?petId={pet.Id}")
         };
@@ -379,6 +426,7 @@ public class VisitsController(
             Note = source?.Note ?? visit.Note,
             ExistingImages = await LoadVisitImagesAsync(visit.Id, visit.Pet.Name),
             DeleteImageIds = source?.DeleteImageIds ?? [],
+            RowVersion = source?.RowVersion ?? RowVersionCodec.Encode(visit.RowVersion),
             ReturnUrl = safeReturnUrl,
             CancelUrl = ReturnUrlHelper.ResolveLocalReturnUrl(safeReturnUrl, $"/Visits/Details/{visit.Id}")
         };
@@ -447,4 +495,61 @@ public class VisitsController(
 
         return $"{baseUrl}&page={PagingHelper.DefaultPage}";
     }
+
+    private async Task<ViewResult> BuildConcurrencyConflictResultAsync(Visit visit, string? returnUrl)
+    {
+        ModelState.Clear();
+        ModelState.AddModelError(string.Empty, ConcurrencyMessages.RecordModified);
+        return View("Edit", await BuildEditViewModelAsync(visit, returnUrl));
+    }
+
+    private static bool HasImageChanges(VisitEditViewModel viewModel)
+    {
+        return viewModel.NewFiles.Count > 0 || viewModel.DeleteImageIds.Length > 0;
+    }
+
+    private static void ApplyVisitEditValues(Visit visit, VisitEditViewModel viewModel)
+    {
+        visit.VisitDate = NormalizeVisitDate(viewModel.VisitDate!.Value);
+        visit.ClinicName = NormalizeOptionalText(viewModel.ClinicName);
+        visit.Diagnosis = NormalizeOptionalText(viewModel.Diagnosis);
+        visit.Prescription = NormalizeOptionalText(viewModel.Prescription);
+        visit.Note = NormalizeOptionalText(viewModel.Note);
+        visit.UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    private static VisitEditSnapshot CaptureVisitEditValues(Visit visit)
+    {
+        return new VisitEditSnapshot(
+            visit.VisitDate,
+            visit.ClinicName,
+            visit.Diagnosis,
+            visit.Prescription,
+            visit.Note,
+            visit.UpdatedAt);
+    }
+
+    private static void RestoreVisitEditValues(Visit visit, VisitEditSnapshot snapshot)
+    {
+        visit.VisitDate = snapshot.VisitDate;
+        visit.ClinicName = snapshot.ClinicName;
+        visit.Diagnosis = snapshot.Diagnosis;
+        visit.Prescription = snapshot.Prescription;
+        visit.Note = snapshot.Note;
+        visit.UpdatedAt = snapshot.UpdatedAt;
+    }
+
+    private static bool HasExpectedRowVersion(byte[]? currentRowVersion, byte[] postedRowVersion)
+    {
+        return currentRowVersion is not null
+            && currentRowVersion.AsSpan().SequenceEqual(postedRowVersion);
+    }
+
+    private sealed record VisitEditSnapshot(
+        DateTime VisitDate,
+        string? ClinicName,
+        string? Diagnosis,
+        string? Prescription,
+        string? Note,
+        DateTimeOffset UpdatedAt);
 }

@@ -62,6 +62,9 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
             entity.Property(p => p.PhotoImageId);
 
+            entity.Property(p => p.RowVersion)
+                .IsRowVersion();
+
             entity.HasIndex(p => p.OwnerId);
             entity.HasIndex(p => new { p.IsPublic, p.SpeciesCode });
             entity.HasIndex(p => p.UpdatedAt);
@@ -79,6 +82,9 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
             entity.Property(x => x.Note)
                 .HasMaxLength(1000);
+
+            entity.Property(x => x.RowVersion)
+                .IsRowVersion();
 
             entity.HasIndex(x => new { x.PetId, x.RecordedAt, x.Id });
 
@@ -108,6 +114,9 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.Property(x => x.Note)
                 .HasMaxLength(1000);
 
+            entity.Property(x => x.RowVersion)
+                .IsRowVersion();
+
             entity.HasIndex(x => new { x.PetId, x.VisitDate, x.Id });
 
             entity.HasOne(x => x.Pet)
@@ -134,6 +143,9 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
             entity.Property(x => x.Note)
                 .HasMaxLength(1000);
+
+            entity.Property(x => x.RowVersion)
+                .IsRowVersion();
 
             entity.HasIndex(x => new { x.PetId, x.DueDate, x.Id });
 
