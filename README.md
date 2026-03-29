@@ -37,6 +37,14 @@ dotnet run --project src/PetHealthManagement.Web
 
 ## Documents
 
+## Security Defaults
+
+- Auth cookie: `__Host-PetHealthManagement.Auth`, `Secure`, `HttpOnly`, `SameSite=Lax`
+- Anti-forgery cookie: `__Host-PetHealthManagement.AntiForgery`, `Secure`, `HttpOnly`, `SameSite=Strict`
+- HSTS: enabled outside Development with a 180-day max age
+- Security headers: `Content-Security-Policy`, `Referrer-Policy`, `Permissions-Policy`, `X-Content-Type-Options`, `X-Frame-Options`
+- Current CSP is intentionally minimal and still allows `'unsafe-inline'` for scripts and styles because some Razor views still use inline handlers and the import map stub
+
 - 開発ルール: `AGENTS.md`
 - PR/品質ゲート: `CONTRIBUTING.md`
 - 仕様ドキュメント: `docs/`

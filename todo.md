@@ -297,12 +297,12 @@
 - [ ] ログ（削除失敗、例外、監査的ログが必要なら方針化）
 
 ### 10.5 Cookie/ヘッダ（最低限）
-- [ ] 認証Cookie/Anti-forgery の属性方針（Secure/HttpOnly/SameSite）を決める
-- [ ] セキュリティヘッダ方針（例：HSTS、CSP（最小）、Referrer-Policy、Permissions-Policy など）を決める
+- [x] 認証Cookie/Anti-forgery の属性方針（Secure/HttpOnly/SameSite）を決める
+- [x] セキュリティヘッダ方針（例：HSTS、CSP（最小）、Referrer-Policy、Permissions-Policy など）を決める
 
 ### 10.6 完了条件/成果物
-- [ ] 「秘匿(404)/403/400」の一貫性と、Open Redirect対策が確認できる
-- [ ] Cookie/ヘッダの方針がREADMEか運用メモに残っている
+- [x] 「秘匿(404)/403/400」の一貫性と、Open Redirect対策が確認できる
+- [x] Cookie/ヘッダの方針がREADMEか運用メモに残っている
 
 ---
 
