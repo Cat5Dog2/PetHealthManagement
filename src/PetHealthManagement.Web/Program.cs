@@ -21,9 +21,24 @@ builder.WebHost.ConfigureKestrel(options =>
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(connectionString));
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
+builder.Services.AddHsts(options =>
+{
+    options.MaxAge = TimeSpan.FromDays(180);
+    options.IncludeSubDomains = false;
+    options.Preload = false;
+});
 builder.Services.Configure<FormOptions>(options =>
 {
     options.MultipartBodyLengthLimit = UploadRequestLimits.MaxMultipartRequestBodySizeBytes;
+});
+builder.Services.AddAntiforgery(options =>
+{
+    options.Cookie.Name = "__Host-PetHealthManagement.AntiForgery";
+    options.Cookie.Path = "/";
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.Cookie.SameSite = SameSiteMode.Strict;
+    options.Cookie.IsEssential = true;
 });
 
 builder.Services.AddDefaultIdentity<ApplicationUser>(options => options.SignIn.RequireConfirmedAccount = true)
@@ -42,6 +57,13 @@ builder.Services.AddScoped<IUserAvatarService, UserAvatarService>();
 builder.Services.AddScoped<IUserDataDeletionService, UserDataDeletionService>();
 builder.Services.ConfigureApplicationCookie(options =>
 {
+    options.Cookie.Name = "__Host-PetHealthManagement.Auth";
+    options.Cookie.Path = "/";
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.Cookie.SameSite = SameSiteMode.Lax;
+    options.Cookie.IsEssential = true;
+
     options.Events.OnRedirectToAccessDenied = context =>
     {
         context.Response.StatusCode = StatusCodes.Status403Forbidden;
@@ -93,6 +115,16 @@ else
 }
 
 app.UseStatusCodePagesWithReExecute("/Error/{0}");
+app.Use(async (context, next) =>
+{
+    context.Response.OnStarting(() =>
+    {
+        SecurityHeaders.Apply(context.Response.Headers);
+        return Task.CompletedTask;
+    });
+
+    await next();
+});
 app.Use(async (context, next) =>
 {
     try
