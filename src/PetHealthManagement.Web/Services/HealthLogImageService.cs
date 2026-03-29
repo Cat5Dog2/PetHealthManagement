@@ -206,6 +206,20 @@ public class HealthLogImageService(
             {
                 await dbContext.SaveChangesAsync(cancellationToken);
             }
+            catch (DbUpdateConcurrencyException ex)
+            {
+                ImageOperationLogging.LogPersistenceFailed(
+                    logger,
+                    ex,
+                    "HealthLog",
+                    ownerId,
+                    "HealthLog",
+                    healthLog.Id,
+                    ImageOperationLogging.Phases.SaveChanges);
+                dbContext.ChangeTracker.Clear();
+                await CleanupMovedFilesAsync(ownerId, healthLog.Id, movedUploads, cancellationToken);
+                return HealthLogImageUpdateResult.ConcurrencyConflict();
+            }
             catch (Exception ex)
             {
                 ImageOperationLogging.LogPersistenceFailed(

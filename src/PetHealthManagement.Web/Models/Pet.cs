@@ -29,6 +29,9 @@ public class Pet
 
     public DateTimeOffset UpdatedAt { get; set; }
 
+    [Timestamp]
+    public byte[]? RowVersion { get; set; }
+
     public ICollection<HealthLog> HealthLogs { get; set; } = [];
 
     public ICollection<ScheduleItem> ScheduleItems { get; set; } = [];

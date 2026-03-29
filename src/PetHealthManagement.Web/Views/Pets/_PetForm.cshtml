@@ -2,6 +2,7 @@
 
 <div asp-validation-summary="ModelOnly" class="text-danger"></div>
 <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+<input type="hidden" asp-for="RowVersion" />
 
 @if (!string.IsNullOrWhiteSpace(Model.CurrentPhotoUrl))
 {

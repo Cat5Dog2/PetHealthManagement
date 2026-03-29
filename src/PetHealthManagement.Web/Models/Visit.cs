@@ -28,5 +28,8 @@ public class Visit
 
     public DateTimeOffset UpdatedAt { get; set; }
 
+    [Timestamp]
+    public byte[]? RowVersion { get; set; }
+
     public ICollection<VisitImage> Images { get; set; } = [];
 }

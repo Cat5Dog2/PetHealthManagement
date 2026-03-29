@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PetHealthManagement.Web.Controllers;
 using PetHealthManagement.Web.Data;
+using PetHealthManagement.Web.Infrastructure;
 using PetHealthManagement.Web.Models;
 using PetHealthManagement.Web.Services;
 using PetHealthManagement.Web.ViewModels.Pets;
@@ -188,7 +189,8 @@ public class PetsControllerTests
             Name = "After",
             SpeciesCode = "CAT",
             Breed = "Mix",
-            IsPublic = false
+            IsPublic = false,
+            RowVersion = EncodeRowVersion()
         }, null);
 
         var redirectResult = Assert.IsType<RedirectResult>(result);
@@ -198,6 +200,38 @@ public class PetsControllerTests
         Assert.Equal("After", updated.Name);
         Assert.Equal("CAT", updated.SpeciesCode);
         Assert.False(updated.IsPublic);
+    }
+
+    [Fact]
+    public async Task Edit_Post_ReturnsView_WhenRowVersionIsStale()
+    {
+        await using var dbContext = CreateDbContext();
+        dbContext.Users.Add(new ApplicationUser { Id = "user-a", UserName = "userA" });
+        dbContext.Pets.Add(NewPet(22, "user-a", "Before", true));
+        await dbContext.SaveChangesAsync();
+
+        var controller = BuildController(dbContext, "user-a");
+        var result = await controller.Edit(22, new PetEditViewModel
+        {
+            Name = "After",
+            SpeciesCode = "CAT",
+            Breed = "Mix",
+            IsPublic = false,
+            RowVersion = EncodeRowVersion(version: 9)
+        }, null);
+
+        var viewResult = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<PetEditViewModel>(viewResult.Model);
+        var savedPet = await dbContext.Pets.SingleAsync(x => x.Id == 22);
+
+        Assert.False(controller.ModelState.IsValid);
+        Assert.Contains(
+            controller.ModelState[string.Empty]!.Errors,
+            error => error.ErrorMessage == ConcurrencyMessages.RecordModified);
+        Assert.Equal("Before", model.Name);
+        Assert.Equal("Before", savedPet.Name);
+        Assert.Equal("DOG", savedPet.SpeciesCode);
+        Assert.True(savedPet.IsPublic);
     }
 
     [Fact]
@@ -294,9 +328,20 @@ public class PetsControllerTests
             SpeciesCode = "DOG",
             Breed = "Shiba",
             IsPublic = isPublic,
+            RowVersion = NewRowVersion(),
             CreatedAt = now,
             UpdatedAt = now
         };
+    }
+
+    private static byte[] NewRowVersion(byte version = 1)
+    {
+        return [version, 0, 0, 0];
+    }
+
+    private static string EncodeRowVersion(byte version = 1)
+    {
+        return Convert.ToBase64String(NewRowVersion(version));
     }
 
     private sealed class FakePetPhotoService : IPetPhotoService

@@ -103,7 +103,7 @@
 ### 2.1 Entity/DbContext
 - [x] `ApplicationDbContext`（Identity + アプリテーブル）整備
 - [x] エンティティ実装（Pet/HealthLog/ScheduleItem/Visit/ImageAsset/中間テーブル）
-- [ ] RowVersion（同時更新）など必要な列の付与
+- [x] RowVersion（同時更新）など必要な列の付与
 - [x] インデックス・制約（ユニーク、FK、並び順など）
 
 ### 2.2 マイグレーション/初期データ

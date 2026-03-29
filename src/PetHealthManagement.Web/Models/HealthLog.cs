@@ -16,6 +16,9 @@ public class HealthLog
 
     public DateTimeOffset UpdatedAt { get; set; }
 
+    [Timestamp]
+    public byte[]? RowVersion { get; set; }
+
     [Range(0.0, 200.0)]
     public double? WeightKg { get; set; }
 
