@@ -61,16 +61,40 @@ public class PetPhotoService(
         var extension = Path.GetExtension(newPhotoFile.FileName);
         if (!AllowedExtensions.Contains(extension))
         {
+            ImageOperationLogging.LogUploadRejected(
+                logger,
+                "PetPhoto",
+                ownerId,
+                "Pet",
+                pet.Id,
+                ImageOperationLogging.Reasons.UnsupportedExtension,
+                newPhotoFile);
             return PetPhotoUpdateResult.Fail(ImageUploadErrorMessages.UnsupportedFormat);
         }
 
         if (!AllowedContentTypes.Contains(newPhotoFile.ContentType))
         {
+            ImageOperationLogging.LogUploadRejected(
+                logger,
+                "PetPhoto",
+                ownerId,
+                "Pet",
+                pet.Id,
+                ImageOperationLogging.Reasons.UnsupportedContentType,
+                newPhotoFile);
             return PetPhotoUpdateResult.Fail(ImageUploadErrorMessages.UnsupportedFormat);
         }
 
         if (newPhotoFile.Length <= 0 || newPhotoFile.Length > MaxFileSizeBytes)
         {
+            ImageOperationLogging.LogUploadRejected(
+                logger,
+                "PetPhoto",
+                ownerId,
+                "Pet",
+                pet.Id,
+                ImageOperationLogging.Reasons.FileSizeLimitExceeded,
+                newPhotoFile);
             return PetPhotoUpdateResult.Fail(ImageUploadErrorMessages.FileTooLarge);
         }
 
@@ -83,6 +107,14 @@ public class PetPhotoService(
             var processed = await ProcessAndValidateImageAsync(originalTempPath, processedTempPath, cancellationToken);
             if (!processed.Succeeded)
             {
+                ImageOperationLogging.LogUploadRejected(
+                    logger,
+                    "PetPhoto",
+                    ownerId,
+                    "Pet",
+                    pet.Id,
+                    ImageOperationLogging.MapDisplayedErrorMessageToReason(processed.ErrorMessage!),
+                    newPhotoFile);
                 return PetPhotoUpdateResult.Fail(processed.ErrorMessage!);
             }
 
@@ -99,13 +131,22 @@ public class PetPhotoService(
             var projectedTotal = userUsedBytes - currentImageBytes + processed.SizeBytes;
             if (projectedTotal > MaxUserTotalBytes)
             {
+                ImageOperationLogging.LogUploadRejected(
+                    logger,
+                    "PetPhoto",
+                    ownerId,
+                    "Pet",
+                    pet.Id,
+                    ImageOperationLogging.Reasons.UserTotalStorageLimitExceeded,
+                    newPhotoFile,
+                    projectedTotalBytes: projectedTotal);
                 return PetPhotoUpdateResult.Fail(ImageUploadErrorMessages.TotalStorageExceeded);
             }
 
             var owner = await dbContext.Users.FirstOrDefaultAsync(x => x.Id == ownerId, cancellationToken);
             if (owner is null)
             {
-                logger.LogError("Pet photo upload owner was not found. ownerId={OwnerId}, petId={PetId}", ownerId, pet.Id);
+                ImageOperationLogging.LogOwnerNotFound(logger, "PetPhoto", ownerId, "Pet", pet.Id);
                 return PetPhotoUpdateResult.Fail(ImageUploadErrorMessages.SaveFailed);
             }
 
@@ -135,7 +176,15 @@ public class PetPhotoService(
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Failed to move pet photo to storage. storageKey={StorageKey}", storageKey);
+                ImageOperationLogging.LogPersistenceFailed(
+                    logger,
+                    ex,
+                    "PetPhoto",
+                    ownerId,
+                    "Pet",
+                    pet.Id,
+                    ImageOperationLogging.Phases.MoveToStorage,
+                    storageKey);
 
                 dbContext.ImageAssets.Remove(newAsset);
                 pet.PhotoImageId = currentImageId;
@@ -161,7 +210,16 @@ public class PetPhotoService(
                 }
                 catch (Exception ex)
                 {
-                    logger.LogWarning(ex, "Failed to delete old pet photo file. storageKey={StorageKey}", currentAsset.StorageKey);
+                    ImageOperationLogging.LogDeleteFailed(
+                        logger,
+                        ex,
+                        "PetPhoto",
+                        ownerId,
+                        "Pet",
+                        pet.Id,
+                        ImageOperationLogging.Phases.ReplaceCleanup,
+                        currentAsset.ImageId,
+                        currentAsset.StorageKey);
                 }
             }
 
@@ -169,6 +227,14 @@ public class PetPhotoService(
         }
         catch (SixLabors.ImageSharp.UnknownImageFormatException)
         {
+            ImageOperationLogging.LogUploadRejected(
+                logger,
+                "PetPhoto",
+                ownerId,
+                "Pet",
+                pet.Id,
+                ImageOperationLogging.Reasons.UnsupportedImageData,
+                newPhotoFile);
             return PetPhotoUpdateResult.Fail(ImageUploadErrorMessages.UnsupportedFormat);
         }
         finally
@@ -215,7 +281,16 @@ public class PetPhotoService(
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Failed to delete pet photo file. storageKey={StorageKey}", currentAsset.StorageKey);
+            ImageOperationLogging.LogDeleteFailed(
+                logger,
+                ex,
+                "PetPhoto",
+                pet.OwnerId,
+                "Pet",
+                pet.Id,
+                ImageOperationLogging.Phases.RemoveCurrent,
+                currentAsset.ImageId,
+                currentAsset.StorageKey);
         }
     }
 

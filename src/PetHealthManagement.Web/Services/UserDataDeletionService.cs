@@ -76,7 +76,7 @@ public class UserDataDeletionService(
 
         var storageTargets = imageAssets
             .Where(x => !string.IsNullOrWhiteSpace(x.StorageKey))
-            .Select(x => new StorageDeletionTarget(x.ImageId, x.StorageKey))
+            .Select(x => new StorageDeletionTarget(x.ImageId, x.StorageKey, x.Category))
             .ToList();
 
         user.AvatarImageId = null;
@@ -165,15 +165,19 @@ public class UserDataDeletionService(
             }
             catch (Exception ex)
             {
-                logger.LogWarning(
+                ImageOperationLogging.LogDeleteFailed(
+                    logger,
                     ex,
-                    "Failed to delete image file while deleting user data. userId={UserId} imageId={ImageId} storageKey={StorageKey}",
+                    target.Category,
                     userId,
+                    "User",
+                    userId,
+                    ImageOperationLogging.Phases.CascadeDelete,
                     target.ImageId,
                     target.StorageKey);
             }
         }
     }
 
-    private sealed record StorageDeletionTarget(Guid ImageId, string StorageKey);
+    private sealed record StorageDeletionTarget(Guid ImageId, string StorageKey, string Category);
 }

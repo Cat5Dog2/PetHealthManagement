@@ -49,7 +49,7 @@ public class VisitImageService(
         var owner = await dbContext.Users.FirstOrDefaultAsync(x => x.Id == ownerId, cancellationToken);
         if (owner is null)
         {
-            logger.LogError("Visit image upload owner was not found. ownerId={OwnerId}, visitId={VisitId}", ownerId, visit.Id);
+            ImageOperationLogging.LogOwnerNotFound(logger, "Visit", ownerId, "Visit", visit.Id);
             return VisitImageUpdateResult.Fail(ImageUploadErrorMessages.SaveFailed);
         }
 
@@ -67,6 +67,15 @@ public class VisitImageService(
         var remainingImageCount = existingImages.Count - imagesToDelete.Count;
         if (remainingImageCount + normalizedNewFiles.Count > MaxImagesPerVisit)
         {
+            ImageOperationLogging.LogUploadRejected(
+                logger,
+                "Visit",
+                ownerId,
+                "Visit",
+                visit.Id,
+                ImageOperationLogging.Reasons.AttachmentLimitExceeded,
+                existingImageCount: remainingImageCount,
+                requestedNewFileCount: normalizedNewFiles.Count);
             return VisitImageUpdateResult.Fail(ImageUploadErrorMessages.TooManyAttachments);
         }
 
@@ -84,6 +93,14 @@ public class VisitImageService(
                 var processed = await ProcessUploadAsync(newFile, cancellationToken);
                 if (!processed.Succeeded)
                 {
+                    ImageOperationLogging.LogUploadRejected(
+                        logger,
+                        "Visit",
+                        ownerId,
+                        "Visit",
+                        visit.Id,
+                        ImageOperationLogging.MapDisplayedErrorMessageToReason(processed.ErrorMessage!),
+                        newFile);
                     return VisitImageUpdateResult.Fail(processed.ErrorMessage!);
                 }
 
@@ -99,6 +116,16 @@ public class VisitImageService(
             var projectedTotal = currentUserUsedBytes - deletedBytes + addedBytes;
             if (projectedTotal > MaxUserTotalBytes)
             {
+                ImageOperationLogging.LogUploadRejected(
+                    logger,
+                    "Visit",
+                    ownerId,
+                    "Visit",
+                    visit.Id,
+                    ImageOperationLogging.Reasons.UserTotalStorageLimitExceeded,
+                    projectedTotalBytes: projectedTotal,
+                    existingImageCount: remainingImageCount,
+                    requestedNewFileCount: normalizedNewFiles.Count);
                 return VisitImageUpdateResult.Fail(ImageUploadErrorMessages.TotalStorageExceeded);
             }
 
@@ -113,8 +140,16 @@ public class VisitImageService(
                 }
                 catch (Exception ex)
                 {
-                    logger.LogError(ex, "Failed to move visit image to storage. storageKey={StorageKey}", storageKey);
-                    await CleanupMovedFilesAsync(movedUploads, cancellationToken);
+                    ImageOperationLogging.LogPersistenceFailed(
+                        logger,
+                        ex,
+                        "Visit",
+                        ownerId,
+                        "Visit",
+                        visit.Id,
+                        ImageOperationLogging.Phases.MoveToStorage,
+                        storageKey);
+                    await CleanupMovedFilesAsync(ownerId, visit.Id, movedUploads, cancellationToken);
                     return VisitImageUpdateResult.Fail(ImageUploadErrorMessages.SaveFailed);
                 }
 
@@ -173,9 +208,16 @@ public class VisitImageService(
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Failed to save visit image changes. visitId={VisitId}", visit.Id);
+                ImageOperationLogging.LogPersistenceFailed(
+                    logger,
+                    ex,
+                    "Visit",
+                    ownerId,
+                    "Visit",
+                    visit.Id,
+                    ImageOperationLogging.Phases.SaveChanges);
                 dbContext.ChangeTracker.Clear();
-                await CleanupMovedFilesAsync(movedUploads, cancellationToken);
+                await CleanupMovedFilesAsync(ownerId, visit.Id, movedUploads, cancellationToken);
                 return VisitImageUpdateResult.Fail(ImageUploadErrorMessages.SaveFailed);
             }
 
@@ -187,7 +229,16 @@ public class VisitImageService(
                 }
                 catch (Exception ex)
                 {
-                    logger.LogWarning(ex, "Failed to delete old visit image file. storageKey={StorageKey}", deletedAsset.StorageKey);
+                    ImageOperationLogging.LogDeleteFailed(
+                        logger,
+                        ex,
+                        "Visit",
+                        ownerId,
+                        "Visit",
+                        visit.Id,
+                        ImageOperationLogging.Phases.ReplaceCleanup,
+                        deletedAsset.ImageId,
+                        deletedAsset.StorageKey);
                 }
             }
 
@@ -195,6 +246,13 @@ public class VisitImageService(
         }
         catch (SixLabors.ImageSharp.UnknownImageFormatException)
         {
+            ImageOperationLogging.LogUploadRejected(
+                logger,
+                "Visit",
+                ownerId,
+                "Visit",
+                visit.Id,
+                ImageOperationLogging.Reasons.UnsupportedImageData);
             return VisitImageUpdateResult.Fail(ImageUploadErrorMessages.UnsupportedFormat);
         }
         finally
@@ -326,7 +384,11 @@ public class VisitImageService(
         return null;
     }
 
-    private async Task CleanupMovedFilesAsync(IEnumerable<MovedUpload> movedUploads, CancellationToken cancellationToken)
+    private async Task CleanupMovedFilesAsync(
+        string ownerId,
+        int visitId,
+        IEnumerable<MovedUpload> movedUploads,
+        CancellationToken cancellationToken)
     {
         foreach (var movedUpload in movedUploads)
         {
@@ -336,7 +398,16 @@ public class VisitImageService(
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "Failed to cleanup moved visit image file. storageKey={StorageKey}", movedUpload.StorageKey);
+                ImageOperationLogging.LogDeleteFailed(
+                    logger,
+                    ex,
+                    "Visit",
+                    ownerId,
+                    "Visit",
+                    visitId,
+                    ImageOperationLogging.Phases.RollbackCleanup,
+                    movedUpload.ImageId,
+                    movedUpload.StorageKey);
             }
         }
     }

@@ -36,7 +36,7 @@ public class HealthLogDeletionService(
 
         var storageTargets = imageAssets
             .Where(x => !string.IsNullOrWhiteSpace(x.StorageKey))
-            .Select(x => new StorageDeletionTarget(x.ImageId, x.StorageKey))
+            .Select(x => new StorageDeletionTarget(x.ImageId, x.StorageKey, x.Category))
             .ToList();
 
         var deletedReadyBytes = imageAssets
@@ -86,11 +86,12 @@ public class HealthLogDeletionService(
             }
         }
 
-        await DeleteImageFilesBestEffortAsync(healthLog.Id, storageTargets, cancellationToken);
+        await DeleteImageFilesBestEffortAsync(healthLog.Id, ownerId, storageTargets, cancellationToken);
     }
 
     private async Task DeleteImageFilesBestEffortAsync(
         int healthLogId,
+        string ownerId,
         IReadOnlyList<StorageDeletionTarget> storageTargets,
         CancellationToken cancellationToken)
     {
@@ -102,15 +103,19 @@ public class HealthLogDeletionService(
             }
             catch (Exception ex)
             {
-                logger.LogWarning(
+                ImageOperationLogging.LogDeleteFailed(
+                    logger,
                     ex,
-                    "Failed to delete image file while deleting health log. healthLogId={HealthLogId} imageId={ImageId} storageKey={StorageKey}",
+                    target.Category,
+                    ownerId,
+                    "HealthLog",
                     healthLogId,
+                    ImageOperationLogging.Phases.CascadeDelete,
                     target.ImageId,
                     target.StorageKey);
             }
         }
     }
 
-    private sealed record StorageDeletionTarget(Guid ImageId, string StorageKey);
+    private sealed record StorageDeletionTarget(Guid ImageId, string StorageKey, string Category);
 }
