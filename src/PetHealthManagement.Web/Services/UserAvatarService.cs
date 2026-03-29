@@ -43,16 +43,40 @@ public class UserAvatarService(
         var extension = Path.GetExtension(newAvatarFile.FileName);
         if (!AllowedExtensions.Contains(extension))
         {
+            ImageOperationLogging.LogUploadRejected(
+                logger,
+                "Avatar",
+                user.Id,
+                "User",
+                user.Id,
+                ImageOperationLogging.Reasons.UnsupportedExtension,
+                newAvatarFile);
             return UserAvatarUpdateResult.Fail(ImageUploadErrorMessages.UnsupportedFormat);
         }
 
         if (!AllowedContentTypes.Contains(newAvatarFile.ContentType))
         {
+            ImageOperationLogging.LogUploadRejected(
+                logger,
+                "Avatar",
+                user.Id,
+                "User",
+                user.Id,
+                ImageOperationLogging.Reasons.UnsupportedContentType,
+                newAvatarFile);
             return UserAvatarUpdateResult.Fail(ImageUploadErrorMessages.UnsupportedFormat);
         }
 
         if (newAvatarFile.Length <= 0 || newAvatarFile.Length > MaxFileSizeBytes)
         {
+            ImageOperationLogging.LogUploadRejected(
+                logger,
+                "Avatar",
+                user.Id,
+                "User",
+                user.Id,
+                ImageOperationLogging.Reasons.FileSizeLimitExceeded,
+                newAvatarFile);
             return UserAvatarUpdateResult.Fail(ImageUploadErrorMessages.FileTooLarge);
         }
 
@@ -65,6 +89,14 @@ public class UserAvatarService(
             var processed = await ProcessAndValidateImageAsync(originalTempPath, processedTempPath, cancellationToken);
             if (!processed.Succeeded)
             {
+                ImageOperationLogging.LogUploadRejected(
+                    logger,
+                    "Avatar",
+                    user.Id,
+                    "User",
+                    user.Id,
+                    ImageOperationLogging.MapDisplayedErrorMessageToReason(processed.ErrorMessage!),
+                    newAvatarFile);
                 return UserAvatarUpdateResult.Fail(processed.ErrorMessage!);
             }
 
@@ -81,6 +113,15 @@ public class UserAvatarService(
             var projectedTotal = userUsedBytes - currentImageBytes + processed.SizeBytes;
             if (projectedTotal > MaxUserTotalBytes)
             {
+                ImageOperationLogging.LogUploadRejected(
+                    logger,
+                    "Avatar",
+                    user.Id,
+                    "User",
+                    user.Id,
+                    ImageOperationLogging.Reasons.UserTotalStorageLimitExceeded,
+                    newAvatarFile,
+                    projectedTotalBytes: projectedTotal);
                 return UserAvatarUpdateResult.Fail(ImageUploadErrorMessages.TotalStorageExceeded);
             }
 
@@ -110,7 +151,15 @@ public class UserAvatarService(
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Failed to move avatar to storage. storageKey={StorageKey}", storageKey);
+                ImageOperationLogging.LogPersistenceFailed(
+                    logger,
+                    ex,
+                    "Avatar",
+                    user.Id,
+                    "User",
+                    user.Id,
+                    ImageOperationLogging.Phases.MoveToStorage,
+                    storageKey);
 
                 dbContext.ImageAssets.Remove(newAsset);
                 user.AvatarImageId = currentImageId;
@@ -137,7 +186,16 @@ public class UserAvatarService(
                 }
                 catch (Exception ex)
                 {
-                    logger.LogWarning(ex, "Failed to delete old avatar file. storageKey={StorageKey}", currentAsset.StorageKey);
+                    ImageOperationLogging.LogDeleteFailed(
+                        logger,
+                        ex,
+                        "Avatar",
+                        user.Id,
+                        "User",
+                        user.Id,
+                        ImageOperationLogging.Phases.ReplaceCleanup,
+                        currentAsset.ImageId,
+                        currentAsset.StorageKey);
                 }
             }
 
@@ -145,6 +203,14 @@ public class UserAvatarService(
         }
         catch (SixLabors.ImageSharp.UnknownImageFormatException)
         {
+            ImageOperationLogging.LogUploadRejected(
+                logger,
+                "Avatar",
+                user.Id,
+                "User",
+                user.Id,
+                ImageOperationLogging.Reasons.UnsupportedImageData,
+                newAvatarFile);
             return UserAvatarUpdateResult.Fail(ImageUploadErrorMessages.UnsupportedFormat);
         }
         finally

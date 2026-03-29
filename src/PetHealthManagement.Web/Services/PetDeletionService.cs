@@ -71,7 +71,7 @@ public class PetDeletionService(
 
         var storageTargets = imageAssets
             .Where(x => !string.IsNullOrWhiteSpace(x.StorageKey))
-            .Select(x => new StorageDeletionTarget(x.ImageId, x.StorageKey))
+            .Select(x => new StorageDeletionTarget(x.ImageId, x.StorageKey, x.Category))
             .ToList();
 
         var deletedReadyBytes = imageAssets
@@ -141,11 +141,12 @@ public class PetDeletionService(
             }
         }
 
-        await DeleteImageFilesBestEffortAsync(pet.Id, storageTargets, cancellationToken);
+        await DeleteImageFilesBestEffortAsync(pet.Id, ownerId, storageTargets, cancellationToken);
     }
 
     private async Task DeleteImageFilesBestEffortAsync(
         int petId,
+        string ownerId,
         IReadOnlyList<StorageDeletionTarget> storageTargets,
         CancellationToken cancellationToken)
     {
@@ -157,15 +158,19 @@ public class PetDeletionService(
             }
             catch (Exception ex)
             {
-                logger.LogWarning(
+                ImageOperationLogging.LogDeleteFailed(
+                    logger,
                     ex,
-                    "Failed to delete image file while deleting pet. petId={PetId} imageId={ImageId} storageKey={StorageKey}",
+                    target.Category,
+                    ownerId,
+                    "Pet",
                     petId,
+                    ImageOperationLogging.Phases.CascadeDelete,
                     target.ImageId,
                     target.StorageKey);
             }
         }
     }
 
-    private sealed record StorageDeletionTarget(Guid ImageId, string StorageKey);
+    private sealed record StorageDeletionTarget(Guid ImageId, string StorageKey, string Category);
 }

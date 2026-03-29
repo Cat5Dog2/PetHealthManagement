@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using PetHealthManagement.Web.Data;
 using PetHealthManagement.Web.Models;
 using PetHealthManagement.Web.Services;
+using PetHealthManagement.Web.Tests.Infrastructure;
 
 namespace PetHealthManagement.Web.Tests.Services;
 
@@ -124,6 +126,7 @@ public class PetDeletionServiceTests
         {
             FailingStorageKeys = ["images/pet-1.jpg"]
         };
+        var logger = new TestLogger<PetDeletionService>();
 
         dbContext.Users.Add(new ApplicationUser
         {
@@ -142,7 +145,7 @@ public class PetDeletionServiceTests
 
         await dbContext.SaveChangesAsync();
 
-        var service = new PetDeletionService(dbContext, storage, NullLogger<PetDeletionService>.Instance);
+        var service = new PetDeletionService(dbContext, storage, logger);
         var pet = await dbContext.Pets.SingleAsync(x => x.Id == 1);
 
         await service.DeleteAsync(pet, "user-a");
@@ -153,6 +156,15 @@ public class PetDeletionServiceTests
         Assert.Empty(await dbContext.ImageAssets.ToListAsync());
         Assert.Equal(0, owner.UsedImageBytes);
         Assert.Contains("images/pet-1.jpg", storage.DeletedStorageKeys);
+        var warningLog = Assert.Single(logger.Entries);
+        Assert.Equal(LogLevel.Warning, warningLog.LogLevel);
+        Assert.Equal("PetPhoto", warningLog.Properties["ImageCategory"]);
+        Assert.Equal("user-a", warningLog.Properties["OwnerId"]);
+        Assert.Equal("Pet", warningLog.Properties["ResourceType"]);
+        Assert.Equal(1, warningLog.Properties["ResourceId"]);
+        Assert.Equal(ImageOperationLogging.Phases.CascadeDelete, warningLog.Properties["Phase"]);
+        Assert.Equal(Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"), warningLog.Properties["ImageId"]);
+        Assert.Equal("images/pet-1.jpg", warningLog.Properties["StorageKey"]);
     }
 
     private static ApplicationDbContext CreateDbContext()
