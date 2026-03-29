@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.EntityFrameworkCore;
 using PetHealthManagement.Web.Controllers;
 using PetHealthManagement.Web.Data;
+using PetHealthManagement.Web.Infrastructure;
 using PetHealthManagement.Web.Models;
 using PetHealthManagement.Web.Services;
 using PetHealthManagement.Web.ViewModels.HealthLogs;
@@ -238,6 +239,7 @@ public class HealthLogsControllerTests
             PetId = 1,
             RecordedAt = new DateTimeOffset(2026, 3, 21, 9, 0, 0, TimeSpan.FromHours(9)),
             Note = "memo",
+            RowVersion = NewRowVersion(),
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
         });
@@ -252,6 +254,7 @@ public class HealthLogsControllerTests
         Assert.Equal(10, model.HealthLogId);
         Assert.Equal("Mugi", model.PetName);
         Assert.Equal("/HealthLogs?petId=1", model.ReturnUrl);
+        Assert.False(string.IsNullOrWhiteSpace(model.RowVersion));
     }
 
     [Fact]
@@ -264,6 +267,7 @@ public class HealthLogsControllerTests
             Id = 10,
             PetId = 1,
             RecordedAt = new DateTimeOffset(2026, 3, 21, 9, 0, 0, TimeSpan.FromHours(9)),
+            RowVersion = NewRowVersion(),
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
         });
@@ -291,6 +295,7 @@ public class HealthLogsControllerTests
             PetId = 1,
             RecordedAt = new DateTimeOffset(2026, 3, 21, 9, 0, 0, TimeSpan.FromHours(9)),
             WeightKg = 5.4,
+            RowVersion = NewRowVersion(),
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
         });
@@ -304,14 +309,15 @@ public class HealthLogsControllerTests
             PetId = 1,
             RecordedAt = new DateTime(2026, 3, 23, 8, 15, 0),
             WeightKg = 5.6,
-            ReturnUrl = "https://evil.example/"
+            ReturnUrl = "https://evil.example/",
+            RowVersion = EncodeRowVersion()
         });
 
         var redirect = Assert.IsType<RedirectResult>(result);
         var savedHealthLog = await dbContext.HealthLogs.SingleAsync();
 
         Assert.Equal("/HealthLogs/Details/10", redirect.Url);
-        Assert.Equal(1, imageService.CallCount);
+        Assert.Equal(0, imageService.CallCount);
         Assert.Equal(5.6, savedHealthLog.WeightKg);
         Assert.Equal(new DateTimeOffset(2026, 3, 23, 8, 15, 0, TimeSpan.FromHours(9)), savedHealthLog.RecordedAt);
     }
@@ -327,6 +333,7 @@ public class HealthLogsControllerTests
             Id = 10,
             PetId = 1,
             RecordedAt = new DateTimeOffset(2026, 3, 21, 9, 0, 0, TimeSpan.FromHours(9)),
+            RowVersion = NewRowVersion(),
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
         });
@@ -342,7 +349,9 @@ public class HealthLogsControllerTests
         var result = await controller.Edit(10, new HealthLogEditViewModel
         {
             PetId = 1,
-            RecordedAt = new DateTime(2026, 3, 23, 8, 15, 0)
+            RecordedAt = new DateTime(2026, 3, 23, 8, 15, 0),
+            DeleteImageIds = [Guid.NewGuid()],
+            RowVersion = EncodeRowVersion()
         });
 
         var viewResult = Assert.IsType<ViewResult>(result);
@@ -352,6 +361,49 @@ public class HealthLogsControllerTests
         Assert.False(controller.ModelState.IsValid);
         Assert.Equal(10, model.HealthLogId);
         Assert.Equal(new DateTimeOffset(2026, 3, 21, 9, 0, 0, TimeSpan.FromHours(9)), unchangedHealthLog.RecordedAt);
+        Assert.Equal(1, imageService.CallCount);
+    }
+
+    [Fact]
+    public async Task EditPost_ReturnsView_WhenRowVersionIsStale()
+    {
+        await using var dbContext = CreateDbContext();
+        dbContext.Users.Add(new ApplicationUser { Id = "user-a", UserName = "userA" });
+        dbContext.Pets.Add(NewPet(1, "user-a", "Mugi"));
+        dbContext.HealthLogs.Add(new HealthLog
+        {
+            Id = 11,
+            PetId = 1,
+            RecordedAt = new DateTimeOffset(2026, 3, 21, 9, 0, 0, TimeSpan.FromHours(9)),
+            WeightKg = 5.4,
+            RowVersion = NewRowVersion(),
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        });
+        await dbContext.SaveChangesAsync();
+
+        var imageService = new FakeHealthLogImageService();
+        var controller = BuildController(dbContext, "user-a", imageService);
+
+        var result = await controller.Edit(11, new HealthLogEditViewModel
+        {
+            PetId = 1,
+            RecordedAt = new DateTime(2026, 3, 23, 8, 15, 0),
+            WeightKg = 5.6,
+            RowVersion = EncodeRowVersion(version: 9)
+        });
+
+        var viewResult = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<HealthLogEditViewModel>(viewResult.Model);
+        var unchangedHealthLog = await dbContext.HealthLogs.SingleAsync(x => x.Id == 11);
+
+        Assert.False(controller.ModelState.IsValid);
+        Assert.Contains(
+            controller.ModelState[string.Empty]!.Errors,
+            error => error.ErrorMessage == ConcurrencyMessages.RecordModified);
+        Assert.Equal(11, model.HealthLogId);
+        Assert.Equal(0, imageService.CallCount);
+        Assert.Equal(5.4, unchangedHealthLog.WeightKg);
     }
 
     [Fact]
@@ -549,5 +601,15 @@ public class HealthLogsControllerTests
         public void SaveTempData(HttpContext context, IDictionary<string, object> values)
         {
         }
+    }
+
+    private static byte[] NewRowVersion(byte version = 1)
+    {
+        return [version, 0, 0, 0];
+    }
+
+    private static string EncodeRowVersion(byte version = 1)
+    {
+        return Convert.ToBase64String(NewRowVersion(version));
     }
 }

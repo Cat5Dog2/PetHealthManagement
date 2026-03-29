@@ -25,6 +25,8 @@ public class PetEditViewModel
 
     public string? CurrentPhotoUrl { get; set; }
 
+    public string? RowVersion { get; set; }
+
     public string? ReturnUrl { get; set; }
 
     public string CancelUrl { get; set; } = "/Pets";

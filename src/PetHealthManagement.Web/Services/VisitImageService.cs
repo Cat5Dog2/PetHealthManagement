@@ -206,6 +206,20 @@ public class VisitImageService(
             {
                 await dbContext.SaveChangesAsync(cancellationToken);
             }
+            catch (DbUpdateConcurrencyException ex)
+            {
+                ImageOperationLogging.LogPersistenceFailed(
+                    logger,
+                    ex,
+                    "Visit",
+                    ownerId,
+                    "Visit",
+                    visit.Id,
+                    ImageOperationLogging.Phases.SaveChanges);
+                dbContext.ChangeTracker.Clear();
+                await CleanupMovedFilesAsync(ownerId, visit.Id, movedUploads, cancellationToken);
+                return VisitImageUpdateResult.ConcurrencyConflict();
+            }
             catch (Exception ex)
             {
                 ImageOperationLogging.LogPersistenceFailed(

@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.EntityFrameworkCore;
 using PetHealthManagement.Web.Controllers;
 using PetHealthManagement.Web.Data;
+using PetHealthManagement.Web.Infrastructure;
 using PetHealthManagement.Web.Models;
 using PetHealthManagement.Web.ViewModels.ScheduleItems;
 
@@ -217,6 +218,7 @@ public class ScheduleItemsControllerTests
             Title = "Memo update",
             Note = "first note",
             IsDone = true,
+            RowVersion = NewRowVersion(),
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
         });
@@ -232,6 +234,7 @@ public class ScheduleItemsControllerTests
         Assert.Equal("Mugi", model.PetName);
         Assert.Equal("/ScheduleItems?petId=1&page=2", model.ReturnUrl);
         Assert.True(model.IsDone);
+        Assert.False(string.IsNullOrWhiteSpace(model.RowVersion));
     }
 
     [Fact]
@@ -268,6 +271,7 @@ public class ScheduleItemsControllerTests
             Title = "Vaccine",
             Note = "old note",
             IsDone = true,
+            RowVersion = NewRowVersion(),
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
         });
@@ -282,7 +286,8 @@ public class ScheduleItemsControllerTests
             Title = "Visit plan",
             Note = "updated note",
             IsDone = false,
-            ReturnUrl = "https://evil.example/"
+            ReturnUrl = "https://evil.example/",
+            RowVersion = EncodeRowVersion()
         });
 
         var redirect = Assert.IsType<RedirectResult>(result);
@@ -310,6 +315,7 @@ public class ScheduleItemsControllerTests
             Title = "Vaccine",
             Note = "old note",
             IsDone = false,
+            RowVersion = NewRowVersion(),
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
         });
@@ -322,7 +328,8 @@ public class ScheduleItemsControllerTests
             DueDate = new DateTime(2026, 4, 21),
             ItemType = ScheduleItemTypeCatalog.Medicine,
             Title = " ",
-            ReturnUrl = "/ScheduleItems?petId=1&page=2"
+            ReturnUrl = "/ScheduleItems?petId=1&page=2",
+            RowVersion = EncodeRowVersion()
         });
 
         var viewResult = Assert.IsType<ViewResult>(result);
@@ -334,6 +341,50 @@ public class ScheduleItemsControllerTests
         Assert.Equal("Mugi", model.PetName);
         Assert.Equal(new DateTime(2026, 4, 20), unchangedScheduleItem.DueDate);
         Assert.Equal("Vaccine", unchangedScheduleItem.Title);
+    }
+
+    [Fact]
+    public async Task EditPost_ReturnsView_WhenRowVersionIsStale()
+    {
+        await using var dbContext = CreateDbContext();
+        dbContext.Pets.Add(NewPet(1, "user-a", "Mugi"));
+        dbContext.ScheduleItems.Add(new ScheduleItem
+        {
+            Id = 11,
+            PetId = 1,
+            DueDate = new DateTime(2026, 4, 20),
+            Type = ScheduleItemTypeCatalog.Vaccine,
+            Title = "Vaccine",
+            Note = "old note",
+            IsDone = false,
+            RowVersion = NewRowVersion(),
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        });
+        await dbContext.SaveChangesAsync();
+
+        var controller = BuildController(dbContext, "user-a");
+        var result = await controller.Edit(11, new ScheduleItemEditViewModel
+        {
+            PetId = 1,
+            DueDate = new DateTime(2026, 4, 25),
+            ItemType = ScheduleItemTypeCatalog.Visit,
+            Title = "Visit plan",
+            Note = "updated note",
+            RowVersion = EncodeRowVersion(version: 9)
+        });
+
+        var viewResult = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<ScheduleItemEditViewModel>(viewResult.Model);
+        var savedScheduleItem = await dbContext.ScheduleItems.SingleAsync(x => x.Id == 11);
+
+        Assert.False(controller.ModelState.IsValid);
+        Assert.Contains(
+            controller.ModelState[string.Empty]!.Errors,
+            error => error.ErrorMessage == ConcurrencyMessages.RecordModified);
+        Assert.Equal(11, model.ScheduleItemId);
+        Assert.Equal("Vaccine", savedScheduleItem.Title);
+        Assert.Equal(new DateTime(2026, 4, 20), savedScheduleItem.DueDate);
     }
 
     [Fact]
@@ -516,6 +567,7 @@ public class ScheduleItemsControllerTests
             DueDate = new DateTime(2026, 4, 20),
             Type = type,
             Title = title,
+            RowVersion = NewRowVersion(),
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
         };
@@ -531,5 +583,15 @@ public class ScheduleItemsControllerTests
         public void SaveTempData(HttpContext context, IDictionary<string, object> values)
         {
         }
+    }
+
+    private static byte[] NewRowVersion(byte version = 1)
+    {
+        return [version, 0, 0, 0];
+    }
+
+    private static string EncodeRowVersion(byte version = 1)
+    {
+        return Convert.ToBase64String(NewRowVersion(version));
     }
 }
