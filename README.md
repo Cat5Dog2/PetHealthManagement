@@ -35,6 +35,15 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/format.ps1
 dotnet run --project src/PetHealthManagement.Web
 ```
 
+## Environment Configuration
+
+- `appsettings.json`: shared defaults only
+- `appsettings.Development.json`: local `DefaultConnection` for LocalDB and `StorageRoot/Development`
+- `appsettings.Staging.json`: staging storage/logging defaults; provide `ConnectionStrings__DefaultConnection` via environment variables or secret storage
+- `appsettings.Production.json`: production storage/logging defaults; provide `ConnectionStrings__DefaultConnection` via environment variables or secret storage
+- Startup fails fast when `Storage:RootPath` is missing in any environment, or when `Staging` / `Production` tries to use the Development LocalDB connection string
+- You can override any value with standard ASP.NET Core configuration keys such as `ConnectionStrings__DefaultConnection` and `Storage__RootPath`
+
 ## Documents
 
 ## Security Defaults
