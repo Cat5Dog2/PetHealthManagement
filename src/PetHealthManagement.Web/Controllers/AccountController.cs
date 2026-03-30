@@ -19,7 +19,8 @@ namespace PetHealthManagement.Web.Controllers;
 public class AccountController(
     ApplicationDbContext dbContext,
     IUserAvatarService userAvatarService,
-    IUserDataDeletionService userDataDeletionService) : Controller
+    IUserDataDeletionService userDataDeletionService,
+    ILogger<AccountController> logger) : Controller
 {
     private const string DefaultAvatarUrl = "/images/default/avatar-placeholder.svg";
 
@@ -85,7 +86,33 @@ public class AccountController(
             return Challenge();
         }
 
-        await userDataDeletionService.DeleteUserAsync(user.Id, HttpContext.RequestAborted);
+        ApplicationOperationLogging.LogAuditStarted(
+            logger,
+            ApplicationOperationLogging.Operations.SelfDeleteAccount,
+            user.Id,
+            "User",
+            user.Id);
+
+        var deleted = await userDataDeletionService.DeleteUserAsync(user.Id, HttpContext.RequestAborted);
+        if (!deleted)
+        {
+            ApplicationOperationLogging.LogAuditTargetNotFound(
+                logger,
+                ApplicationOperationLogging.Operations.SelfDeleteAccount,
+                user.Id,
+                "User",
+                user.Id);
+        }
+        else
+        {
+            ApplicationOperationLogging.LogAuditCompleted(
+                logger,
+                ApplicationOperationLogging.Operations.SelfDeleteAccount,
+                user.Id,
+                "User",
+                user.Id);
+        }
+
         await SignOutCurrentUserAsync();
 
         return Redirect("/");

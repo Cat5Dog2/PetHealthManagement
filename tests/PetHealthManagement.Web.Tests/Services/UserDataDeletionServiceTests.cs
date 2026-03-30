@@ -1,9 +1,10 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Logging;
 using PetHealthManagement.Web.Data;
 using PetHealthManagement.Web.Models;
 using PetHealthManagement.Web.Services;
+using PetHealthManagement.Web.Tests.Infrastructure;
 
 namespace PetHealthManagement.Web.Tests.Services;
 
@@ -105,7 +106,8 @@ public class UserDataDeletionServiceTests
         await dbContext.SaveChangesAsync();
 
         var storage = new FakeImageStorageService();
-        var service = new UserDataDeletionService(dbContext, storage, NullLogger<UserDataDeletionService>.Instance);
+        var logger = new TestLogger<UserDataDeletionService>();
+        var service = new UserDataDeletionService(dbContext, storage, logger);
 
         var deleted = await service.DeleteUserAsync("user-a");
 
@@ -122,6 +124,34 @@ public class UserDataDeletionServiceTests
         Assert.Equal(
             ["images/avatar-a.jpg", "images/log-a.jpg", "images/pet-a.jpg", "images/visit-a.jpg"],
             storage.DeletedStorageKeys.OrderBy(x => x).ToArray());
+        Assert.Collection(
+            logger.Entries.Where(x => x.LogLevel == LogLevel.Information).ToArray(),
+            entry =>
+            {
+                Assert.Equal(ApplicationOperationLogging.Operations.DeleteUserData, entry.Properties["Operation"]);
+                Assert.Equal("user-a", entry.Properties["OwnerId"]);
+                Assert.Equal("User", entry.Properties["TargetType"]);
+                Assert.Equal("user-a", entry.Properties["TargetId"]);
+                Assert.Equal(1, entry.Properties["PetCount"]);
+                Assert.Equal(1, entry.Properties["HealthLogCount"]);
+                Assert.Equal(1, entry.Properties["VisitCount"]);
+                Assert.Equal(1, entry.Properties["ScheduleItemCount"]);
+                Assert.Equal(4, entry.Properties["ImageAssetCount"]);
+                Assert.Equal(4, entry.Properties["StorageTargetCount"]);
+            },
+            entry =>
+            {
+                Assert.Equal(ApplicationOperationLogging.Operations.DeleteUserData, entry.Properties["Operation"]);
+                Assert.Equal("user-a", entry.Properties["OwnerId"]);
+                Assert.Equal("User", entry.Properties["TargetType"]);
+                Assert.Equal("user-a", entry.Properties["TargetId"]);
+                Assert.Equal(1, entry.Properties["PetCount"]);
+                Assert.Equal(1, entry.Properties["HealthLogCount"]);
+                Assert.Equal(1, entry.Properties["VisitCount"]);
+                Assert.Equal(1, entry.Properties["ScheduleItemCount"]);
+                Assert.Equal(4, entry.Properties["ImageAssetCount"]);
+                Assert.Equal(4, entry.Properties["StorageTargetCount"]);
+            });
     }
 
     [Fact]
@@ -143,24 +173,38 @@ public class UserDataDeletionServiceTests
             FailingStorageKeys = ["images/fail-delete.jpg"]
         };
 
-        var service = new UserDataDeletionService(dbContext, storage, NullLogger<UserDataDeletionService>.Instance);
+        var logger = new TestLogger<UserDataDeletionService>();
+        var service = new UserDataDeletionService(dbContext, storage, logger);
 
         var deleted = await service.DeleteUserAsync("user-a");
 
         Assert.True(deleted);
         Assert.Empty(await dbContext.Users.ToListAsync());
         Assert.Empty(await dbContext.ImageAssets.ToListAsync());
+        Assert.Contains(
+            logger.Entries,
+            entry => entry.LogLevel == LogLevel.Warning
+                     && Equals(entry.Properties["OwnerId"], "user-a")
+                     && Equals(entry.Properties["ResourceType"], "User")
+                     && Equals(entry.Properties["ResourceId"], "user-a"));
     }
 
     [Fact]
     public async Task DeleteUserAsync_ReturnsFalse_WhenUserDoesNotExist()
     {
         await using var dbContext = CreateDbContext();
-        var service = new UserDataDeletionService(dbContext, new FakeImageStorageService(), NullLogger<UserDataDeletionService>.Instance);
+        var logger = new TestLogger<UserDataDeletionService>();
+        var service = new UserDataDeletionService(dbContext, new FakeImageStorageService(), logger);
 
         var deleted = await service.DeleteUserAsync("missing-user");
 
         Assert.False(deleted);
+        var warningLog = Assert.Single(logger.Entries);
+        Assert.Equal(LogLevel.Warning, warningLog.LogLevel);
+        Assert.Equal(ApplicationOperationLogging.Operations.DeleteUserData, warningLog.Properties["Operation"]);
+        Assert.Equal("missing-user", warningLog.Properties["OwnerId"]);
+        Assert.Equal("User", warningLog.Properties["TargetType"]);
+        Assert.Equal("missing-user", warningLog.Properties["TargetId"]);
     }
 
     private static ApplicationDbContext CreateDbContext()

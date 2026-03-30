@@ -6,6 +6,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using PetHealthManagement.Web.Controllers;
 using PetHealthManagement.Web.Data;
 using PetHealthManagement.Web.Models;
@@ -175,12 +177,14 @@ public class AccountControllerTests
 
         var deletionService = new FakeUserDataDeletionService();
         var authenticationService = new FakeAuthenticationService();
+        var logger = new PetHealthManagement.Web.Tests.Infrastructure.TestLogger<AccountController>();
         var controller = BuildController(
             dbContext,
             new FakeUserAvatarService(),
             deletionService,
             "user-a",
-            authenticationService);
+            authenticationService,
+            logger);
 
         var result = await controller.DeleteConfirmed("/MyPage");
 
@@ -188,6 +192,24 @@ public class AccountControllerTests
         Assert.Equal("/", redirectResult.Url);
         Assert.Equal("user-a", deletionService.DeletedUserId);
         Assert.Contains(IdentityConstants.ApplicationScheme, authenticationService.SignedOutSchemes);
+        Assert.Collection(
+            logger.Entries,
+            entry =>
+            {
+                Assert.Equal(LogLevel.Information, entry.LogLevel);
+                Assert.Equal(ApplicationOperationLogging.Operations.SelfDeleteAccount, entry.Properties["Operation"]);
+                Assert.Equal("user-a", entry.Properties["ActorUserId"]);
+                Assert.Equal("User", entry.Properties["TargetType"]);
+                Assert.Equal("user-a", entry.Properties["TargetId"]);
+            },
+            entry =>
+            {
+                Assert.Equal(LogLevel.Information, entry.LogLevel);
+                Assert.Equal(ApplicationOperationLogging.Operations.SelfDeleteAccount, entry.Properties["Operation"]);
+                Assert.Equal("user-a", entry.Properties["ActorUserId"]);
+                Assert.Equal("User", entry.Properties["TargetType"]);
+                Assert.Equal("user-a", entry.Properties["TargetId"]);
+            });
     }
 
     private static AccountController BuildController(
@@ -195,13 +217,18 @@ public class AccountControllerTests
         IUserAvatarService avatarService,
         IUserDataDeletionService userDataDeletionService,
         string userId,
-        IAuthenticationService? authenticationService = null)
+        IAuthenticationService? authenticationService = null,
+        ILogger<AccountController>? logger = null)
     {
         var services = new ServiceCollection();
         services.AddSingleton<IAuthenticationService>(authenticationService ?? new FakeAuthenticationService());
         services.AddSingleton<ITempDataDictionaryFactory, FakeTempDataDictionaryFactory>();
 
-        var controller = new AccountController(dbContext, avatarService, userDataDeletionService);
+        var controller = new AccountController(
+            dbContext,
+            avatarService,
+            userDataDeletionService,
+            logger ?? NullLogger<AccountController>.Instance);
         var claimsPrincipal = new ClaimsPrincipal(
             new ClaimsIdentity(
                 [new Claim(ClaimTypes.NameIdentifier, userId)],

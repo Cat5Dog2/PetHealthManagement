@@ -2,10 +2,13 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using PetHealthManagement.Web.Areas.Admin.Controllers;
 using PetHealthManagement.Web.Data;
 using PetHealthManagement.Web.Models;
 using PetHealthManagement.Web.Services;
+using PetHealthManagement.Web.Tests.Infrastructure;
 using PetHealthManagement.Web.ViewModels.Admin.Users;
 
 namespace PetHealthManagement.Web.Tests.Areas.Admin.Controllers;
@@ -105,33 +108,73 @@ public class UsersControllerTests
     {
         await using var dbContext = CreateDbContext();
         var deletionService = new FakeUserDataDeletionService { NextResult = true };
-        var controller = BuildController(dbContext, deletionService);
+        var logger = new TestLogger<UsersController>();
+        var controller = BuildController(dbContext, deletionService, logger);
 
         var result = await controller.Delete("user-a");
 
         var redirectResult = Assert.IsType<RedirectResult>(result);
         Assert.Equal("/Admin/Users", redirectResult.Url);
         Assert.Equal("user-a", deletionService.DeletedUserId);
+        Assert.Collection(
+            logger.Entries,
+            entry =>
+            {
+                Assert.Equal(LogLevel.Information, entry.LogLevel);
+                Assert.Equal(ApplicationOperationLogging.Operations.AdminDeleteUser, entry.Properties["Operation"]);
+                Assert.Equal("admin-user", entry.Properties["ActorUserId"]);
+                Assert.Equal("User", entry.Properties["TargetType"]);
+                Assert.Equal("user-a", entry.Properties["TargetId"]);
+            },
+            entry =>
+            {
+                Assert.Equal(LogLevel.Information, entry.LogLevel);
+                Assert.Equal(ApplicationOperationLogging.Operations.AdminDeleteUser, entry.Properties["Operation"]);
+                Assert.Equal("admin-user", entry.Properties["ActorUserId"]);
+                Assert.Equal("User", entry.Properties["TargetType"]);
+                Assert.Equal("user-a", entry.Properties["TargetId"]);
+            });
     }
 
     [Fact]
     public async Task Delete_ReturnsNotFound_WhenUserDoesNotExist()
     {
         await using var dbContext = CreateDbContext();
-        var controller = BuildController(dbContext, new FakeUserDataDeletionService { NextResult = false });
+        var logger = new TestLogger<UsersController>();
+        var controller = BuildController(dbContext, new FakeUserDataDeletionService { NextResult = false }, logger);
 
         var result = await controller.Delete("missing-user");
 
         Assert.IsType<NotFoundResult>(result);
+        Assert.Collection(
+            logger.Entries,
+            entry =>
+            {
+                Assert.Equal(LogLevel.Information, entry.LogLevel);
+                Assert.Equal(ApplicationOperationLogging.Operations.AdminDeleteUser, entry.Properties["Operation"]);
+                Assert.Equal("admin-user", entry.Properties["ActorUserId"]);
+                Assert.Equal("User", entry.Properties["TargetType"]);
+                Assert.Equal("missing-user", entry.Properties["TargetId"]);
+            },
+            entry =>
+            {
+                Assert.Equal(LogLevel.Warning, entry.LogLevel);
+                Assert.Equal(ApplicationOperationLogging.Operations.AdminDeleteUser, entry.Properties["Operation"]);
+                Assert.Equal("admin-user", entry.Properties["ActorUserId"]);
+                Assert.Equal("User", entry.Properties["TargetType"]);
+                Assert.Equal("missing-user", entry.Properties["TargetId"]);
+            });
     }
 
     private static UsersController BuildController(
         ApplicationDbContext dbContext,
-        IUserDataDeletionService? userDataDeletionService = null)
+        IUserDataDeletionService? userDataDeletionService = null,
+        ILogger<UsersController>? logger = null)
     {
         var controller = new UsersController(
             dbContext,
-            userDataDeletionService ?? new FakeUserDataDeletionService());
+            userDataDeletionService ?? new FakeUserDataDeletionService(),
+            logger ?? NullLogger<UsersController>.Instance);
 
         controller.ControllerContext = new ControllerContext
         {

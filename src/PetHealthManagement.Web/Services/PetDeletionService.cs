@@ -19,6 +19,13 @@ public class PetDeletionService(
 
         if (owner is null)
         {
+            ApplicationOperationLogging.LogDeletionPreconditionFailed(
+                logger,
+                ApplicationOperationLogging.Operations.DeletePet,
+                ownerId,
+                "Pet",
+                pet.Id,
+                "owner_not_found");
             throw new InvalidOperationException("Owner user was not found.");
         }
 
@@ -78,6 +85,19 @@ public class PetDeletionService(
             .Where(x => x.Status == ImageAssetStatus.Ready)
             .Sum(x => x.SizeBytes);
 
+        ApplicationOperationLogging.LogDeletionStarted(
+            logger,
+            ApplicationOperationLogging.Operations.DeletePet,
+            ownerId,
+            "Pet",
+            pet.Id,
+            healthLogCount: healthLogs.Count,
+            visitCount: visits.Count,
+            scheduleItemCount: scheduleItems.Count,
+            imageAssetCount: imageAssets.Count,
+            storageTargetCount: storageTargets.Count,
+            deletedReadyBytes: deletedReadyBytes);
+
         var transaction = dbContext.Database.IsRelational()
             ? await dbContext.Database.BeginTransactionAsync(cancellationToken)
             : null;
@@ -123,9 +143,36 @@ public class PetDeletionService(
             {
                 await transaction.CommitAsync(cancellationToken);
             }
+
+            ApplicationOperationLogging.LogDeletionCompleted(
+                logger,
+                ApplicationOperationLogging.Operations.DeletePet,
+                ownerId,
+                "Pet",
+                pet.Id,
+                healthLogCount: healthLogs.Count,
+                visitCount: visits.Count,
+                scheduleItemCount: scheduleItems.Count,
+                imageAssetCount: imageAssets.Count,
+                storageTargetCount: storageTargets.Count,
+                deletedReadyBytes: deletedReadyBytes);
         }
-        catch
+        catch (Exception ex)
         {
+            ApplicationOperationLogging.LogDeletionFailed(
+                logger,
+                ex,
+                ApplicationOperationLogging.Operations.DeletePet,
+                ownerId,
+                "Pet",
+                pet.Id,
+                healthLogCount: healthLogs.Count,
+                visitCount: visits.Count,
+                scheduleItemCount: scheduleItems.Count,
+                imageAssetCount: imageAssets.Count,
+                storageTargetCount: storageTargets.Count,
+                deletedReadyBytes: deletedReadyBytes);
+
             if (transaction is not null)
             {
                 await transaction.RollbackAsync(cancellationToken);
