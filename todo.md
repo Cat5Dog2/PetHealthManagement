@@ -76,7 +76,7 @@
 - [x] `dotnet user-secrets` 初期化
 - [x] ConnectionString（LocalDB）設定
 - [x] `StorageRoot`（画像保存先）設定
-- [ ] 環境別設定（Development/Staging/Production）方針を決め、appsettings を整備
+- [x] 環境別設定（Development/Staging/Production）方針を決め、appsettings を整備
 
 ### 1.3 ミドルウェア・共通UI
 - [x] ルーティング/エリア（Admin）設定
@@ -93,7 +93,7 @@
 
 ### 1.5 完了条件/成果物
 - [ ] ローカル起動→ログイン→基本画面遷移が一周できる（エラーページ含む）
-- [ ] 環境別設定の読み分け（Development/Staging/Production）が確認できる
+- [x] 環境別設定の読み分け（Development/Staging/Production）が確認できる
 - [x] 共通部品（returnUrl/page/認可/秘匿）が最初の1画面で利用されている
 
 ---
