@@ -16,7 +16,9 @@
 
 <div class="mb-3">
     <label asp-for="Name" class="form-label"></label>
-    <input asp-for="Name" class="form-control" />
+    <input asp-for="Name"
+           class="form-control"
+           maxlength="@PetHealthManagement.Web.Infrastructure.InputValidationLimits.Pets.NameMaxLength" />
     <span asp-validation-for="Name" class="text-danger"></span>
 </div>
 
@@ -34,7 +36,9 @@
 
 <div class="mb-3">
     <label asp-for="Breed" class="form-label"></label>
-    <input asp-for="Breed" class="form-control" />
+    <input asp-for="Breed"
+           class="form-control"
+           maxlength="@PetHealthManagement.Web.Infrastructure.InputValidationLimits.Pets.BreedMaxLength" />
     <span asp-validation-for="Breed" class="text-danger"></span>
 </div>
 

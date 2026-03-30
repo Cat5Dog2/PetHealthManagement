@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using PetHealthManagement.Web.Infrastructure;
 
 namespace PetHealthManagement.Web.ViewModels.Pets;
 
@@ -7,14 +8,14 @@ public class PetEditViewModel
     public int? PetId { get; set; }
 
     [Required]
-    [StringLength(50)]
+    [StringLength(InputValidationLimits.Pets.NameMaxLength)]
     public string Name { get; set; } = string.Empty;
 
     [Required]
-    [StringLength(50)]
+    [StringLength(InputValidationLimits.Pets.SpeciesCodeMaxLength)]
     public string SpeciesCode { get; set; } = string.Empty;
 
-    [StringLength(100)]
+    [StringLength(InputValidationLimits.Pets.BreedMaxLength)]
     public string? Breed { get; set; }
 
     public bool IsPublic { get; set; } = true;

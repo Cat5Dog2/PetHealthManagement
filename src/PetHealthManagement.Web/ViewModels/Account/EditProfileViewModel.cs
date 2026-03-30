@@ -1,10 +1,11 @@
 using System.ComponentModel.DataAnnotations;
+using PetHealthManagement.Web.Infrastructure;
 
 namespace PetHealthManagement.Web.ViewModels.Account;
 
 public class EditProfileViewModel
 {
-    [StringLength(50)]
+    [StringLength(InputValidationLimits.Profile.DisplayNameMaxLength)]
     public string? DisplayName { get; set; }
 
     public IFormFile? AvatarFile { get; set; }
