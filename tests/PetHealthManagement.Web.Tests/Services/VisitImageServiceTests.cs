@@ -17,7 +17,7 @@ public class VisitImageServiceTests
     public async Task ApplyImageChangesAsync_AddsNewImages_DeletesSelectedImages_AndUpdatesUsedBytes()
     {
         await using var dbContext = CreateDbContext();
-        using var storage = new FakeImageStorageService();
+        using var storage = new TestFileBackedImageStorageService("visit-image-tests");
 
         dbContext.Users.Add(new ApplicationUser { Id = "user-a", UserName = "userA" });
         dbContext.Pets.Add(NewPet(1, "user-a"));
@@ -78,7 +78,7 @@ public class VisitImageServiceTests
     public async Task ApplyImageChangesAsync_Fails_WhenImageCountWouldExceedLimit()
     {
         await using var dbContext = CreateDbContext();
-        using var storage = new FakeImageStorageService();
+        using var storage = new TestFileBackedImageStorageService("visit-image-tests");
         var logger = new TestLogger<VisitImageService>();
 
         dbContext.Users.Add(new ApplicationUser { Id = "user-a", UserName = "userA" });
@@ -134,7 +134,7 @@ public class VisitImageServiceTests
     public async Task ApplyImageChangesAsync_Succeeds_WhenOldFileDeletionFails()
     {
         await using var dbContext = CreateDbContext();
-        using var storage = new FakeImageStorageService
+        using var storage = new TestFileBackedImageStorageService("visit-image-tests")
         {
             FailingDeleteStorageKeys = ["images/delete.jpg"]
         };
@@ -177,7 +177,7 @@ public class VisitImageServiceTests
     public async Task ApplyImageChangesAsync_FailsWithWarningLog_WhenUploadedFileIsNotAnImage()
     {
         await using var dbContext = CreateDbContext();
-        using var storage = new FakeImageStorageService();
+        using var storage = new TestFileBackedImageStorageService("visit-image-tests");
         var logger = new TestLogger<VisitImageService>();
 
         dbContext.Users.Add(new ApplicationUser { Id = "user-a", UserName = "userA" });
@@ -216,11 +216,7 @@ public class VisitImageServiceTests
 
     private static ApplicationDbContext CreateDbContext()
     {
-        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
-            .UseInMemoryDatabase($"visit-image-tests-{Guid.NewGuid()}")
-            .Options;
-
-        return new ApplicationDbContext(options);
+        return TestDbContextFactory.CreateInMemoryDbContext("visit-image-tests");
     }
 
     private static Pet NewPet(int id, string ownerId)
@@ -278,86 +274,4 @@ public class VisitImageServiceTests
         };
     }
 
-    private sealed class FakeImageStorageService : IImageStorageService, IDisposable
-    {
-        private readonly string rootPath = Path.Combine(Path.GetTempPath(), "visit-image-tests", Guid.NewGuid().ToString("N"));
-
-        public HashSet<string> FailingDeleteStorageKeys { get; init; } = [];
-
-        public List<string> DeletedStorageKeys { get; } = [];
-
-        public List<string> MovedStorageKeys { get; } = [];
-
-        public FakeImageStorageService()
-        {
-            Directory.CreateDirectory(rootPath);
-        }
-
-        public string CreateTemporaryPath(string extension)
-        {
-            return Path.Combine(rootPath, $"{Guid.NewGuid():N}{extension}");
-        }
-
-        public async Task SaveFormFileToPathAsync(IFormFile file, string destinationPath, CancellationToken cancellationToken = default)
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
-
-            await using var destination = new FileStream(destinationPath, FileMode.Create, FileAccess.Write, FileShare.None);
-            await file.CopyToAsync(destination, cancellationToken);
-        }
-
-        public Task MoveToStorageAsync(string sourcePath, string storageKey, CancellationToken cancellationToken = default)
-        {
-            _ = cancellationToken;
-
-            MovedStorageKeys.Add(storageKey);
-            var destinationPath = Path.Combine(rootPath, storageKey.Replace('/', Path.DirectorySeparatorChar));
-            Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
-            File.Copy(sourcePath, destinationPath, overwrite: true);
-            File.Delete(sourcePath);
-            return Task.CompletedTask;
-        }
-
-        public Task<Stream?> OpenReadAsync(string storageKey, CancellationToken cancellationToken = default)
-        {
-            _ = storageKey;
-            _ = cancellationToken;
-            throw new NotSupportedException();
-        }
-
-        public Task DeleteIfExistsAsync(string storageKey, CancellationToken cancellationToken = default)
-        {
-            _ = cancellationToken;
-
-            DeletedStorageKeys.Add(storageKey);
-
-            if (FailingDeleteStorageKeys.Contains(storageKey))
-            {
-                throw new IOException("Simulated delete failure.");
-            }
-
-            var path = Path.Combine(rootPath, storageKey.Replace('/', Path.DirectorySeparatorChar));
-            if (File.Exists(path))
-            {
-                File.Delete(path);
-            }
-
-            return Task.CompletedTask;
-        }
-
-        public void Dispose()
-        {
-            try
-            {
-                if (Directory.Exists(rootPath))
-                {
-                    Directory.Delete(rootPath, recursive: true);
-                }
-            }
-            catch
-            {
-                // Best effort cleanup.
-            }
-        }
-    }
 }
