@@ -6,12 +6,27 @@ public static class UserDisplayNameHelper
 {
     public static string ResolveForDisplay(ApplicationUser user)
     {
-        if (!string.IsNullOrWhiteSpace(user.DisplayName))
+        return ResolveForDisplay(user.DisplayName, user.UserName, user.Email, user.Id);
+    }
+
+    public static string ResolveForDisplay(string? displayName, string? userName, string? email, string userId)
+    {
+        if (!string.IsNullOrWhiteSpace(displayName))
         {
-            return user.DisplayName;
+            return displayName;
         }
 
-        return ResolveFallback(user);
+        if (!string.IsNullOrWhiteSpace(userName))
+        {
+            return userName;
+        }
+
+        if (!string.IsNullOrWhiteSpace(email))
+        {
+            return email;
+        }
+
+        return userId;
     }
 
     public static string ResolveForStorage(ApplicationUser user, string? submittedDisplayName)
@@ -22,11 +37,6 @@ public static class UserDisplayNameHelper
             return normalized;
         }
 
-        return ResolveFallback(user);
-    }
-
-    private static string ResolveFallback(ApplicationUser user)
-    {
         if (!string.IsNullOrWhiteSpace(user.UserName))
         {
             return user.UserName;
