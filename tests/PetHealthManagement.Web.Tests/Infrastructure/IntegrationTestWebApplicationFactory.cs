@@ -17,10 +17,7 @@ namespace PetHealthManagement.Web.Tests.Infrastructure;
 internal sealed class IntegrationTestWebApplicationFactory : WebApplicationFactory<Program>
 {
     private readonly string _databaseName = $"integration-tests-{Guid.NewGuid():N}";
-    private readonly string _storageRoot = Path.Combine(
-        Path.GetTempPath(),
-        "PetHealthManagement.IntegrationTests",
-        Guid.NewGuid().ToString("N"));
+    private readonly TemporaryStorageRoot _storageRoot = new("PetHealthManagement.IntegrationTests");
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -39,7 +36,7 @@ internal sealed class IntegrationTestWebApplicationFactory : WebApplicationFacto
 
             services.PostConfigure<StorageOptions>(options =>
             {
-                options.RootPath = _storageRoot;
+                options.RootPath = _storageRoot.RootPath;
             });
 
             services.AddAuthentication(options =>
@@ -159,10 +156,7 @@ internal sealed class IntegrationTestWebApplicationFactory : WebApplicationFacto
 
         try
         {
-            if (Directory.Exists(_storageRoot))
-            {
-                Directory.Delete(_storageRoot, recursive: true);
-            }
+            _storageRoot.Dispose();
         }
         catch
         {

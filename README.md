@@ -53,6 +53,15 @@ dotnet run --project src/PetHealthManagement.Web
 - Unhandled request exceptions are logged with `method`, `path`, `traceId`, and `userId`
 - Persistent audit log retention and external monitoring are still future operational tasks
 
+## Test Strategy
+
+- Default unit and controller tests use EF Core InMemory via `TestDbContextFactory.CreateInMemoryDbContext(...)` for fast isolated setup
+- Query translation and query-count assertions use SQLite in-memory via `TestDbContextFactory.CreateSqliteInMemoryContextAsync(...)`
+- Integration tests use `IntegrationTestWebApplicationFactory`, which swaps the app DB to EF Core InMemory and assigns a per-test temporary `StorageRoot`
+- File-backed image service tests use `TestFileBackedImageStorageService`, which writes under a temporary root and cleans up with best effort
+- Temporary storage for tests is created under the system temp directory and should never point to real application storage
+- If a test depends on relational behavior, SQL translation, or query counts, prefer SQLite in-memory instead of EF Core InMemory
+
 - 開発ルール: `AGENTS.md`
 - PR/品質ゲート: `CONTRIBUTING.md`
 - 仕様ドキュメント: `docs/`

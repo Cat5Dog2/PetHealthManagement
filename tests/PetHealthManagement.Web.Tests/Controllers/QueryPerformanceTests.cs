@@ -1,7 +1,6 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using PetHealthManagement.Web.Areas.Admin.Controllers;
@@ -17,11 +16,9 @@ public class QueryPerformanceTests
     [Fact]
     public async Task AdminUsersIndex_ExecutesBoundedQueryCount_ForPageAndPetCounts()
     {
-        using var connection = new SqliteConnection("Data Source=:memory:");
-        await connection.OpenAsync();
-
         var interceptor = new QueryCountingDbCommandInterceptor();
-        await using var dbContext = await CreateDbContextAsync(connection, interceptor);
+        await using var testContext = await TestDbContextFactory.CreateSqliteInMemoryContextAsync(interceptor);
+        var dbContext = testContext.DbContext;
 
         dbContext.Users.AddRange(
             new ApplicationUser { Id = "admin-user", UserName = "admin-user", DisplayName = "Admin User" },
@@ -42,20 +39,6 @@ public class QueryPerformanceTests
 
         Assert.IsType<ViewResult>(result);
         Assert.Equal(2, interceptor.ExecutedCommandCount);
-    }
-
-    private static async Task<ApplicationDbContext> CreateDbContextAsync(
-        SqliteConnection connection,
-        QueryCountingDbCommandInterceptor interceptor)
-    {
-        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
-            .UseSqlite(connection)
-            .AddInterceptors(interceptor)
-            .Options;
-
-        var dbContext = new ApplicationDbContext(options);
-        await dbContext.Database.EnsureCreatedAsync();
-        return dbContext;
     }
 
     private static UsersController BuildUsersController(ApplicationDbContext dbContext)
