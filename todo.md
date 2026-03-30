@@ -40,7 +40,7 @@
 - [x] 「存在秘匿(404)」対象の範囲（Pet/HealthLog/ScheduleItem/Visit/Image）
 - [x] returnUrl（Open Redirect対策）と「Query → hidden → POST」統一
 - [x] 「petIdを信頼しない」（例：完了トグルは scheduleItemId 起点で所有者認可）
-- [ ] **命名規約チェックリスト**（Query/Route は lowerCamelCase、Formは例外ルール込み、API仕様との一致）を `CONTRIBUTING.md` に追記
+- [x] **命名規約チェックリスト**（Query/Route は lowerCamelCase、Formは例外ルール込み、API仕様との一致）を `CONTRIBUTING.md` に追記
 
 ### 0.2 リポジトリ/品質ゲート
 - [x] CI（ビルド/テスト）最小セット（GitHub Actions等）
@@ -89,7 +89,7 @@
 - [x] `PagingHelper`（page補正）を作成
 - [x] `OwnershipAuthorizer`（リソースID → PetId/UserId復元 → 所有者チェック → 404秘匿）を作成
 - [x] `ErrorController`（`/Error/{statusCode}`：400/403/404/500 の共通表示）を用意
-- [ ] **命名規約テスト**（Query/Route と、`returnUrl`/`page`/`petId` 等の hidden/リンク用キーが lowerCamelCase になっている）をスモーク的に追加（必要なら）
+- [x] **命名規約テスト**（Query/Route と、`returnUrl`/`page`/`petId` 等の hidden/リンク用キーが lowerCamelCase になっている）をスモーク的に追加（必要なら）
 
 ### 1.5 完了条件/成果物
 - [ ] ローカル起動→ログイン→基本画面遷移が一周できる（エラーページ含む）

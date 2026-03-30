@@ -1,75 +1,121 @@
-# Contributing（開発手順・品質ゲート）
+# CONTRIBUTING
 
 このリポジトリは「ペット健康管理アプリ（ASP.NET Core MVC + Identity / EF Core / SQL Server）」です。
 
-**プロジェクトルールの一次ソースは `AGENTS.md`** です（セキュリティ/仕様の詳細・例外・数値条件は必ずそちらを正としてください）。
-このドキュメントは、**PR運用とレビュー時のチェック観点**を短くまとめたものです。
+変更を始める前に、まず [AGENTS.md] を読んでください。  
+このファイルは、日常的な開発フローと PR 前のチェックポイントを簡潔にまとめたものです。
 
----
+## 1. 参照順
 
-## 1. 必須の品質ゲート（PR前に必ず通す）
+仕様の正は次の順です。
 
-- ビルド：`./scripts/build.sh`（Windows: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build.ps1`）
-- テスト：`./scripts/test.sh`（Windows: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test.ps1`）
-- フォーマット：`./scripts/format.sh`（Windows: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/format.ps1`）
+1. [todo.md]
+2. [docs/requirements.md]
+3. [docs/basic-design.md]
+4. [docs/api-spec.md]
+5. [docs/test-cases-by-screen.md]
+6. [docs/er-diagram.md]
+7. [docs/screen-transition-diagram.md]
+8. [docs/ui-wireframe.md]
+9. [docs/screen-item-definition.md]
 
-PRでは以下を必須とします（CIで同等が回る想定）。
+矛盾を見つけた場合は、先に `todo.md` に決定事項を反映してから進めてください。
 
-- `dotnet build`
-- `dotnet test`
-- `dotnet format --verify-no-changes`
+## 2. セットアップと確認コマンド
 
----
+PR 前の基本コマンド:
 
-## 2. PRルール
+- Build: `./scripts/build.sh`
+- Test: `./scripts/test.sh`
+- Format: `./scripts/format.sh`
 
-- 1PR=1目的（レビューできるサイズにする）
-- 破壊的変更（DBスキーマ/認可/画像/削除系）は説明を厚めにする
-- 仕様の変更・解釈が増えた場合、まず `todo.md` に「決定事項」を追記する（以後それを正とする）
-- 画面/遷移/パラメータ名を変える場合、必要に応じて `api-spec.md` / `basic-design.md` / `test-cases-by-screen.md` も更新する
+Windows の場合:
 
----
+- Build: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build.ps1`
+- Test: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test.ps1`
+- Format: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/format.ps1`
 
-## 3. セキュリティ/仕様（レビュー用チェックリスト）
+最低限、変更の最後に `scripts/test` は必ず通してください。  
+通常の PR では `build` と `format` も合わせて確認します。
 
-> 詳細ルールは **必ず `AGENTS.md` を参照**（この章は重複を避けるため“観点”だけを書きます）。
+## 3. PR ルール
 
-### 3.1 認可・存在秘匿
-- 所有者不一致・非公開など「見えない」ケースで、**意図どおり 404（存在秘匿） or 403（Adminなど例外）** になっているか
-- IDを直接信頼せず、DBの参照関係で所有者チェックしているか（IDOR対策）
+- 1PR = 1目的で、小さくまとめる
+- 変更に合わせて `todo.md` の完了状態を同期する
+- 仕様変更や判断を入れた場合は、根拠となる資料を合わせて更新する
+- コード変更には、対応するテスト追加か、テスト不要の理由を添える
+- 認可、存在秘匿、returnUrl、画像処理、物理削除は特にレビュー観点を明示する
 
-### 3.2 returnUrl / リダイレクト
-- `Url.IsLocalUrl`（同等）でローカルURL検証しているか（Open Redirect対策）
-- 画面遷移保持が **Query → hidden → POST** で統一されているか
-- returnUrl 未指定/不正時の **安全なフォールバック先** が一貫しているか
+## 4. 実装時の必須ルール
 
-### 3.3 ステータスコード/遷移（PRG）
-- 更新系の成功が **POST→302→GET（PRG）** になっているか
-- フォーム再表示が必要な検証エラーは **200（同画面）** になっているか
-- 一覧トグル/削除など“画面を持たないPOST”の不正入力が **400 → /Error/400**（または同等の共通エラー）になっているか
+### 4.1 認可と存在秘匿
 
-### 3.4 画像（アップロード/配信）
-- アップロード：拡張子/Content-Type + **デコード検証** + 容量/枚数/総量などの制限が守られているか
-- 画像処理：ピクセル上限、EXIF除去/向き正規化など、仕様どおりになっているか
-- 配信：参照元を辿った認可、`Status=Pending` の扱い、キャッシュ/セキュリティヘッダが意図どおりか
+- 未ログインで保護 URL にアクセスした場合は、既定どおりログインへ 302
+- ログイン済みで所有者不一致や非公開により見せてはいけない場合は 404
+- 存在秘匿の対象は `Pet` / `HealthLog` / `ScheduleItem` / `Visit` / `Image`
+- Admin エリアは、Admin 以外 403
 
-### 3.5 命名/互換性
-- クエリパラメータ命名が **lowerCamelCase** になっているか
-- API/画面の変更で既存リンクが壊れる場合、移行方針が説明されているか
+### 4.2 returnUrl と Open Redirect 対策
 
----
+- `returnUrl` は必ず `Url.IsLocalUrl(returnUrl)` または同等処理で検証する
+- 画面遷移保持は `Query -> hidden -> POST` で統一する
+- `returnUrl` が未指定または非ローカルの場合は無視し、仕様上のデフォルト遷移先を使う
 
-## 4. 開発用スクリプト
+### 4.3 HTTP ステータスと PRG
 
-> “Codexでも人間でも同じ手順” で検証できるように、ワンコマンド化を優先します。
+- GET 成功は 200
+- POST 成功は原則 302 Redirect
+- Create/Edit のバリデーションエラーは 200 で同画面再表示
+- 一覧トグルや削除など画面を持たない POST の不正入力は 400 で扱い、`/Error/400` に統一する
 
-- `scripts/build.*`：ビルド
-- `scripts/test.*`：テスト
-- `scripts/format.*`：フォーマット
+### 4.4 画像アップロードと画像配信
 
----
+- 許可形式は `.jpg` `.jpeg` `.png` `.webp` と対応 Content-Type のみ
+- 実データをデコードして画像かどうか判定する
+- 1ファイル 2MB、HealthLog/Visit の添付は最大10枚、ユーザー合計100MB
+- 最大辺 4096px、総画素数 16,777,216px 以下
+- EXIF は除去し、向き正規化後に再エンコードする
+- アップロード画像は `wwwroot` 外へ保存し、一時保存は `StorageRoot/tmp` を使う
+- `GET /images/{imageId}` は参照元を辿って認可し、非許可・不在・Pending は 404
 
-## 5. Codexを使うとき
+### 4.5 所有者判定
 
-- Codexは `AGENTS.md` を読みます。プロジェクトルールは `AGENTS.md` を正とします。
-- 「認可/秘匿/returnUrl/画像/削除系」は必ず人間レビューを通してください。
+- クライアント送信の `petId` は信頼しない
+- 所有者認可は常に DB の参照関係から判定する
+- 例: 完了トグルや削除は `scheduleItemId` や `visitId` から親を復元して判定する
+
+### 4.6 ドメインルール
+
+- `RecordedAt` は `DateTimeOffset (+09:00)`
+- `IsPublic` の既定値は `true`
+
+## 5. 命名規約チェックリスト
+
+- Route placeholder と Query key は lowerCamelCase を使う
+- 代表例: `petId`, `healthLogId`, `scheduleItemId`, `visitId`, `returnUrl`, `page`, `nameKeyword`, `speciesFilter`
+- 画面遷移保持に使う key は `Query -> hidden -> POST` で同じ名前を維持する
+- `asp-route-*` や手書き URL を追加するときも、`docs/api-spec.md` と同じ key 名にそろえる
+- ViewModel のプロパティ名が PascalCase でも、hidden input や link/query key は lowerCamelCase を優先する
+
+## 6. 人間レビューが必要な領域
+
+次の変更は、意図とリスクを書いてレビューを依頼してください。
+
+- 認可
+- 存在秘匿
+- returnUrl / リダイレクト
+- 画像検証 / 画像配信 / 画像削除
+- アカウント削除 / Admin 削除 / 関連データの物理削除
+
+## 7. 作業の進め方
+
+- 先に短い Plan を作る
+- 実装は小さく進める
+- 最後に `scripts/test` を通す
+- 実装状況が変わったら `todo.md` を同期する
+
+## 8. CI と品質ゲート
+
+- GitHub Actions の CI は `build` / `test` を前提にしている
+- `format` もローカルで確認してから PR を出す
+- 主要シナリオの結合テストは回帰防止のため維持する
