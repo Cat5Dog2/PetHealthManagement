@@ -292,7 +292,7 @@
 - [x] date/date-time 形式（dateは yyyy-MM-dd、RecordedAtは datetime-local）
 
 ### 10.4 パフォーマンス/運用
-- [ ] N+1回避（一覧で必要な関連だけInclude）
+- [x] N+1回避（一覧で必要な関連だけInclude）
 - [x] 画像配信のキャッシュ方針（private/no-store or ETag）
 - [ ] ログ（削除失敗、例外、監査的ログが必要なら方針化）
 
