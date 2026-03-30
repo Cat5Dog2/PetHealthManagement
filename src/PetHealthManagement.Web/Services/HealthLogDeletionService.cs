@@ -19,6 +19,13 @@ public class HealthLogDeletionService(
 
         if (owner is null)
         {
+            ApplicationOperationLogging.LogDeletionPreconditionFailed(
+                logger,
+                ApplicationOperationLogging.Operations.DeleteHealthLog,
+                ownerId,
+                "HealthLog",
+                healthLog.Id,
+                "owner_not_found");
             throw new InvalidOperationException("Owner user was not found.");
         }
 
@@ -42,6 +49,16 @@ public class HealthLogDeletionService(
         var deletedReadyBytes = imageAssets
             .Where(x => x.Status == ImageAssetStatus.Ready)
             .Sum(x => x.SizeBytes);
+
+        ApplicationOperationLogging.LogDeletionStarted(
+            logger,
+            ApplicationOperationLogging.Operations.DeleteHealthLog,
+            ownerId,
+            "HealthLog",
+            healthLog.Id,
+            imageAssetCount: imageAssets.Count,
+            storageTargetCount: storageTargets.Count,
+            deletedReadyBytes: deletedReadyBytes);
 
         var transaction = dbContext.Database.IsRelational()
             ? await dbContext.Database.BeginTransactionAsync(cancellationToken)
@@ -68,9 +85,30 @@ public class HealthLogDeletionService(
             {
                 await transaction.CommitAsync(cancellationToken);
             }
+
+            ApplicationOperationLogging.LogDeletionCompleted(
+                logger,
+                ApplicationOperationLogging.Operations.DeleteHealthLog,
+                ownerId,
+                "HealthLog",
+                healthLog.Id,
+                imageAssetCount: imageAssets.Count,
+                storageTargetCount: storageTargets.Count,
+                deletedReadyBytes: deletedReadyBytes);
         }
-        catch
+        catch (Exception ex)
         {
+            ApplicationOperationLogging.LogDeletionFailed(
+                logger,
+                ex,
+                ApplicationOperationLogging.Operations.DeleteHealthLog,
+                ownerId,
+                "HealthLog",
+                healthLog.Id,
+                imageAssetCount: imageAssets.Count,
+                storageTargetCount: storageTargets.Count,
+                deletedReadyBytes: deletedReadyBytes);
+
             if (transaction is not null)
             {
                 await transaction.RollbackAsync(cancellationToken);

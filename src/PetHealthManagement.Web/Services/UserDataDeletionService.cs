@@ -21,6 +21,12 @@ public class UserDataDeletionService(
 
         if (user is null)
         {
+            ApplicationOperationLogging.LogDeletionTargetNotFound(
+                logger,
+                ApplicationOperationLogging.Operations.DeleteUserData,
+                userId,
+                "User",
+                userId);
             return false;
         }
 
@@ -79,6 +85,19 @@ public class UserDataDeletionService(
             .Select(x => new StorageDeletionTarget(x.ImageId, x.StorageKey, x.Category))
             .ToList();
 
+        ApplicationOperationLogging.LogDeletionStarted(
+            logger,
+            ApplicationOperationLogging.Operations.DeleteUserData,
+            userId,
+            "User",
+            userId,
+            petCount: pets.Count,
+            healthLogCount: healthLogs.Count,
+            visitCount: visits.Count,
+            scheduleItemCount: scheduleItems.Count,
+            imageAssetCount: imageAssets.Count,
+            storageTargetCount: storageTargets.Count);
+
         user.AvatarImageId = null;
 
         var transaction = dbContext.Database.IsRelational()
@@ -130,9 +149,36 @@ public class UserDataDeletionService(
             {
                 await transaction.CommitAsync(cancellationToken);
             }
+
+            ApplicationOperationLogging.LogDeletionCompleted(
+                logger,
+                ApplicationOperationLogging.Operations.DeleteUserData,
+                userId,
+                "User",
+                userId,
+                petCount: pets.Count,
+                healthLogCount: healthLogs.Count,
+                visitCount: visits.Count,
+                scheduleItemCount: scheduleItems.Count,
+                imageAssetCount: imageAssets.Count,
+                storageTargetCount: storageTargets.Count);
         }
-        catch
+        catch (Exception ex)
         {
+            ApplicationOperationLogging.LogDeletionFailed(
+                logger,
+                ex,
+                ApplicationOperationLogging.Operations.DeleteUserData,
+                userId,
+                "User",
+                userId,
+                petCount: pets.Count,
+                healthLogCount: healthLogs.Count,
+                visitCount: visits.Count,
+                scheduleItemCount: scheduleItems.Count,
+                imageAssetCount: imageAssets.Count,
+                storageTargetCount: storageTargets.Count);
+
             if (transaction is not null)
             {
                 await transaction.RollbackAsync(cancellationToken);
