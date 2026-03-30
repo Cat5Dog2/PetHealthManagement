@@ -156,7 +156,22 @@ public class PetDeletionServiceTests
         Assert.Empty(await dbContext.ImageAssets.ToListAsync());
         Assert.Equal(0, owner.UsedImageBytes);
         Assert.Contains("images/pet-1.jpg", storage.DeletedStorageKeys);
-        var warningLog = Assert.Single(logger.Entries);
+        Assert.Equal(3, logger.Entries.Count);
+        var startedLog = logger.Entries[0];
+        Assert.Equal(LogLevel.Information, startedLog.LogLevel);
+        Assert.Equal(ApplicationOperationLogging.Operations.DeletePet, startedLog.Properties["Operation"]);
+        Assert.Equal("user-a", startedLog.Properties["OwnerId"]);
+        Assert.Equal("Pet", startedLog.Properties["TargetType"]);
+        Assert.Equal(1, startedLog.Properties["TargetId"]);
+
+        var completedLog = logger.Entries[1];
+        Assert.Equal(LogLevel.Information, completedLog.LogLevel);
+        Assert.Equal(ApplicationOperationLogging.Operations.DeletePet, completedLog.Properties["Operation"]);
+        Assert.Equal("user-a", completedLog.Properties["OwnerId"]);
+        Assert.Equal("Pet", completedLog.Properties["TargetType"]);
+        Assert.Equal(1, completedLog.Properties["TargetId"]);
+
+        var warningLog = logger.Entries[2];
         Assert.Equal(LogLevel.Warning, warningLog.LogLevel);
         Assert.Equal("PetPhoto", warningLog.Properties["ImageCategory"]);
         Assert.Equal("user-a", warningLog.Properties["OwnerId"]);

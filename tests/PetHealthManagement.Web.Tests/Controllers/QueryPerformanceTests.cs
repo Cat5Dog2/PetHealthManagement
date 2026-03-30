@@ -3,8 +3,8 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using PetHealthManagement.Web.Areas.Admin.Controllers;
-using PetHealthManagement.Web.Controllers;
 using PetHealthManagement.Web.Data;
 using PetHealthManagement.Web.Models;
 using PetHealthManagement.Web.Services;
@@ -60,7 +60,10 @@ public class QueryPerformanceTests
 
     private static UsersController BuildUsersController(ApplicationDbContext dbContext)
     {
-        var controller = new UsersController(dbContext, new FakeUserDataDeletionService());
+        var controller = new UsersController(
+            dbContext,
+            new FakeUserDataDeletionService(),
+            NullLogger<UsersController>.Instance);
         controller.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext

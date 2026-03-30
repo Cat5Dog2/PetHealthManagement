@@ -45,6 +45,14 @@ dotnet run --project src/PetHealthManagement.Web
 - Security headers: `Content-Security-Policy`, `Referrer-Policy`, `Permissions-Policy`, `X-Content-Type-Options`, `X-Frame-Options`
 - Current CSP is intentionally minimal and still allows `'unsafe-inline'` for scripts and styles because some Razor views still use inline handlers and the import map stub
 
+## Logging Defaults
+
+- Image upload rejection, persistence failure, and file delete failure are logged with structured fields such as `imageCategory`, `ownerId`, `resourceType`, `resourceId`, `reason`, and `storageKey`
+- High-risk deletion flows log start/completion/failure with structured fields such as `operation`, `ownerId`, `targetType`, `targetId`, and affected record counts
+- Audited delete actions log `actorUserId` and target information for self-service account deletion and Admin user deletion
+- Unhandled request exceptions are logged with `method`, `path`, `traceId`, and `userId`
+- Persistent audit log retention and external monitoring are still future operational tasks
+
 - 開発ルール: `AGENTS.md`
 - PR/品質ゲート: `CONTRIBUTING.md`
 - 仕様ドキュメント: `docs/`
