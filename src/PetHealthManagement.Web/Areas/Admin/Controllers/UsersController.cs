@@ -13,7 +13,8 @@ namespace PetHealthManagement.Web.Areas.Admin.Controllers;
 [Route("Admin/Users")]
 public class UsersController(
     ApplicationDbContext dbContext,
-    IUserDataDeletionService userDataDeletionService) : Controller
+    IUserDataDeletionService userDataDeletionService,
+    ILogger<UsersController> logger) : Controller
 {
     [HttpGet("")]
     public async Task<IActionResult> Index(string? page)
@@ -70,11 +71,32 @@ public class UsersController(
             return NotFound();
         }
 
+        var actorUserId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
+        ApplicationOperationLogging.LogAuditStarted(
+            logger,
+            ApplicationOperationLogging.Operations.AdminDeleteUser,
+            actorUserId,
+            "User",
+            userId);
+
         var deleted = await userDataDeletionService.DeleteUserAsync(userId, HttpContext.RequestAborted);
         if (!deleted)
         {
+            ApplicationOperationLogging.LogAuditTargetNotFound(
+                logger,
+                ApplicationOperationLogging.Operations.AdminDeleteUser,
+                actorUserId,
+                "User",
+                userId);
             return NotFound();
         }
+
+        ApplicationOperationLogging.LogAuditCompleted(
+            logger,
+            ApplicationOperationLogging.Operations.AdminDeleteUser,
+            actorUserId,
+            "User",
+            userId);
 
         return Redirect("/Admin/Users");
     }

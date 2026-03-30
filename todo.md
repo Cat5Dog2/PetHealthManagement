@@ -294,7 +294,7 @@
 ### 10.4 パフォーマンス/運用
 - [x] N+1回避（一覧で必要な関連だけInclude）
 - [x] 画像配信のキャッシュ方針（private/no-store or ETag）
-- [ ] ログ（削除失敗、例外、監査的ログが必要なら方針化）
+- [x] ログ（削除失敗、例外、監査的ログが必要なら方針化）
 
 ### 10.5 Cookie/ヘッダ（最低限）
 - [x] 認証Cookie/Anti-forgery の属性方針（Secure/HttpOnly/SameSite）を決める

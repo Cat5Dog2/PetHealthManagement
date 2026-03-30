@@ -101,6 +101,7 @@ builder.Services.AddRateLimiter(options =>
 
 var app = builder.Build();
 var uploadRequestLimitLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("UploadRequestLimits");
+var unhandledExceptionLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("UnhandledRequestExceptions");
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -158,6 +159,18 @@ app.Use(async (context, next) =>
             context.Request.Path);
 
         await WriteBadRequestPageAsync(context);
+    }
+});
+app.Use(async (context, next) =>
+{
+    try
+    {
+        await next();
+    }
+    catch (Exception ex)
+    {
+        ApplicationOperationLogging.LogUnhandledRequestException(unhandledExceptionLogger, ex, context);
+        throw;
     }
 });
 app.UseHttpsRedirection();
