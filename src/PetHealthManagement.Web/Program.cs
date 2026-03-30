@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -144,7 +145,7 @@ app.Use(async (context, next) =>
             "Rejected multipart request that exceeded the configured upload limit. path={Path}",
             context.Request.Path);
 
-        await WriteBadRequestPageAsync(context);
+        WriteBadRequestResponse(context);
     }
     catch (BadHttpRequestException ex) when (ex.StatusCode == StatusCodes.Status413PayloadTooLarge)
     {
@@ -158,7 +159,21 @@ app.Use(async (context, next) =>
             "Rejected request that exceeded the configured upload limit. path={Path}",
             context.Request.Path);
 
-        await WriteBadRequestPageAsync(context);
+        WriteBadRequestResponse(context);
+    }
+    catch (AntiforgeryValidationException ex)
+    {
+        if (context.Response.HasStarted)
+        {
+            throw;
+        }
+
+        uploadRequestLimitLogger.LogWarning(
+            ex,
+            "Rejected request due to antiforgery validation failure. path={Path}",
+            context.Request.Path);
+
+        WriteBadRequestResponse(context);
     }
 });
 app.Use(async (context, next) =>
@@ -202,26 +217,10 @@ static bool IsMultipartRequestParsingFailure(HttpContext context, InvalidDataExc
            && exception.Message.Contains("multipart", StringComparison.OrdinalIgnoreCase);
 }
 
-static Task WriteBadRequestPageAsync(HttpContext context)
+static void WriteBadRequestResponse(HttpContext context)
 {
     context.Response.Clear();
     context.Response.StatusCode = StatusCodes.Status400BadRequest;
-    context.Response.ContentType = "text/html; charset=utf-8";
-
-    return context.Response.WriteAsync(
-        """
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="utf-8" />
-            <title>400 Bad Request</title>
-        </head>
-        <body>
-            <h1 class="text-danger">400 Bad Request</h1>
-            <p>Please review your request and try again.</p>
-        </body>
-        </html>
-        """);
 }
 
 public partial class Program;
