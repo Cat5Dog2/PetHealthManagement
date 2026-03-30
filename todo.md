@@ -287,9 +287,9 @@
 - [x] 400/403/404/500 を `/Error/{statusCode}` に統一表示
 
 ### 10.3 入力バリデーション
-- [ ] 文字数（例：Name 50、Note 1000等）
-- [ ] 数値範囲（体重/食事量/散歩時間など）
-- [ ] date/date-time 形式（dateは yyyy-MM-dd、RecordedAtは datetime-local）
+- [x] 文字数（例：Name 50、Note 1000等）
+- [x] 数値範囲（体重/食事量/散歩時間など）
+- [x] date/date-time 形式（dateは yyyy-MM-dd、RecordedAtは datetime-local）
 
 ### 10.4 パフォーマンス/運用
 - [ ] N+1回避（一覧で必要な関連だけInclude）

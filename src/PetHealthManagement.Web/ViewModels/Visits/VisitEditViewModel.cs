@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using PetHealthManagement.Web.Infrastructure;
 
 namespace PetHealthManagement.Web.ViewModels.Visits;
 
@@ -12,18 +13,19 @@ public class VisitEditViewModel
 
     [Required]
     [DataType(DataType.Date)]
+    [DisplayFormat(DataFormatString = "{0:" + InputValidationLimits.DateInputFormat + "}", ApplyFormatInEditMode = true)]
     public DateTime? VisitDate { get; set; }
 
-    [StringLength(100)]
+    [StringLength(InputValidationLimits.Visits.ClinicNameMaxLength)]
     public string? ClinicName { get; set; }
 
-    [StringLength(500)]
+    [StringLength(InputValidationLimits.Visits.DiagnosisMaxLength)]
     public string? Diagnosis { get; set; }
 
-    [StringLength(500)]
+    [StringLength(InputValidationLimits.Visits.PrescriptionMaxLength)]
     public string? Prescription { get; set; }
 
-    [StringLength(1000)]
+    [StringLength(InputValidationLimits.Visits.NoteMaxLength)]
     public string? Note { get; set; }
 
     public List<VisitExistingImageViewModel> ExistingImages { get; set; } = [];

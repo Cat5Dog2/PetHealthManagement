@@ -24,30 +24,50 @@
         <div class="row g-3">
             <div class="col-md-4">
                 <label asp-for="WeightKg" class="form-label">体重(kg)</label>
-                <input asp-for="WeightKg" class="form-control" />
+                <input asp-for="WeightKg"
+                       class="form-control"
+                       type="number"
+                       min="@PetHealthManagement.Web.Infrastructure.InputValidationLimits.HealthLogs.WeightKgMin"
+                       max="@PetHealthManagement.Web.Infrastructure.InputValidationLimits.HealthLogs.WeightKgMax"
+                       step="@PetHealthManagement.Web.Infrastructure.InputValidationLimits.HealthLogs.WeightKgStep" />
                 <span asp-validation-for="WeightKg" class="text-danger"></span>
             </div>
             <div class="col-md-4">
                 <label asp-for="FoodAmountGram" class="form-label">食事量(g)</label>
-                <input asp-for="FoodAmountGram" class="form-control" />
+                <input asp-for="FoodAmountGram"
+                       class="form-control"
+                       type="number"
+                       min="@PetHealthManagement.Web.Infrastructure.InputValidationLimits.HealthLogs.FoodAmountGramMin"
+                       max="@PetHealthManagement.Web.Infrastructure.InputValidationLimits.HealthLogs.FoodAmountGramMax"
+                       step="1" />
                 <span asp-validation-for="FoodAmountGram" class="text-danger"></span>
             </div>
             <div class="col-md-4">
                 <label asp-for="WalkMinutes" class="form-label">散歩時間(分)</label>
-                <input asp-for="WalkMinutes" class="form-control" />
+                <input asp-for="WalkMinutes"
+                       class="form-control"
+                       type="number"
+                       min="@PetHealthManagement.Web.Infrastructure.InputValidationLimits.HealthLogs.WalkMinutesMin"
+                       max="@PetHealthManagement.Web.Infrastructure.InputValidationLimits.HealthLogs.WalkMinutesMax"
+                       step="1" />
                 <span asp-validation-for="WalkMinutes" class="text-danger"></span>
             </div>
         </div>
 
         <div>
             <label asp-for="StoolCondition" class="form-label">便の様子</label>
-            <input asp-for="StoolCondition" class="form-control" />
+            <input asp-for="StoolCondition"
+                   class="form-control"
+                   maxlength="@PetHealthManagement.Web.Infrastructure.InputValidationLimits.HealthLogs.StoolConditionMaxLength" />
             <span asp-validation-for="StoolCondition" class="text-danger"></span>
         </div>
 
         <div>
             <label asp-for="Note" class="form-label">メモ</label>
-            <textarea asp-for="Note" class="form-control" rows="5"></textarea>
+            <textarea asp-for="Note"
+                      class="form-control"
+                      rows="5"
+                      maxlength="@PetHealthManagement.Web.Infrastructure.InputValidationLimits.HealthLogs.NoteMaxLength"></textarea>
             <span asp-validation-for="Note" class="text-danger"></span>
         </div>
     </div>
