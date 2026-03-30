@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using PetHealthManagement.Web.Data;
 using PetHealthManagement.Web.Models;
 using PetHealthManagement.Web.Services;
+using PetHealthManagement.Web.Tests.Infrastructure;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 
@@ -15,7 +16,7 @@ public class HealthLogImageServiceTests
     public async Task ApplyImageChangesAsync_AddsNewImages_DeletesSelectedImages_AndUpdatesUsedBytes()
     {
         await using var dbContext = CreateDbContext();
-        using var storage = new FakeImageStorageService();
+        using var storage = new TestFileBackedImageStorageService("healthlog-image-tests");
 
         dbContext.Users.Add(new ApplicationUser { Id = "user-a", UserName = "userA" });
         dbContext.Pets.Add(NewPet(1, "user-a"));
@@ -76,7 +77,7 @@ public class HealthLogImageServiceTests
     public async Task ApplyImageChangesAsync_Fails_WhenImageCountWouldExceedLimit()
     {
         await using var dbContext = CreateDbContext();
-        using var storage = new FakeImageStorageService();
+        using var storage = new TestFileBackedImageStorageService("healthlog-image-tests");
 
         dbContext.Users.Add(new ApplicationUser { Id = "user-a", UserName = "userA" });
         dbContext.Pets.Add(NewPet(1, "user-a"));
@@ -123,7 +124,7 @@ public class HealthLogImageServiceTests
     public async Task ApplyImageChangesAsync_Succeeds_WhenOldFileDeletionFails()
     {
         await using var dbContext = CreateDbContext();
-        using var storage = new FakeImageStorageService
+        using var storage = new TestFileBackedImageStorageService("healthlog-image-tests")
         {
             FailingDeleteStorageKeys = ["images/delete.jpg"]
         };
@@ -164,11 +165,7 @@ public class HealthLogImageServiceTests
 
     private static ApplicationDbContext CreateDbContext()
     {
-        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
-            .UseInMemoryDatabase($"healthlog-image-tests-{Guid.NewGuid()}")
-            .Options;
-
-        return new ApplicationDbContext(options);
+        return TestDbContextFactory.CreateInMemoryDbContext("healthlog-image-tests");
     }
 
     private static Pet NewPet(int id, string ownerId)
@@ -214,80 +211,4 @@ public class HealthLogImageServiceTests
         };
     }
 
-    private sealed class FakeImageStorageService : IImageStorageService, IDisposable
-    {
-        private readonly string rootPath = Path.Combine(Path.GetTempPath(), "healthlog-image-tests", Guid.NewGuid().ToString("N"));
-
-        public HashSet<string> FailingDeleteStorageKeys { get; init; } = [];
-
-        public List<string> DeletedStorageKeys { get; } = [];
-
-        public List<string> MovedStorageKeys { get; } = [];
-
-        public FakeImageStorageService()
-        {
-            Directory.CreateDirectory(rootPath);
-        }
-
-        public string CreateTemporaryPath(string extension)
-        {
-            return Path.Combine(rootPath, $"{Guid.NewGuid():N}{extension}");
-        }
-
-        public async Task SaveFormFileToPathAsync(IFormFile file, string destinationPath, CancellationToken cancellationToken = default)
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
-
-            await using var destination = new FileStream(destinationPath, FileMode.Create, FileAccess.Write, FileShare.None);
-            await file.CopyToAsync(destination, cancellationToken);
-        }
-
-        public Task MoveToStorageAsync(string sourcePath, string storageKey, CancellationToken cancellationToken = default)
-        {
-            MovedStorageKeys.Add(storageKey);
-            var destinationPath = Path.Combine(rootPath, storageKey.Replace('/', Path.DirectorySeparatorChar));
-            Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
-            File.Copy(sourcePath, destinationPath, overwrite: true);
-            File.Delete(sourcePath);
-            return Task.CompletedTask;
-        }
-
-        public Task<Stream?> OpenReadAsync(string storageKey, CancellationToken cancellationToken = default)
-        {
-            throw new NotSupportedException();
-        }
-
-        public Task DeleteIfExistsAsync(string storageKey, CancellationToken cancellationToken = default)
-        {
-            DeletedStorageKeys.Add(storageKey);
-
-            if (FailingDeleteStorageKeys.Contains(storageKey))
-            {
-                throw new IOException("Simulated delete failure.");
-            }
-
-            var path = Path.Combine(rootPath, storageKey.Replace('/', Path.DirectorySeparatorChar));
-            if (File.Exists(path))
-            {
-                File.Delete(path);
-            }
-
-            return Task.CompletedTask;
-        }
-
-        public void Dispose()
-        {
-            try
-            {
-                if (Directory.Exists(rootPath))
-                {
-                    Directory.Delete(rootPath, recursive: true);
-                }
-            }
-            catch
-            {
-                // Best effort cleanup.
-            }
-        }
-    }
 }
