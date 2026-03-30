@@ -12,6 +12,7 @@ using PetHealthManagement.Web.Models;
 using PetHealthManagement.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+EnvironmentConfigurationGuard.Validate(builder.Configuration, builder.Environment.EnvironmentName);
 
 // Add services to the container.
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
