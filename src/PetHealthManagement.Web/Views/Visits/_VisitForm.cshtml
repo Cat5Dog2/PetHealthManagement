@@ -23,25 +23,36 @@
 
         <div>
             <label asp-for="ClinicName" class="form-label">病院名</label>
-            <input asp-for="ClinicName" class="form-control" />
+            <input asp-for="ClinicName"
+                   class="form-control"
+                   maxlength="@PetHealthManagement.Web.Infrastructure.InputValidationLimits.Visits.ClinicNameMaxLength" />
             <span asp-validation-for="ClinicName" class="text-danger"></span>
         </div>
 
         <div>
             <label asp-for="Diagnosis" class="form-label">診断</label>
-            <textarea asp-for="Diagnosis" class="form-control" rows="4"></textarea>
+            <textarea asp-for="Diagnosis"
+                      class="form-control"
+                      rows="4"
+                      maxlength="@PetHealthManagement.Web.Infrastructure.InputValidationLimits.Visits.DiagnosisMaxLength"></textarea>
             <span asp-validation-for="Diagnosis" class="text-danger"></span>
         </div>
 
         <div>
             <label asp-for="Prescription" class="form-label">処方</label>
-            <textarea asp-for="Prescription" class="form-control" rows="4"></textarea>
+            <textarea asp-for="Prescription"
+                      class="form-control"
+                      rows="4"
+                      maxlength="@PetHealthManagement.Web.Infrastructure.InputValidationLimits.Visits.PrescriptionMaxLength"></textarea>
             <span asp-validation-for="Prescription" class="text-danger"></span>
         </div>
 
         <div>
             <label asp-for="Note" class="form-label">メモ</label>
-            <textarea asp-for="Note" class="form-control" rows="5"></textarea>
+            <textarea asp-for="Note"
+                      class="form-control"
+                      rows="5"
+                      maxlength="@PetHealthManagement.Web.Infrastructure.InputValidationLimits.Visits.NoteMaxLength"></textarea>
             <span asp-validation-for="Note" class="text-danger"></span>
         </div>
     </div>

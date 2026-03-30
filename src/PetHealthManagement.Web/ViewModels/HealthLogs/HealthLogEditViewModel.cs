@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using PetHealthManagement.Web.Infrastructure;
 
 namespace PetHealthManagement.Web.ViewModels.HealthLogs;
 
@@ -11,21 +12,23 @@ public class HealthLogEditViewModel
     public string PetName { get; set; } = string.Empty;
 
     [Required]
+    [DataType(DataType.DateTime)]
+    [DisplayFormat(DataFormatString = "{0:" + InputValidationLimits.DateTimeLocalInputFormat + "}", ApplyFormatInEditMode = true)]
     public DateTime? RecordedAt { get; set; }
 
-    [Range(0.0, 200.0)]
+    [Range(InputValidationLimits.HealthLogs.WeightKgMin, InputValidationLimits.HealthLogs.WeightKgMax)]
     public double? WeightKg { get; set; }
 
-    [Range(0, 5000)]
+    [Range(InputValidationLimits.HealthLogs.FoodAmountGramMin, InputValidationLimits.HealthLogs.FoodAmountGramMax)]
     public int? FoodAmountGram { get; set; }
 
-    [Range(0, 1440)]
+    [Range(InputValidationLimits.HealthLogs.WalkMinutesMin, InputValidationLimits.HealthLogs.WalkMinutesMax)]
     public int? WalkMinutes { get; set; }
 
-    [StringLength(50)]
+    [StringLength(InputValidationLimits.HealthLogs.StoolConditionMaxLength)]
     public string? StoolCondition { get; set; }
 
-    [StringLength(1000)]
+    [StringLength(InputValidationLimits.HealthLogs.NoteMaxLength)]
     public string? Note { get; set; }
 
     public List<HealthLogExistingImageViewModel> ExistingImages { get; set; } = [];
