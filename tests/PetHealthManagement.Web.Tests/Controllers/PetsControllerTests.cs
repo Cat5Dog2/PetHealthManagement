@@ -19,8 +19,8 @@ public class PetsControllerTests
         await using var dbContext = CreateDbContext();
 
         dbContext.Users.AddRange(
-            new ApplicationUser { Id = "user-a", UserName = "userA" },
-            new ApplicationUser { Id = "user-b", UserName = "userB" });
+            new ApplicationUser { Id = "user-a", UserName = "userA", DisplayName = "Hanako" },
+            new ApplicationUser { Id = "user-b", UserName = "", Email = "other@example.com" });
 
         dbContext.Pets.AddRange(
             NewPet(1, "user-a", "A-Public", true),
@@ -42,6 +42,9 @@ public class PetsControllerTests
         Assert.Contains(model.Pets, x => x.Name == "B-Public");
         Assert.DoesNotContain(model.Pets, x => x.Name == "B-Private");
         Assert.All(model.Pets, x => Assert.False(string.IsNullOrWhiteSpace(x.PhotoUrl)));
+        Assert.Contains(model.Pets, x => x.Name == "A-Public" && x.OwnerDisplayName == "Hanako");
+        Assert.Contains(model.Pets, x => x.Name == "A-Private" && x.OwnerDisplayName == "Hanako");
+        Assert.Contains(model.Pets, x => x.Name == "B-Public" && x.OwnerDisplayName == "other@example.com");
     }
 
     [Fact]
