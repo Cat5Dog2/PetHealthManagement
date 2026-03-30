@@ -55,32 +55,28 @@ public class PetsController(
 
         var totalCount = await query.CountAsync();
 
-        var pagePets = await query
+        var pageQuery = query
             .Skip((normalizedPage - 1) * PetSearchViewModel.DefaultPageSize)
-            .Take(PetSearchViewModel.DefaultPageSize)
-            .Select(p => new
+            .Take(PetSearchViewModel.DefaultPageSize);
+
+        var pagePets = await (
+            from pet in pageQuery
+            join owner in dbContext.Users.AsNoTracking() on pet.OwnerId equals owner.Id into ownerGroup
+            from owner in ownerGroup.DefaultIfEmpty()
+            select new
             {
-                p.Id,
-                p.Name,
-                p.SpeciesCode,
-                p.Breed,
-                p.OwnerId,
-                p.IsPublic,
-                p.PhotoImageId
+                pet.Id,
+                pet.Name,
+                pet.SpeciesCode,
+                pet.Breed,
+                pet.OwnerId,
+                pet.IsPublic,
+                pet.PhotoImageId,
+                OwnerDisplayName = owner != null ? owner.DisplayName : null,
+                OwnerUserName = owner != null ? owner.UserName : null,
+                OwnerEmail = owner != null ? owner.Email : null
             })
             .ToListAsync();
-
-        var ownerIds = pagePets
-            .Select(p => p.OwnerId)
-            .Distinct()
-            .ToList();
-
-        var ownerMap = await dbContext.Users
-            .AsNoTracking()
-            .Where(u => ownerIds.Contains(u.Id))
-            .ToDictionaryAsync(
-                u => u.Id,
-                u => UserDisplayNameHelper.ResolveForDisplay(u));
 
         var viewModel = new PetSearchViewModel
         {
@@ -104,7 +100,11 @@ public class PetsController(
                     Name = p.Name,
                     SpeciesLabel = SpeciesCatalog.ToLabel(p.SpeciesCode),
                     Breed = p.Breed,
-                    OwnerDisplayName = ownerMap.GetValueOrDefault(p.OwnerId, p.OwnerId),
+                    OwnerDisplayName = UserDisplayNameHelper.ResolveForDisplay(
+                        p.OwnerDisplayName,
+                        p.OwnerUserName,
+                        p.OwnerEmail,
+                        p.OwnerId),
                     IsPublic = p.IsPublic,
                     IsOwner = p.OwnerId == userId
                 })

@@ -29,20 +29,15 @@ public class UsersController(
         var pageUsers = await query
             .Skip((normalizedPage - 1) * AdminUserIndexViewModel.DefaultPageSize)
             .Take(AdminUserIndexViewModel.DefaultPageSize)
+            .Select(x => new
+            {
+                x.Id,
+                x.DisplayName,
+                x.UserName,
+                x.Email,
+                PetCount = dbContext.Pets.Count(pet => pet.OwnerId == x.Id)
+            })
             .ToListAsync();
-
-        var userIds = pageUsers
-            .Select(x => x.Id)
-            .ToList();
-
-        var petCountMap = userIds.Count == 0
-            ? new Dictionary<string, int>()
-            : await dbContext.Pets
-                .AsNoTracking()
-                .Where(x => userIds.Contains(x.OwnerId))
-                .GroupBy(x => x.OwnerId)
-                .Select(x => new { UserId = x.Key, Count = x.Count() })
-                .ToDictionaryAsync(x => x.UserId, x => x.Count);
 
         var viewModel = new AdminUserIndexViewModel
         {
@@ -53,9 +48,13 @@ public class UsersController(
                 .Select(x => new AdminUserListItemViewModel
                 {
                     UserId = x.Id,
-                    DisplayName = UserDisplayNameHelper.ResolveForDisplay(x),
+                    DisplayName = UserDisplayNameHelper.ResolveForDisplay(
+                        x.DisplayName,
+                        x.UserName,
+                        x.Email,
+                        x.Id),
                     Email = x.Email,
-                    PetCount = petCountMap.GetValueOrDefault(x.Id, 0)
+                    PetCount = x.PetCount
                 })
                 .ToList()
         };
