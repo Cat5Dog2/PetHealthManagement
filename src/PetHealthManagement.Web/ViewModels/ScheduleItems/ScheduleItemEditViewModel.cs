@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using PetHealthManagement.Web.Infrastructure;
 
 namespace PetHealthManagement.Web.ViewModels.ScheduleItems;
 
@@ -11,17 +12,19 @@ public class ScheduleItemEditViewModel
     public string PetName { get; set; } = string.Empty;
 
     [Required]
+    [DataType(DataType.Date)]
+    [DisplayFormat(DataFormatString = "{0:" + InputValidationLimits.DateInputFormat + "}", ApplyFormatInEditMode = true)]
     public DateTime? DueDate { get; set; }
 
     [Required]
-    [StringLength(20)]
+    [StringLength(InputValidationLimits.ScheduleItems.ItemTypeMaxLength)]
     public string ItemType { get; set; } = string.Empty;
 
     [Required]
-    [StringLength(100)]
+    [StringLength(InputValidationLimits.ScheduleItems.TitleMaxLength)]
     public string Title { get; set; } = string.Empty;
 
-    [StringLength(1000)]
+    [StringLength(InputValidationLimits.ScheduleItems.NoteMaxLength)]
     public string? Note { get; set; }
 
     public bool IsDone { get; set; }

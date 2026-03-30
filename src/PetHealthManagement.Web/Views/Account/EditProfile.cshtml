@@ -20,7 +20,9 @@
 
             <div class="mb-3">
                 <label asp-for="DisplayName" class="form-label">表示名</label>
-                <input asp-for="DisplayName" class="form-control" />
+                <input asp-for="DisplayName"
+                       class="form-control"
+                       maxlength="@PetHealthManagement.Web.Infrastructure.InputValidationLimits.Profile.DisplayNameMaxLength" />
                 <span asp-validation-for="DisplayName" class="text-danger"></span>
             </div>
 
