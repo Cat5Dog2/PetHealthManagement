@@ -70,7 +70,7 @@
 ### 1.1 ソリューション/プロジェクト作成
 - [x] ASP.NET Core MVC プロジェクト作成（.NET 10）
 - [x] Identity 組み込み（個別アカウント / Cookie認証）
-- [ ] 開発用 HTTPS 証明書準備（dev-certs）
+- [x] 開発用 HTTPS 証明書準備（dev-certs）
 
 ### 1.2 設定・シークレット
 - [x] `dotnet user-secrets` 初期化
