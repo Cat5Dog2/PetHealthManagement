@@ -47,7 +47,9 @@ builder.Services.AddDefaultIdentity<ApplicationUser>(options => options.SignIn.R
     .AddRoles<IdentityRole>()
     .AddEntityFrameworkStores<ApplicationDbContext>();
 builder.Services.Configure<StorageOptions>(builder.Configuration.GetSection("Storage"));
+builder.Services.Configure<DevelopmentSetupOptions>(builder.Configuration.GetSection(DevelopmentSetupOptions.SectionName));
 builder.Services.AddScoped<IImageStorageService, FileSystemImageStorageService>();
+builder.Services.AddScoped<IDevelopmentSetupService, DevelopmentSetupService>();
 builder.Services.AddScoped<IOwnershipAuthorizer, OwnershipAuthorizer>();
 builder.Services.AddScoped<IPetPhotoService, PetPhotoService>();
 builder.Services.AddScoped<IPetDeletionService, PetDeletionService>();
@@ -102,6 +104,12 @@ builder.Services.AddRateLimiter(options =>
 });
 
 var app = builder.Build();
+
+if (await DevelopmentSetupCommand.TryExecuteAsync(app, args))
+{
+    return;
+}
+
 var uploadRequestLimitLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("UploadRequestLimits");
 var unhandledExceptionLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("UnhandledRequestExceptions");
 

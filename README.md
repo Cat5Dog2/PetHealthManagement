@@ -1,13 +1,13 @@
 # PetHealthManagement
 
-ペット健康管理アプリ（ASP.NET Core MVC + Identity / EF Core / SQL Server）です。
+ペット健康管理アプリです。ASP.NET Core MVC、Identity、EF Core、SQL Server を使用しています。
 
-## Prerequisites
+## 前提環境
 
-- .NET SDK 10.0.103 以上（`global.json` 参照）
-- SQL Server LocalDB（Windows 開発時）
+- `.NET SDK 10.0.103` 以上（`global.json` に追従）
+- SQL Server LocalDB（Windows の開発環境で使用）
 
-## Quick Start
+## クイックスタート
 
 ```bash
 # build
@@ -20,8 +20,7 @@
 ./scripts/format.sh
 ```
 
-Windows PowerShell では実行ポリシーにより `./scripts/*.ps1` が失敗する場合があります。
-その場合は `-ExecutionPolicy Bypass` で実行してください。
+Windows PowerShell では `./scripts/*.ps1` を使います。必要に応じて `-ExecutionPolicy Bypass` を付けて実行してください。
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build.ps1
@@ -29,49 +28,108 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/format.ps1
 ```
 
-## Run App
+## 起動方法
 
 ```bash
-dotnet run --project src/PetHealthManagement.Web
+dotnet run --project src/PetHealthManagement.Web --launch-profile https
 ```
 
-## Environment Configuration
+HTTPS 開発証明書が未準備の場合は、先に次を実行してください。
 
-- `appsettings.json`: shared defaults only
-- `appsettings.Development.json`: local `DefaultConnection` for LocalDB and `StorageRoot/Development`
-- `appsettings.Staging.json`: staging storage/logging defaults; provide `ConnectionStrings__DefaultConnection` via environment variables or secret storage
-- `appsettings.Production.json`: production storage/logging defaults; provide `ConnectionStrings__DefaultConnection` via environment variables or secret storage
-- Startup fails fast when `Storage:RootPath` is missing in any environment, or when `Staging` / `Production` tries to use the Development LocalDB connection string
-- You can override any value with standard ASP.NET Core configuration keys such as `ConnectionStrings__DefaultConnection` and `Storage__RootPath`
+```bash
+dotnet dev-certs https --trust
+```
 
-## Documents
+PowerShell では、次の補助スクリプトも使えます。
 
-## Security Defaults
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev-certs.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev-certs.ps1 -Trust
+```
 
-- Auth cookie: `__Host-PetHealthManagement.Auth`, `Secure`, `HttpOnly`, `SameSite=Lax`
-- Anti-forgery cookie: `__Host-PetHealthManagement.AntiForgery`, `Secure`, `HttpOnly`, `SameSite=Strict`
-- HSTS: enabled outside Development with a 180-day max age
-- Security headers: `Content-Security-Policy`, `Referrer-Policy`, `Permissions-Policy`, `X-Content-Type-Options`, `X-Frame-Options`
-- Current CSP is intentionally minimal and still allows `'unsafe-inline'` for scripts and styles because some Razor views still use inline handlers and the import map stub
+## 環境別設定
 
-## Logging Defaults
+- `appsettings.json` は共通の既定値だけを持ちます
+- `appsettings.Development.json` は LocalDB 用の `DefaultConnection` と `StorageRoot/Development` を持ちます
+- `appsettings.Staging.json` は Staging 用のストレージ・ログ既定値を持ち、`ConnectionStrings__DefaultConnection` は環境変数や秘密情報ストアで与える前提です
+- `appsettings.Production.json` は Production 用のストレージ・ログ既定値を持ち、`ConnectionStrings__DefaultConnection` は環境変数や秘密情報ストアで与える前提です
+- 起動時に `Storage:RootPath` が未設定なら fail fast します
+- `Staging` / `Production` で Development の LocalDB 接続文字列を使おうとした場合も fail fast します
+- `ConnectionStrings__DefaultConnection` や `Storage__RootPath` のような標準 ASP.NET Core キーで上書きできます
 
-- Image upload rejection, persistence failure, and file delete failure are logged with structured fields such as `imageCategory`, `ownerId`, `resourceType`, `resourceId`, `reason`, and `storageKey`
-- High-risk deletion flows log start/completion/failure with structured fields such as `operation`, `ownerId`, `targetType`, `targetId`, and affected record counts
-- Audited delete actions log `actorUserId` and target information for self-service account deletion and Admin user deletion
-- Unhandled request exceptions are logged with `method`, `path`, `traceId`, and `userId`
-- Persistent audit log retention and external monitoring are still future operational tasks
+## 開発環境セットアップ
 
-## Test Strategy
+- `Species` は `SpeciesCatalog` の固定コードなので、DB へのマスタ seed は不要です
+- 初回のローカルセットアップは `Migration 適用 -> Admin seed -> ログイン確認` の順で進められます
+- 開発用 Admin ユーザーは `Development` 環境でのみ seed され、設定値はコミットせず `user-secrets` または環境変数で与えます
 
-- Default unit and controller tests use EF Core InMemory via `TestDbContextFactory.CreateInMemoryDbContext(...)` for fast isolated setup
-- Query translation and query-count assertions use SQLite in-memory via `TestDbContextFactory.CreateSqliteInMemoryContextAsync(...)`
-- Integration tests use `IntegrationTestWebApplicationFactory`, which swaps the app DB to EF Core InMemory and assigns a per-test temporary `StorageRoot`
-- File-backed image service tests use `TestFileBackedImageStorageService`, which writes under a temporary root and cleans up with best effort
-- Temporary storage for tests is created under the system temp directory and should never point to real application storage
-- If a test depends on relational behavior, SQL translation, or query counts, prefer SQLite in-memory instead of EF Core InMemory
+PowerShell:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-dev.ps1 -AdminPassword 'Admin123!'
+```
+
+Bash:
+
+```bash
+./scripts/setup-dev.sh --admin-password 'Admin123!'
+```
+
+- 必要なら `DevelopmentSetup:AdminEmail` / `DevelopmentSetup__AdminEmail` でメールアドレスを上書きできます
+- 必要なら `DevelopmentSetup:AdminDisplayName` / `DevelopmentSetup__AdminDisplayName` で表示名を上書きできます
+- セットアップ後は次のコマンドで起動し、`/Identity/Account/Login` からログインします
+
+```bash
+dotnet run --project src/PetHealthManagement.Web --launch-profile https
+```
+
+- 単発実行用に次のコマンドも使えます
+
+```bash
+dotnet run --project src/PetHealthManagement.Web --no-launch-profile -- --apply-migrations
+dotnet run --project src/PetHealthManagement.Web --no-launch-profile -- --seed-development
+dotnet run --project src/PetHealthManagement.Web --no-launch-profile -- --setup-development
+```
+
+## ローカル smoke 確認
+
+- HTTPS プロファイルでアプリを起動し、トップページ、ログイン画面、保護ページのリダイレクト、共通エラーページの応答を確認できます
+- `-Email` と `-Password` を渡すと、ログイン後の `MyPage` と `Pets` まで確認します
+- Admin ユーザーで確認する場合は `-ExpectAdmin` を付けると `/Admin/Users` も確認します
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/local-smoke.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/local-smoke.ps1 -Email 'admin@example.com' -Password 'Admin123!' -ExpectAdmin
+```
+
+## セキュリティ既定値
+
+- 認証 Cookie は `__Host-PetHealthManagement.Auth`、`Secure`、`HttpOnly`、`SameSite=Lax` です
+- Anti-forgery Cookie は `__Host-PetHealthManagement.AntiForgery`、`Secure`、`HttpOnly`、`SameSite=Strict` です
+- HSTS は Development 以外で有効、`Max-Age` は 180 日です
+- セキュリティヘッダとして `Content-Security-Policy`、`Referrer-Policy`、`Permissions-Policy`、`X-Content-Type-Options`、`X-Frame-Options` を付与します
+- 現在の CSP は、既存 Razor に inline handler が残っているため、最小構成として `'unsafe-inline'` を許可しています
+
+## ログ既定値
+
+- 画像アップロード拒否、保存失敗、ファイル削除失敗は `imageCategory`、`ownerId`、`resourceType`、`resourceId`、`reason`、`storageKey` などの structured fields 付きで記録します
+- 高リスクな削除処理は `operation`、`ownerId`、`targetType`、`targetId`、件数情報付きで開始・完了・失敗を記録します
+- アカウント削除や Admin によるユーザー削除は `actorUserId` と対象情報を含む監査寄りログを出します
+- 未処理例外は `method`、`path`、`traceId`、`userId` を付けて記録します
+- 永続的な監査ログ保管や外部監視は今後の運用タスクです
+
+## テスト方針
+
+- 単体テストと controller テストは、基本的に `TestDbContextFactory.CreateInMemoryDbContext(...)` による EF Core InMemory を使います
+- SQL 変換確認やクエリ数確認は `TestDbContextFactory.CreateSqliteInMemoryContextAsync(...)` による SQLite in-memory を使います
+- integration テストは `IntegrationTestWebApplicationFactory` を使い、アプリ DB を EF Core InMemory に差し替えつつ、テストごとの一時 `StorageRoot` を割り当てます
+- ファイルベースの画像ストレージテストは `TestFileBackedImageStorageService` を使い、一時ディレクトリへ書き込んで後始末します
+- テスト用の一時ストレージは OS の temp 配下に作られ、本番や通常開発の保存先を指さない前提です
+- リレーショナル挙動、SQL 変換、クエリ数に依存するテストでは EF Core InMemory ではなく SQLite in-memory を優先します
+
+## 参照ドキュメント
 
 - 開発ルール: `AGENTS.md`
-- PR/品質ゲート: `CONTRIBUTING.md`
-- 仕様ドキュメント: `docs/`
-- 実行計画: `todo.md`
+- PR と作業ガイド: `CONTRIBUTING.md`
+- 設計資料: `docs/`
+- 実装タスク一覧: `todo.md`

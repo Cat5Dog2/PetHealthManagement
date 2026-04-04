@@ -2,10 +2,6 @@ name: Discord Notify for X
 on:
   push:
   pull_request:
-    types:
-      - opened
-      - synchronize
-      - closed
 
 jobs:
   discord-notify:
