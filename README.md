@@ -16,6 +16,9 @@
 # test
 ./scripts/test.sh
 
+# critical CI subset
+./scripts/test-critical.sh
+
 # format check
 ./scripts/format.sh
 ```
@@ -25,6 +28,7 @@ Windows PowerShell では `./scripts/*.ps1` を使います。必要に応じて
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-critical.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/format.ps1
 ```
 
@@ -177,6 +181,8 @@ bash ./scripts/local-smoke.sh --email 'admin@example.com' --password 'Admin123!'
 - ファイルベースの画像ストレージテストは `TestFileBackedImageStorageService` を使い、一時ディレクトリへ書き込んで後始末します
 - テスト用の一時ストレージは OS の temp 配下に作られ、本番や通常開発の保存先を指さない前提です
 - リレーショナル挙動、SQL 変換、クエリ数に依存するテストでは EF Core InMemory ではなく SQLite in-memory を優先します
+- GitHub Actions の `minimum-required-checks` は `CiTier=Critical` のテストだけを回し、認証 / 存在秘匿 / 画像の回帰を先に検知します
+- `full-regression` は全テストと format を回し、段階導入の間も広い回帰シグナルを維持します
 
 ## 参照ドキュメント
 
