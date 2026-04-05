@@ -334,7 +334,8 @@
 ## フェーズ12：デプロイ（Azure想定）
 
 ### 12.1 Azure リソース
-- [ ] App Service（Linux/Windowsどちらでいくか決定）
+- [x] App Service（Linux/Windowsどちらでいくか決定）
+- 決定事項：本番 Web ホストは **Azure App Service on Linux** を正とする。画像保存先は `Storage__RootPath` で `/home` 配下の絶対パスを与える。
 - [ ] Azure SQL Database
 - [ ] 機密情報：App Service構成 or Key Vault
 - [ ] 画像ストレージ：当面はApp Serviceの永続性/容量/スケール課題を検討（必要ならBlobへ移行計画）

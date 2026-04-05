@@ -61,6 +61,14 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev-certs.ps1 -Trust
 - `Staging` / `Production` で Development の LocalDB 接続文字列を使おうとした場合も fail fast します
 - `ConnectionStrings__DefaultConnection` や `Storage__RootPath` のような標準 ASP.NET Core キーで上書きできます
 
+## Azure App Service プラットフォーム決定
+
+- 本番 Web ホストは **Azure App Service on Linux** を採用します
+- 理由は、アプリが ASP.NET Core / .NET 10 で Windows 固有依存を持たず、現在の CI も Linux 系ランナーに寄っているためです
+- `Storage__RootPath` は Linux App Service の永続領域である `/home` 配下の絶対パスを使います
+  - 例: `Storage__RootPath=/home/pethealth-storage`
+- この決定は App Service の OS を固定するもので、画像ストレージを長期的に App Service ファイルシステムで持つか Blob へ移すかは次の運用タスクで継続検討します
+
 ## 開発環境セットアップ
 
 - `Species` は `SpeciesCatalog` の固定コードなので、DB へのマスタ seed は不要です
