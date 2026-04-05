@@ -55,6 +55,18 @@
   - serverless は自動再開時に初回接続で一時的な失敗や待ち時間が発生しうるため、ログインやリリース後 smoke の安定性を優先して Provisioned を採る。
 - 将来、コスト最適化や利用状況に応じて serverless / elastic pool / zone redundancy を再評価できる前提とする。
 
+#### 1.3.3 本番機密情報の管理方式決定
+- 本番の機密情報は **Azure Key Vault を正**とする。
+- App Service 側には機密値そのものを置かず、**Key Vault reference を使った app settings / connection strings** を置く。
+- App Service には **system-assigned managed identity** を有効化し、Key Vault にはその ID に対して secrets の読み取り権限のみを付与する。
+- `ConnectionStrings__DefaultConnection` のような機密値は Key Vault reference 経由で渡す。
+- `Storage__RootPath` のような **非機密設定は App Service 構成に平文で置く**。Key Vault には入れない。
+- 理由
+  - Microsoft は機密値の保管先として Key Vault を案内しており、App Service からは Key Vault reference を使ってコード変更なしで参照できる。
+  - 非機密な構成値まで Key Vault に入れると運用が過剰になるため、このアプリでは「機密値のみ Key Vault、その他は App Service 構成」で分離する。
+  - Key Vault reference は secret rotation に追従でき、App Service 側の managed identity と組み合わせることで資格情報の埋め込みを避けられる。
+- 環境ごとに Key Vault を分け、production 用シークレットは production 用 vault に閉じる。
+
 ### 1.4 本書の範囲
 - 画面/URL/Controller、ViewModel、DB設計（実装イメージ）、画像アップロード・保存・配信、削除フロー、バリデーション、エラー/ログ方針。
 - UI の色・レイアウトの細部、E2E テスト設計は対象外。
