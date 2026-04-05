@@ -124,3 +124,10 @@ Windows の場合:
 - `full-regression` は全テストと `format` を回す
 - `format` もローカルで確認してから PR を出す
 - 主要シナリオの結合テストは回帰防止のため維持する
+
+## 9. 依存関係更新
+
+- `.github/dependabot.yml` で Dependabot を運用する
+- 自動更新の対象は `NuGet`、`GitHub Actions`、`.NET SDK (global.json)` とする
+- Dependabot PR も通常の PR と同様に CI を通してレビューする
+- `dotnet-tools.json` のような現在の自動更新対象外ファイルは、必要に応じて手動更新する
