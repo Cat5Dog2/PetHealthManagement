@@ -55,7 +55,7 @@
 - [x] `AGENTS.md`（最重要ルール/参照順/人間レビュー必須領域）
 - [x] `CONTRIBUTING.md`（build/test/format、PRルール）
 - [x] `scripts/`（`build.sh`/`test.sh`/`format.sh` と Windows向け `*.ps1` のワンコマンド化）
-- [ ] タスク分割のテンプレ化（Plan→実装→テスト→PR）※必要なら
+- [x] タスク分割のテンプレ化（Plan→実装→テスト→PR）※必要なら
 
 ### 0.4 完了条件/成果物
 - [x] 重要ルール（404秘匿/returnUrl/画像制限/所有者認可）が1ページにまとまっている（AGENTS/CONTRIBUTING）

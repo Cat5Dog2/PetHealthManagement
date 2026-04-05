@@ -115,6 +115,8 @@ Windows の場合:
 - 実装は小さく進める
 - 最後に `scripts/test` を通す
 - 実装状況が変わったら `todo.md` を同期する
+- 着手テンプレは `docs/task-splitting-template.md` を使う
+- PR 本文テンプレは `.github/pull_request_template.md` を使う
 
 ## 8. CI と品質ゲート
 
