@@ -7,6 +7,7 @@ using PetHealthManagement.Web.Tests.Infrastructure;
 
 namespace PetHealthManagement.Web.Tests.Integration;
 
+[Trait("CiTier", "Critical")]
 public class AuthorizationIntegrationTests
 {
     [Fact]

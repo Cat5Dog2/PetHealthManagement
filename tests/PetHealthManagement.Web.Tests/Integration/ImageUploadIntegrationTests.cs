@@ -13,6 +13,7 @@ using SixLabors.ImageSharp.PixelFormats;
 
 namespace PetHealthManagement.Web.Tests.Integration;
 
+[Trait("CiTier", "Critical")]
 public class ImageUploadIntegrationTests
 {
     [Fact]

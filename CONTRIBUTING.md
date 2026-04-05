@@ -27,12 +27,14 @@ PR 前の基本コマンド:
 
 - Build: `./scripts/build.sh`
 - Test: `./scripts/test.sh`
+- Critical CI subset: `./scripts/test-critical.sh`
 - Format: `./scripts/format.sh`
 
 Windows の場合:
 
 - Build: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build.ps1`
 - Test: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test.ps1`
+- Critical CI subset: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-critical.ps1`
 - Format: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/format.ps1`
 
 最低限、変更の最後に `scripts/test` は必ず通してください。  
@@ -116,6 +118,9 @@ Windows の場合:
 
 ## 8. CI と品質ゲート
 
-- GitHub Actions の CI は `build` / `test` を前提にしている
+- GitHub Actions の CI は `minimum-required-checks` と `full-regression` に分かれている
+- `minimum-required-checks` は `build` と `CiTier=Critical` のテストを回し、認証 / 存在秘匿 / 画像の最小回帰を確認する
+- ブランチ保護を設定するときは、最初は `minimum-required-checks` を required check にする想定
+- `full-regression` は全テストと `format` を回す
 - `format` もローカルで確認してから PR を出す
 - 主要シナリオの結合テストは回帰防止のため維持する
