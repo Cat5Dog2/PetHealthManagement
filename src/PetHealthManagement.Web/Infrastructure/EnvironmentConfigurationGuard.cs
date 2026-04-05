@@ -29,5 +29,46 @@ public static class EnvironmentConfigurationGuard
             throw new InvalidOperationException(
                 $"{environmentName} cannot use the Development LocalDB connection string. Configure ConnectionStrings__DefaultConnection for this environment.");
         }
+
+        ValidateDataProtection(configuration, environmentName);
+    }
+
+    private static void ValidateDataProtection(IConfiguration configuration, string environmentName)
+    {
+        var section = configuration.GetSection(DataProtectionKeyManagementOptions.SectionName);
+        var blobUri = section.GetValue<string>(nameof(DataProtectionKeyManagementOptions.BlobUri));
+        var keyVaultKeyIdentifier = section.GetValue<string>(nameof(DataProtectionKeyManagementOptions.KeyVaultKeyIdentifier));
+
+        var hasBlobUri = !string.IsNullOrWhiteSpace(blobUri);
+        var hasKeyVaultKeyIdentifier = !string.IsNullOrWhiteSpace(keyVaultKeyIdentifier);
+
+        if (hasBlobUri != hasKeyVaultKeyIdentifier)
+        {
+            throw new InvalidOperationException(
+                "DataProtection requires both DataProtection__BlobUri and DataProtection__KeyVaultKeyIdentifier to be configured together.");
+        }
+
+        if (!hasBlobUri)
+        {
+            if (!string.Equals(environmentName, Environments.Development, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    $"{environmentName} requires DataProtection key persistence. Configure DataProtection__BlobUri and DataProtection__KeyVaultKeyIdentifier.");
+            }
+
+            return;
+        }
+
+        if (!Uri.TryCreate(blobUri, UriKind.Absolute, out _))
+        {
+            throw new InvalidOperationException(
+                "DataProtection__BlobUri must be an absolute URI.");
+        }
+
+        if (!Uri.TryCreate(keyVaultKeyIdentifier, UriKind.Absolute, out _))
+        {
+            throw new InvalidOperationException(
+                "DataProtection__KeyVaultKeyIdentifier must be an absolute URI.");
+        }
     }
 }

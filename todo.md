@@ -342,7 +342,8 @@
 - 決定事項：機密値は **Azure Key Vault** を正とし、App Service 構成には **Key Vault reference** と非機密設定のみを置く。App Service では system-assigned managed identity を使う。
 - [x] 画像ストレージ：当面はApp Serviceの永続性/容量/スケール課題を検討（必要ならBlobへ移行計画）
 - 決定事項：初期リリースでは **App Service on Linux の `/home` 配下**に画像を保存し、`Storage__RootPath` で専用ディレクトリを与える。Blob へ移行する場合は mount ではなく **`IImageStorageService` の実装差し替え**で対応する。
-- [ ] **DataProtection キー永続化**（複数インスタンス/再デプロイでもCookie復号できるように Blob/Files/KeyVault など）
+- [x] **DataProtection キー永続化**（複数インスタンス/再デプロイでもCookie復号できるように Blob/Files/KeyVault など）
+- 決定事項：Staging / Production の DataProtection キーは **Azure Blob Storage** に永続化し、**Azure Key Vault key** で保護する。`ApplicationName` は **`PetHealthManagement.Web`** に固定し、App Service では system-assigned managed identity を使う。
 
 ### 12.2 リリース手順
 - [ ] CI/CD（ビルド→テスト→デプロイ）

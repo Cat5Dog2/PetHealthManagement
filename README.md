@@ -104,6 +104,19 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev-certs.ps1 -Trust
   - CDN 配信や画像ライフサイクル管理が必要になる
   - 画像を App Service から分離して別サービスと共有したくなる
 
+## DataProtection キー永続化決定
+
+- Staging / Production の DataProtection キーは **Azure Blob Storage** に永続化し、**Azure Key Vault key** で暗号化します
+- App Service 既定の `%HOME%/ASP.NET/DataProtection-Keys` は slot をまたいで共有されず、at-rest 保護もないため、本番の正にはしません
+- アプリでは `SetApplicationName("PetHealthManagement.Web")` を固定し、全デプロイ先で揃えます
+- App Service では **system-assigned managed identity** を使い、Blob と Key Vault key にアクセスします
+- 本番で最低限必要な設定は次です
+  - `DataProtection__ApplicationName=PetHealthManagement.Web`
+  - `DataProtection__BlobUri=https://<storage-account>.blob.core.windows.net/<container>/keys.xml`
+  - `DataProtection__KeyVaultKeyIdentifier=https://<vault-name>.vault.azure.net/keys/data-protection`
+- `DataProtection__ManagedIdentityClientId` は将来 user-assigned managed identity を使う場合だけ任意で設定します
+- Key Vault key を自動ローテーションする場合は、`DataProtection__KeyVaultKeyIdentifier` に **versionless** な key identifier を使い、過去 key を削除しないでください
+
 ## 開発環境セットアップ
 
 - `Species` は `SpeciesCatalog` の固定コードなので、DB へのマスタ seed は不要です

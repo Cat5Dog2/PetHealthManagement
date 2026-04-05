@@ -54,6 +54,58 @@ public class EnvironmentConfigurationGuardTests
         Assert.Contains("cannot use the Development LocalDB connection string", exception.Message, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Validate_RejectsMissingDataProtectionConfigurationOutsideDevelopment()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:DefaultConnection"] = "Server=tcp:pethealth.database.windows.net,1433;Initial Catalog=PetHealthManagement;Encrypt=True;",
+                ["Storage:RootPath"] = "/home/pethealth-storage"
+            })
+            .Build();
+
+        var exception = Assert.Throws<InvalidOperationException>(() => EnvironmentConfigurationGuard.Validate(configuration, "Production"));
+
+        Assert.Contains("DataProtection__BlobUri", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("DataProtection__KeyVaultKeyIdentifier", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Validate_RejectsPartialDataProtectionConfiguration()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:DefaultConnection"] = "Server=(localdb)\\mssqllocaldb;Database=PetHealthManagement;Trusted_Connection=True;MultipleActiveResultSets=true",
+                ["Storage:RootPath"] = "StorageRoot/Development",
+                ["DataProtection:BlobUri"] = "https://pethealthstorage.blob.core.windows.net/dataprotection/keys.xml"
+            })
+            .Build();
+
+        var exception = Assert.Throws<InvalidOperationException>(() => EnvironmentConfigurationGuard.Validate(configuration, Environments.Development));
+
+        Assert.Contains("configured together", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Validate_AllowsProductionConfigurationWithDataProtection()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:DefaultConnection"] = "Server=tcp:pethealth.database.windows.net,1433;Initial Catalog=PetHealthManagement;Encrypt=True;",
+                ["Storage:RootPath"] = "/home/pethealth-storage",
+                ["DataProtection:BlobUri"] = "https://pethealthstorage.blob.core.windows.net/dataprotection/keys.xml",
+                ["DataProtection:KeyVaultKeyIdentifier"] = "https://pethealth-kv.vault.azure.net/keys/data-protection"
+            })
+            .Build();
+
+        var exception = Record.Exception(() => EnvironmentConfigurationGuard.Validate(configuration, "Production"));
+
+        Assert.Null(exception);
+    }
+
     private static IConfigurationRoot BuildConfiguration(string environmentName)
     {
         return new ConfigurationBuilder()
