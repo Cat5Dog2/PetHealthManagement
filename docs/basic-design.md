@@ -44,6 +44,17 @@
 - Windows App Service は、ASP.NET Framework や Windows 固有依存が必要になった場合の例外選択肢とする。
 - この決定は「画像保存を App Service のファイルシステムで継続するか」「Blob へ移行するか」までは確定しない。画像ストレージの長期方針は別タスクで扱う。
 
+#### 1.3.2 本番 DB プラットフォーム決定
+- 本番 DB は **Azure SQL Database の single database** を正とする。
+- 購入モデルは **vCore-based**、サービス階層は **General Purpose** を基本とする。
+- compute model は当面 **Provisioned** を正とし、serverless auto-pause は採用しない。
+- 理由
+  - アプリは単一の `ApplicationDbContext` を前提にした小規模 Web アプリであり、elastic pool や Managed Instance を前提にする要件がない。
+  - EF Core は `UseSqlServer` を使っており、開発の LocalDB と本番の Azure SQL Database で同じ SQL Server 系エンジンを前提にできる。
+  - Azure SQL Database では single database が基本のデプロイ選択肢で、Microsoft は vCore-based の購入モデルを推奨している。
+  - serverless は自動再開時に初回接続で一時的な失敗や待ち時間が発生しうるため、ログインやリリース後 smoke の安定性を優先して Provisioned を採る。
+- 将来、コスト最適化や利用状況に応じて serverless / elastic pool / zone redundancy を再評価できる前提とする。
+
 ### 1.4 本書の範囲
 - 画面/URL/Controller、ViewModel、DB設計（実装イメージ）、画像アップロード・保存・配信、削除フロー、バリデーション、エラー/ログ方針。
 - UI の色・レイアウトの細部、E2E テスト設計は対象外。
