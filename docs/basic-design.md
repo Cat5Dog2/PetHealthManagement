@@ -67,6 +67,21 @@
   - Key Vault reference は secret rotation に追従でき、App Service 側の managed identity と組み合わせることで資格情報の埋め込みを避けられる。
 - 環境ごとに Key Vault を分け、production 用シークレットは production 用 vault に閉じる。
 
+#### 1.3.4 本番画像ストレージ方針決定
+- 初期リリース時点の画像保存先は **Azure App Service on Linux の `/home` 配下**を正とする。
+- `Storage__RootPath` には、デプロイ成果物の配置先とは分離した **`/home` 配下の専用ディレクトリ**を与える（例：`/home/pethealth-storage`）。
+- 当面は既存の `FileSystemImageStorageService` をそのまま使い、**Blob のストレージマウントは採用しない**。
+- 将来 Blob へ移行する場合は、App Service へのマウントではなく **`IImageStorageService` の実装差し替えで Azure Blob Storage を直接使う**方針とする。
+- 理由
+  - 現在の画像保存は `IImageStorageService` を通したファイルシステム実装で完結しており、初期リリースではコード変更なしで運用に乗せやすい。
+  - Linux App Service のバックアップ対象には `/home` 配下のコンテンツが含まれるため、小規模運用の初期構成として扱いやすい。
+  - App Service の Azure Storage mount では **Azure Blob mount が read-only** のため、このアプリのアップロード・削除ワークロードにそのままは使えない。
+  - custom-mounted Azure Storage は App Service バックアップに含まれないため、単純な mount 置き換えだけでは運用がかえって複雑になる。
+- 次を満たしたら Azure Blob Storage への移行を再評価する。
+  - App Service のファイルシステム容量やバックアップ時間が運用上の制約になる
+  - 画像のライフサイクル管理、CDN、他サービス共有が必要になる
+  - インスタンス増加や将来の構成変更に対して、画像を App Service から独立させたい
+
 ### 1.4 本書の範囲
 - 画面/URL/Controller、ViewModel、DB設計（実装イメージ）、画像アップロード・保存・配信、削除フロー、バリデーション、エラー/ログ方針。
 - UI の色・レイアウトの細部、E2E テスト設計は対象外。
@@ -514,6 +529,7 @@ public class ImageAsset
 - `StorageRoot` は `appsettings.json` / 環境変数から取得可能にする。
 - Azure App Service on Linux では、`Storage__RootPath` は **`/home` 配下の絶対パス**を使う（例：`/home/pethealth-storage`）。
 - デプロイ成果物の配置先とは分離するため、Production では相対パス既定値に依存せず、環境変数で絶対パスを与える。
+- Production の初期構成では App Service ローカル永続領域を使い、Azure Storage mount は採用しない。Blob を使う場合は mount ではなく `IImageStorageService` の実装差し替えで直接利用する。
 
 ### 8.2 StorageKey（命名規約）
 - `images/{ImageId}.{ext}` を基本とする（GUID により衝突回避）

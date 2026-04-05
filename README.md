@@ -91,6 +91,19 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev-certs.ps1 -Trust
   - `ASPNETCORE_ENVIRONMENT`
 - 環境ごとに Key Vault を分け、production 用 secret は production 用 vault に閉じます
 
+## 画像ストレージ方針決定
+
+- 初期リリースの画像保存先は **Azure App Service on Linux の `/home` 配下**を正とします
+- `Storage__RootPath` にはデプロイ成果物と分離した専用ディレクトリを設定します
+  - 例: `Storage__RootPath=/home/pethealth-storage`
+- 当面は既存の `FileSystemImageStorageService` をそのまま使い、App Service の Azure Storage mount は採用しません
+- 特に **Azure Blob mount は read-only** のため、このアプリのアップロード・削除処理の保存先には使いません
+- 将来 Blob へ移行する場合は mount ではなく、`IImageStorageService` の実装を Azure Blob Storage 向けに差し替える前提で進めます
+- 次の条件が見えたら Blob への移行を再評価します
+  - App Service の保存容量やバックアップ時間が制約になる
+  - CDN 配信や画像ライフサイクル管理が必要になる
+  - 画像を App Service から分離して別サービスと共有したくなる
+
 ## 開発環境セットアップ
 
 - `Species` は `SpeciesCatalog` の固定コードなので、DB へのマスタ seed は不要です

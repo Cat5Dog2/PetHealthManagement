@@ -340,7 +340,8 @@
 - 決定事項：本番 DB は **Azure SQL Database single database** を正とする。購入モデルは **vCore-based / General Purpose / Provisioned** を基本とする。
 - [x] 機密情報：App Service構成 or Key Vault
 - 決定事項：機密値は **Azure Key Vault** を正とし、App Service 構成には **Key Vault reference** と非機密設定のみを置く。App Service では system-assigned managed identity を使う。
-- [ ] 画像ストレージ：当面はApp Serviceの永続性/容量/スケール課題を検討（必要ならBlobへ移行計画）
+- [x] 画像ストレージ：当面はApp Serviceの永続性/容量/スケール課題を検討（必要ならBlobへ移行計画）
+- 決定事項：初期リリースでは **App Service on Linux の `/home` 配下**に画像を保存し、`Storage__RootPath` で専用ディレクトリを与える。Blob へ移行する場合は mount ではなく **`IImageStorageService` の実装差し替え**で対応する。
 - [ ] **DataProtection キー永続化**（複数インスタンス/再デプロイでもCookie復号できるように Blob/Files/KeyVault など）
 
 ### 12.2 リリース手順
