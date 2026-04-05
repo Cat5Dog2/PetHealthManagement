@@ -26,6 +26,7 @@
 
 ### 1.3 対象プラットフォーム・インフラ
 - 開発環境：Windows
+- 本番アプリホスト：Azure App Service（Linux、built-in .NET スタック）
 - Web サーバ：Kestrel
 - 通信：HTTPS（TLS）
   - 開発：`dotnet dev-certs https` を利用
@@ -33,6 +34,15 @@
 - 画像ストレージ：ファイルシステム（`StorageRoot` 配下、`wwwroot` 外）
 - 機密情報（ConnectionStrings / StorageRoot 等）
   - ユーザーシークレット / 環境変数で管理（リポジトリへはコミットしない）
+
+#### 1.3.1 App Service プラットフォーム決定
+- 本アプリは **Azure App Service on Linux** を正とする。
+- 理由
+  - アプリは ASP.NET Core / .NET 10 であり、ASP.NET Framework や Windows 固有 API に依存していない。
+  - 画像ストレージは `Path` ベースのファイルシステム抽象化で実装されており、OS 固有のパスに依存しない。
+  - CI は `ubuntu-latest` を使っており、Linux ホスト前提との整合が取りやすい。
+- Windows App Service は、ASP.NET Framework や Windows 固有依存が必要になった場合の例外選択肢とする。
+- この決定は「画像保存を App Service のファイルシステムで継続するか」「Blob へ移行するか」までは確定しない。画像ストレージの長期方針は別タスクで扱う。
 
 ### 1.4 本書の範囲
 - 画面/URL/Controller、ViewModel、DB設計（実装イメージ）、画像アップロード・保存・配信、削除フロー、バリデーション、エラー/ログ方針。
@@ -479,6 +489,8 @@ public class ImageAsset
 - アップロード画像：`wwwroot` 外（例：`<StorageRoot>/images/`）
 - 一時保存：`<StorageRoot>/tmp/`
 - `StorageRoot` は `appsettings.json` / 環境変数から取得可能にする。
+- Azure App Service on Linux では、`Storage__RootPath` は **`/home` 配下の絶対パス**を使う（例：`/home/pethealth-storage`）。
+- デプロイ成果物の配置先とは分離するため、Production では相対パス既定値に依存せず、環境変数で絶対パスを与える。
 
 ### 8.2 StorageKey（命名規約）
 - `images/{ImageId}.{ext}` を基本とする（GUID により衝突回避）
