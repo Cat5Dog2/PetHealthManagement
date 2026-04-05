@@ -47,7 +47,7 @@
 - [x] **ブランチ保護**：main への直push禁止、CI必須、レビュー必須
 - [x] **CIの段階導入**：最初は「ビルド + 重要シナリオ最小テスト（認証/秘匿/画像）」を必須チェックにする
 - [x] tool manifest + `./scripts/format.sh`（Windowsは `./scripts/format.ps1`）を有効化
-- [ ] 依存関係更新の運用（例：Dependabot/Renovate。必要なら）
+- [x] 依存関係更新の運用（例：Dependabot/Renovate。必要なら）
 
 > 参考：ローカルの品質ゲート（build/test/format）は `CONTRIBUTING.md` に明文化済み。
 

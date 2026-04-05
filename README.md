@@ -141,6 +141,15 @@ dotnet .\PetHealthManagement.Web.dll --apply-migrations
 - 本番で安易に `database update <oldMigration>` のような Down migration を直接流す運用は採りません。人間レビュー済みで安全性が確認できた場合だけ例外扱いにします
 - 復旧後は `__EFMigrationsHistory`、アプリログ、デプロイ記録を確認し、どの migration まで適用されたかを運用メモへ残します
 
+## 依存関係更新の運用
+
+- `.github/dependabot.yml` で Dependabot version updates を有効にしています
+- `NuGet` は `src/**` と `tests/**` を毎週月曜 09:00 JST に確認します
+- `GitHub Actions` は毎週月曜 09:30 JST に確認します
+- `.NET SDK` は `global.json` を毎月 10:00 JST に確認します
+- Dependabot PR は `main` 向けに作成される前提です。通常の CI が通ることを確認してからマージします
+- 現在の自動更新対象は `.csproj`、GitHub Actions、`global.json` です。`dotnet-tools.json` の更新は必要に応じて手動で確認します
+
 ## ローカル smoke 確認
 
 - HTTPS プロファイルでアプリを起動し、トップページ、ログイン画面、保護ページのリダイレクト、共通エラーページの応答を確認できます
