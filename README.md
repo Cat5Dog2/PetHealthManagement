@@ -91,6 +91,52 @@ dotnet run --project src/PetHealthManagement.Web --no-launch-profile -- --seed-d
 dotnet run --project src/PetHealthManagement.Web --no-launch-profile -- --setup-development
 ```
 
+## 本番 Migration 運用手順
+
+- 本番では `--apply-migrations` のみを使います。`--seed-development` と `--setup-development` は `Development` 専用です
+- 実行前に、対象 DB のバックアップ取得、`ConnectionStrings__DefaultConnection` と `Storage__RootPath` の確認、適用対象の migration 差分レビューを済ませます
+- migration 実行は 1 回だけにします。App Service の複数インスタンスを同時に立ち上げたまま自動実行するのではなく、デプロイジョブやメンテナンス手順の中で明示的に 1 回だけ流します
+
+### 適用順
+
+1. 新しいアプリ版をデプロイ可能な状態にし、まだ本番トラフィックは切り替えない
+2. 本番用の環境変数を確認する
+   - `ASPNETCORE_ENVIRONMENT=Production`
+   - `ConnectionStrings__DefaultConnection=<production-db>`
+   - `Storage__RootPath=<production-storage-root>`
+3. migration を 1 回だけ実行する
+4. migration 成功後に新しいアプリ版へ切り替える
+5. ログイン、一覧表示、画像 GET などの smoke 確認を行う
+
+ソース checkout から実行する場合:
+
+```bash
+dotnet run --project src/PetHealthManagement.Web --no-launch-profile -- --apply-migrations
+```
+
+公開済み成果物から実行する場合:
+
+```bash
+dotnet PetHealthManagement.Web.dll --apply-migrations
+```
+
+PowerShell 例:
+
+```powershell
+$env:ASPNETCORE_ENVIRONMENT = 'Production'
+$env:ConnectionStrings__DefaultConnection = '<production-db>'
+$env:Storage__RootPath = '<production-storage-root>'
+dotnet .\PetHealthManagement.Web.dll --apply-migrations
+```
+
+### ロールバック方針
+
+- migration 実行前に失敗した場合は、アプリ切り替えを行わず原因を修正して再実行します
+- migration 実行後にアプリ不具合が見つかった場合は、まず「前進修正」で短時間に戻せるかを判断します
+- 即時復旧が必要で、かつ schema 変更が後方互換でない場合は「アプリを旧版へ戻す + migration 前バックアップから DB を復元」を基本方針にします
+- 本番で安易に `database update <oldMigration>` のような Down migration を直接流す運用は採りません。人間レビュー済みで安全性が確認できた場合だけ例外扱いにします
+- 復旧後は `__EFMigrationsHistory`、アプリログ、デプロイ記録を確認し、どの migration まで適用されたかを運用メモへ残します
+
 ## ローカル smoke 確認
 
 - HTTPS プロファイルでアプリを起動し、トップページ、ログイン画面、保護ページのリダイレクト、共通エラーページの応答を確認できます
