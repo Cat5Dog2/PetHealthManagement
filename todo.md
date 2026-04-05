@@ -336,7 +336,8 @@
 ### 12.1 Azure リソース
 - [x] App Service（Linux/Windowsどちらでいくか決定）
 - 決定事項：本番 Web ホストは **Azure App Service on Linux** を正とする。画像保存先は `Storage__RootPath` で `/home` 配下の絶対パスを与える。
-- [ ] Azure SQL Database
+- [x] Azure SQL Database
+- 決定事項：本番 DB は **Azure SQL Database single database** を正とする。購入モデルは **vCore-based / General Purpose / Provisioned** を基本とする。
 - [ ] 機密情報：App Service構成 or Key Vault
 - [ ] 画像ストレージ：当面はApp Serviceの永続性/容量/スケール課題を検討（必要ならBlobへ移行計画）
 - [ ] **DataProtection キー永続化**（複数インスタンス/再デプロイでもCookie復号できるように Blob/Files/KeyVault など）

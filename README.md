@@ -69,6 +69,15 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev-certs.ps1 -Trust
   - 例: `Storage__RootPath=/home/pethealth-storage`
 - この決定は App Service の OS を固定するもので、画像ストレージを長期的に App Service ファイルシステムで持つか Blob へ移すかは次の運用タスクで継続検討します
 
+## Azure SQL Database 決定
+
+- 本番 DB は **Azure SQL Database single database** を採用します
+- 購入モデルは **vCore-based**、サービス階層は **General Purpose**、compute model は **Provisioned** を正とします
+- このアプリは単一 DB の ASP.NET Core / EF Core アプリなので、Managed Instance や elastic pool を前提にしません
+- LocalDB と同じ SQL Server 系のため、既存の `UseSqlServer` と migration 運用をそのまま本番へ寄せやすい構成です
+- serverless auto-pause は初回接続時の再開待ちや接続失敗リトライを招きうるため、ログイン操作やリリース後 smoke を安定させる目的で当面は採用しません
+- 接続文字列の具体的な渡し方と機密情報の保管方法は次タスクで決めます
+
 ## 開発環境セットアップ
 
 - `Species` は `SpeciesCatalog` の固定コードなので、DB へのマスタ seed は不要です
