@@ -102,6 +102,11 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/local-smoke.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/local-smoke.ps1 -Email 'admin@example.com' -Password 'Admin123!' -ExpectAdmin
 ```
 
+```bash
+bash ./scripts/local-smoke.sh
+bash ./scripts/local-smoke.sh --email 'admin@example.com' --password 'Admin123!' --expect-admin
+```
+
 ## セキュリティ既定値
 
 - 認証 Cookie は `__Host-PetHealthManagement.Auth`、`Secure`、`HttpOnly`、`SameSite=Lax` です
