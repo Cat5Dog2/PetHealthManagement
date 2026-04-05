@@ -82,6 +82,26 @@
   - 画像のライフサイクル管理、CDN、他サービス共有が必要になる
   - インスタンス増加や将来の構成変更に対して、画像を App Service から独立させたい
 
+#### 1.3.5 DataProtection キー永続化方針決定
+- Staging / Production の DataProtection キーリングは **Azure Blob Storage に永続化**し、**Azure Key Vault key で at-rest 保護**する。
+- App Service の既定 `%HOME%/ASP.NET/DataProtection-Keys` には依存しない。
+- `SetApplicationName` は **`PetHealthManagement.Web`** を正とし、同一アプリの全デプロイ先で揃える。
+- App Service では **system-assigned managed identity** を使い、DataProtection 用 blob と Key Vault key へアクセスする。
+- 設定値は次を使う。
+  - `DataProtection__ApplicationName=PetHealthManagement.Web`
+  - `DataProtection__BlobUri=https://<storage-account>.blob.core.windows.net/<container>/keys.xml`
+  - `DataProtection__KeyVaultKeyIdentifier=https://<vault-name>.vault.azure.net/keys/data-protection`
+  - `DataProtection__ManagedIdentityClientId` は user-assigned managed identity を使う場合のみ任意で指定する。
+- 理由
+  - App Service 既定の DataProtection キーリングは同一 deployment slot 内では共有されるが、slot をまたいで共有されないため、slot swap 時に既存 Cookie を復号できずログアウトが発生しうる。
+  - App Service 既定の保存先では keys が **at rest で保護されない**ため、明示的に保護方式を追加したい。
+  - ASP.NET Core の公式ガイダンスは、共有キーリングが必要な Azure 環境で **Blob Storage + Key Vault** の組み合わせを案内している。
+  - `ProtectKeysWithAzureKeyVault` を使う場合は自動の保存先推定に頼らず、`PersistKeysToAzureBlobStorage` を明示する。
+- managed identity には少なくとも次の権限を付与する。
+  - DataProtection 用 blob への読み書き権限
+  - Key Vault key への `Get` / `Wrap Key` / `Unwrap Key`
+- Key Vault key の自動ローテーションを有効にする場合、`DataProtection__KeyVaultKeyIdentifier` には **versionless key identifier** を使い、期限切れ key も削除せず保持する。
+
 ### 1.4 本書の範囲
 - 画面/URL/Controller、ViewModel、DB設計（実装イメージ）、画像アップロード・保存・配信、削除フロー、バリデーション、エラー/ログ方針。
 - UI の色・レイアウトの細部、E2E テスト設計は対象外。
