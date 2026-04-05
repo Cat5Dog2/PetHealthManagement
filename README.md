@@ -78,6 +78,19 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev-certs.ps1 -Trust
 - serverless auto-pause は初回接続時の再開待ちや接続失敗リトライを招きうるため、ログイン操作やリリース後 smoke を安定させる目的で当面は採用しません
 - 接続文字列の具体的な渡し方と機密情報の保管方法は次タスクで決めます
 
+## 機密情報の管理方式決定
+
+- 本番の機密情報は **Azure Key Vault** を正とします
+- App Service には機密値を直接置かず、**Key Vault reference** を使った app settings / connection strings を置きます
+- App Service では **system-assigned managed identity** を有効化し、Key Vault には secret 読み取り権限だけを付与します
+- このアプリでは次を機密値として扱います
+  - `ConnectionStrings__DefaultConnection`
+  - 将来追加する外部サービス API key / secret
+- このアプリでは次を非機密設定として App Service 構成に直接置きます
+  - `Storage__RootPath`
+  - `ASPNETCORE_ENVIRONMENT`
+- 環境ごとに Key Vault を分け、production 用 secret は production 用 vault に閉じます
+
 ## 開発環境セットアップ
 
 - `Species` は `SpeciesCatalog` の固定コードなので、DB へのマスタ seed は不要です
