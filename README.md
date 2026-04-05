@@ -197,5 +197,7 @@ bash ./scripts/local-smoke.sh --email 'admin@example.com' --password 'Admin123!'
 
 - 開発ルール: `AGENTS.md`
 - PR と作業ガイド: `CONTRIBUTING.md`
+- タスク分割テンプレ: `docs/task-splitting-template.md`
+- PR テンプレ: `.github/pull_request_template.md`
 - 設計資料: `docs/`
 - 実装タスク一覧: `todo.md`
