@@ -346,7 +346,8 @@
 - 決定事項：Staging / Production の DataProtection キーは **Azure Blob Storage** に永続化し、**Azure Key Vault key** で保護する。`ApplicationName` は **`PetHealthManagement.Web`** に固定し、App Service では system-assigned managed identity を使う。
 
 ### 12.2 リリース手順
-- [ ] CI/CD（ビルド→テスト→デプロイ）
+- [x] CI/CD（ビルド→テスト→デプロイ）
+- 決定事項：GitHub Actions の `CD` workflow を追加し、`main` への push または `workflow_dispatch` を契機に **Release build → full test → publish artifact → Azure App Service deploy** を実行する。deploy job は GitHub Environment `production` を使い、Azure 認証は OIDC（`azure/login`）で行う。
 - [ ] Migration適用手順（デプロイ時の実行方式を決める）
 - [ ] ログ/監視（Application Insights等）
 - [ ] **スモークテスト**（ログイン/一覧表示/画像GET）を「リリース後の必須チェック」にする

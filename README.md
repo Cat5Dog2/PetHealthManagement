@@ -197,6 +197,21 @@ dotnet .\PetHealthManagement.Web.dll --apply-migrations
 - 本番で安易に `database update <oldMigration>` のような Down migration を直接流す運用は採りません。人間レビュー済みで安全性が確認できた場合だけ例外扱いにします
 - 復旧後は `__EFMigrationsHistory`、アプリログ、デプロイ記録を確認し、どの migration まで適用されたかを運用メモへ残します
 
+## GitHub Actions デプロイ
+
+- `.github/workflows/cd.yml` は `main` への push と `workflow_dispatch` を契機に、Release の `build -> full test -> publish -> deploy` を実行します
+- deploy job は GitHub Environment `production` に紐づけています。承認を入れたい場合は environment protection rules で制御します
+- デプロイ先は Azure App Service on Linux を前提とし、Azure への認証は GitHub Actions の OIDC (`azure/login`) を使います
+- この workflow はアプリ成果物のデプロイまでを担当します。migration 実行、Application Insights、リリース後 smoke は別タスクのままです
+- `production` environment に最低限必要な設定は次です
+  - Variable: `AZURE_WEBAPP_NAME=<app-service-name>`
+  - Secret: `AZURE_CLIENT_ID=<federated-credential-client-id>`
+  - Secret: `AZURE_TENANT_ID=<tenant-id>`
+  - Secret: `AZURE_SUBSCRIPTION_ID=<subscription-id>`
+- Azure 側では、GitHub の `main` ブランチからこの workflow を信頼する federated credential を作成し、対象 App Service へデプロイ可能な権限を付与します
+- App Service のアプリ設定は workflow では変更しません。`ConnectionStrings__DefaultConnection` は Key Vault reference、`Storage__RootPath` は `/home/...` を事前に構成しておきます
+- 手動で再デプロイしたい場合は、Actions の `CD` workflow を `main` で `Run workflow` します
+
 ## 依存関係更新の運用
 
 - `.github/dependabot.yml` で Dependabot version updates を有効にしています
