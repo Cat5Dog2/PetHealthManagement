@@ -157,6 +157,32 @@ dotnet run --project src/PetHealthManagement.Web --no-launch-profile -- --setup-
 - 実行前に、対象 DB のバックアップ取得、`ConnectionStrings__DefaultConnection` と `Storage__RootPath` の確認、適用対象の migration 差分レビューを済ませます
 - migration 実行は 1 回だけにします。App Service の複数インスタンスを同時に立ち上げたまま自動実行するのではなく、デプロイジョブやメンテナンス手順の中で明示的に 1 回だけ流します
 
+### GitHub Actions での実行方式
+
+- `.github/workflows/production-migrate.yml` を `workflow_dispatch` で手動実行し、**GitHub Actions runner から Azure SQL に対して 1 回だけ migration を適用**します
+- workflow は `main` 専用で、GitHub Environment `production` の値を使って Azure へ OIDC ログインします
+- 接続文字列は App Service から逆読みせず、`AZURE_KEY_VAULT_NAME` と `AZURE_SQL_CONNECTION_SECRET_NAME` を使って Key Vault から直接取得します
+- migration 実行時はアプリ本体を `Production` 環境で起動し、`ConnectionStrings__DefaultConnection`、`Storage__RootPath`、DataProtection の本番設定をそのまま注入します
+- 実行順は次を正とします
+  1. `main` に対象コミットがあることを確認する
+  2. `Production Migrations` workflow を実行する
+  3. 成功後に `CD` workflow の deploy job を承認または手動実行する
+- GitHub Environment `production` に最低限必要な値は次です
+  - Variable: `AZURE_KEY_VAULT_NAME=<key-vault-name>`
+  - Variable: `AZURE_SQL_CONNECTION_SECRET_NAME=<default-connection-secret-name>`
+  - Variable: `STORAGE_ROOT_PATH=/home/pethealth-storage`
+  - Variable: `DATA_PROTECTION_BLOB_URI=https://<storage-account>.blob.core.windows.net/<container>/keys.xml`
+  - Variable: `DATA_PROTECTION_KEY_VAULT_KEY_IDENTIFIER=https://<vault-name>.vault.azure.net/keys/data-protection`
+  - Variable: `DATA_PROTECTION_APPLICATION_NAME=PetHealthManagement.Web`（省略可）
+  - Variable: `DATA_PROTECTION_MANAGED_IDENTITY_CLIENT_ID=<client-id>`（user-assigned managed identity を使う場合のみ）
+  - Secret: `AZURE_CLIENT_ID=<federated-credential-client-id>`
+  - Secret: `AZURE_TENANT_ID=<tenant-id>`
+  - Secret: `AZURE_SUBSCRIPTION_ID=<subscription-id>`
+- この workflow を実行する Azure principal には、少なくとも次の権限が必要です
+  - Key Vault の接続文字列 secret を読む権限
+  - DataProtection 用 blob への読み書き権限
+  - DataProtection 用 Key Vault key の `Get` / `Wrap Key` / `Unwrap Key`
+
 ### 適用順
 
 1. 新しいアプリ版をデプロイ可能な状態にし、まだ本番トラフィックは切り替えない
@@ -202,7 +228,7 @@ dotnet .\PetHealthManagement.Web.dll --apply-migrations
 - `.github/workflows/cd.yml` は `main` への push と `workflow_dispatch` を契機に、Release の `build -> full test -> publish -> deploy` を実行します
 - deploy job は GitHub Environment `production` に紐づけています。承認を入れたい場合は environment protection rules で制御します
 - デプロイ先は Azure App Service on Linux を前提とし、Azure への認証は GitHub Actions の OIDC (`azure/login`) を使います
-- この workflow はアプリ成果物のデプロイまでを担当します。migration 実行、Application Insights、リリース後 smoke は別タスクのままです
+- この workflow はアプリ成果物のデプロイまでを担当します。schema 変更を含むリリースでは、先に `Production Migrations` workflow を流してから deploy job を進めます
 - `production` environment に最低限必要な設定は次です
   - Variable: `AZURE_WEBAPP_NAME=<app-service-name>`
   - Secret: `AZURE_CLIENT_ID=<federated-credential-client-id>`

@@ -1,0 +1,93 @@
+name: Production Migrations
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: production-migrations
+  cancel-in-progress: false
+
+env:
+  CONFIGURATION: Release
+  WEB_PROJECT_PATH: src/PetHealthManagement.Web/PetHealthManagement.Web.csproj
+
+jobs:
+  apply-production-migrations:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Validate migration configuration
+        shell: bash
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_KEY_VAULT_NAME: ${{ vars.AZURE_KEY_VAULT_NAME }}
+          AZURE_SQL_CONNECTION_SECRET_NAME: ${{ vars.AZURE_SQL_CONNECTION_SECRET_NAME }}
+          STORAGE_ROOT_PATH: ${{ vars.STORAGE_ROOT_PATH }}
+          DATA_PROTECTION_BLOB_URI: ${{ vars.DATA_PROTECTION_BLOB_URI }}
+          DATA_PROTECTION_KEY_VAULT_KEY_IDENTIFIER: ${{ vars.DATA_PROTECTION_KEY_VAULT_KEY_IDENTIFIER }}
+        run: |
+          [[ "$GITHUB_REF" == "refs/heads/main" ]] || { echo "Run this workflow from main only."; exit 1; }
+          [[ -n "$AZURE_CLIENT_ID" ]] || { echo "Missing production secret AZURE_CLIENT_ID"; exit 1; }
+          [[ -n "$AZURE_TENANT_ID" ]] || { echo "Missing production secret AZURE_TENANT_ID"; exit 1; }
+          [[ -n "$AZURE_SUBSCRIPTION_ID" ]] || { echo "Missing production secret AZURE_SUBSCRIPTION_ID"; exit 1; }
+          [[ -n "$AZURE_KEY_VAULT_NAME" ]] || { echo "Missing production variable AZURE_KEY_VAULT_NAME"; exit 1; }
+          [[ -n "$AZURE_SQL_CONNECTION_SECRET_NAME" ]] || { echo "Missing production variable AZURE_SQL_CONNECTION_SECRET_NAME"; exit 1; }
+          [[ -n "$STORAGE_ROOT_PATH" ]] || { echo "Missing production variable STORAGE_ROOT_PATH"; exit 1; }
+          [[ -n "$DATA_PROTECTION_BLOB_URI" ]] || { echo "Missing production variable DATA_PROTECTION_BLOB_URI"; exit 1; }
+          [[ -n "$DATA_PROTECTION_KEY_VAULT_KEY_IDENTIFIER" ]] || { echo "Missing production variable DATA_PROTECTION_KEY_VAULT_KEY_IDENTIFIER"; exit 1; }
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Retrieve production connection string
+        shell: bash
+        env:
+          AZURE_KEY_VAULT_NAME: ${{ vars.AZURE_KEY_VAULT_NAME }}
+          AZURE_SQL_CONNECTION_SECRET_NAME: ${{ vars.AZURE_SQL_CONNECTION_SECRET_NAME }}
+        run: |
+          CONNECTION_STRING=$(az keyvault secret show \
+            --vault-name "$AZURE_KEY_VAULT_NAME" \
+            --name "$AZURE_SQL_CONNECTION_SECRET_NAME" \
+            --query value \
+            --output tsv)
+          [[ -n "$CONNECTION_STRING" ]] || { echo "The Key Vault secret is empty."; exit 1; }
+          echo "::add-mask::$CONNECTION_STRING"
+          echo "PRODUCTION_CONNECTION_STRING=$CONNECTION_STRING" >> "$GITHUB_ENV"
+
+      - name: Build
+        run: bash ./scripts/build.sh --configuration Release
+
+      - name: Apply EF Core migrations
+        shell: bash
+        env:
+          ASPNETCORE_ENVIRONMENT: Production
+          ConnectionStrings__DefaultConnection: ${{ env.PRODUCTION_CONNECTION_STRING }}
+          Storage__RootPath: ${{ vars.STORAGE_ROOT_PATH }}
+          DataProtection__ApplicationName: ${{ vars.DATA_PROTECTION_APPLICATION_NAME }}
+          DataProtection__BlobUri: ${{ vars.DATA_PROTECTION_BLOB_URI }}
+          DataProtection__KeyVaultKeyIdentifier: ${{ vars.DATA_PROTECTION_KEY_VAULT_KEY_IDENTIFIER }}
+          DataProtection__ManagedIdentityClientId: ${{ vars.DATA_PROTECTION_MANAGED_IDENTITY_CLIENT_ID }}
+        run: |
+          export DataProtection__ApplicationName="${DataProtection__ApplicationName:-PetHealthManagement.Web}"
+          dotnet run --project "$WEB_PROJECT_PATH" -c "$CONFIGURATION" --no-build --no-launch-profile -- --apply-migrations

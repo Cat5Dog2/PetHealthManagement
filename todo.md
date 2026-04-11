@@ -348,7 +348,8 @@
 ### 12.2 リリース手順
 - [x] CI/CD（ビルド→テスト→デプロイ）
 - 決定事項：GitHub Actions の `CD` workflow を追加し、`main` への push または `workflow_dispatch` を契機に **Release build → full test → publish artifact → Azure App Service deploy** を実行する。deploy job は GitHub Environment `production` を使い、Azure 認証は OIDC（`azure/login`）で行う。
-- [ ] Migration適用手順（デプロイ時の実行方式を決める）
+- [x] Migration適用手順（デプロイ時の実行方式を決める）
+- 決定事項：migration は App Service 起動時に自動実行せず、GitHub Actions の `Production Migrations` workflow を **手動実行**して GitHub Actions runner から Azure SQL へ 1 回だけ適用する。接続文字列は Key Vault から取得し、成功後に `CD` workflow の deploy job を進める。
 - [ ] ログ/監視（Application Insights等）
 - [ ] **スモークテスト**（ログイン/一覧表示/画像GET）を「リリース後の必須チェック」にする
 
