@@ -34,6 +34,7 @@ builder.Services.Configure<FormOptions>(options =>
     options.MultipartBodyLengthLimit = UploadRequestLimits.MaxMultipartRequestBodySizeBytes;
 });
 builder.Services.AddConfiguredDataProtection(builder.Configuration);
+builder.Services.AddConfiguredAzureMonitorTelemetry(builder.Configuration);
 builder.Services.AddAntiforgery(options =>
 {
     options.Cookie.Name = "__Host-PetHealthManagement.AntiForgery";

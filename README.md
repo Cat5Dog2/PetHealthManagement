@@ -57,6 +57,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev-certs.ps1 -Trust
 - `appsettings.Development.json` は LocalDB 用の `DefaultConnection` と `StorageRoot/Development` を持ちます
 - `appsettings.Staging.json` は Staging 用のストレージ・ログ既定値を持ち、`ConnectionStrings__DefaultConnection` は環境変数や秘密情報ストアで与える前提です
 - `appsettings.Production.json` は Production 用のストレージ・ログ既定値を持ち、`ConnectionStrings__DefaultConnection` は環境変数や秘密情報ストアで与える前提です
+- `AzureMonitor:ServiceName` は既定で `PetHealthManagement.Web` を使います
+- Application Insights の接続文字列は `APPLICATIONINSIGHTS_CONNECTION_STRING` または `AzureMonitor__ConnectionString` で与えます
 - 起動時に `Storage:RootPath` が未設定なら fail fast します
 - `Staging` / `Production` で Development の LocalDB 接続文字列を使おうとした場合も fail fast します
 - `ConnectionStrings__DefaultConnection` や `Storage__RootPath` のような標準 ASP.NET Core キーで上書きできます
@@ -238,6 +240,28 @@ dotnet .\PetHealthManagement.Web.dll --apply-migrations
 - App Service のアプリ設定は workflow では変更しません。`ConnectionStrings__DefaultConnection` は Key Vault reference、`Storage__RootPath` は `/home/...` を事前に構成しておきます
 - 手動で再デプロイしたい場合は、Actions の `CD` workflow を `main` で `Run workflow` します
 
+## Application Insights monitoring
+
+- アプリは `Azure.Monitor.OpenTelemetry.AspNetCore` を使って Azure Monitor Application Insights へ request / dependency / exception / `ILogger` ログを送ります
+- 接続文字列が未設定なら監視パイプラインは有効化されず、ローカル開発とテストは従来どおり動きます
+- 有効化するには App Service 構成に次のいずれかを設定します
+  - `APPLICATIONINSIGHTS_CONNECTION_STRING=<application-insights-connection-string>`
+  - `AzureMonitor__ConnectionString=<application-insights-connection-string>`
+- 既定の Cloud Role Name は `PetHealthManagement.Web` です。別名にしたい場合は `OTEL_SERVICE_NAME` で上書きできます
+- 任意で次の設定も使えます
+  - `AzureMonitor__EnableLiveMetrics=true|false`
+  - `AzureMonitor__SamplingRatio=0.0..1.0`
+  - `AzureMonitor__StorageDirectory=/home/pethealth-monitoring`
+- 初期リリースでは次を最低限の監視対象にします
+  - 未処理例外
+  - 画像アップロード拒否・削除失敗
+  - アカウント削除 / Admin 削除の監査寄りログ
+  - HTTP request / dependency の失敗率と応答時間
+- Application Insights 側では少なくとも次のアラートを作る前提です
+  - 5xx エラー率の急増
+  - 例外件数の急増
+  - サーバ応答時間の悪化
+
 ## 依存関係更新の運用
 
 - `.github/dependabot.yml` で Dependabot version updates を有効にしています
@@ -277,7 +301,8 @@ bash ./scripts/local-smoke.sh --email 'admin@example.com' --password 'Admin123!'
 - 高リスクな削除処理は `operation`、`ownerId`、`targetType`、`targetId`、件数情報付きで開始・完了・失敗を記録します
 - アカウント削除や Admin によるユーザー削除は `actorUserId` と対象情報を含む監査寄りログを出します
 - 未処理例外は `method`、`path`、`traceId`、`userId` を付けて記録します
-- 永続的な監査ログ保管や外部監視は今後の運用タスクです
+- Staging / Production では、上記ログは Application Insights に送る前提です
+- 永続的な監査ログ保管や高度な運用アラートの詳細化は今後の運用タスクです
 
 ## テスト方針
 
