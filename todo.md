@@ -350,13 +350,18 @@
 - 決定事項：GitHub Actions の `CD` workflow を追加し、`main` への push または `workflow_dispatch` を契機に **Release build → full test → publish artifact → Azure App Service deploy** を実行する。deploy job は GitHub Environment `production` を使い、Azure 認証は OIDC（`azure/login`）で行う。
 - [x] Migration適用手順（デプロイ時の実行方式を決める）
 - 決定事項：migration は App Service 起動時に自動実行せず、GitHub Actions の `Production Migrations` workflow を **手動実行**して GitHub Actions runner から Azure SQL へ 1 回だけ適用する。接続文字列は Key Vault から取得し、成功後に `CD` workflow の deploy job を進める。
-- [ ] ログ/監視（Application Insights等）
+- [x] ログ/監視（Application Insights等）
+- 決定事項：アプリ監視は **Azure Monitor Application Insights + Azure Monitor OpenTelemetry Distro** を正とし、`APPLICATIONINSIGHTS_CONNECTION_STRING`（または `AzureMonitor__ConnectionString`）がある場合のみ有効化する。Cloud Role Name は既定で `PetHealthManagement.Web`、必要に応じて `OTEL_SERVICE_NAME` で上書きする。
 - [ ] **スモークテスト**（ログイン/一覧表示/画像GET）を「リリース後の必須チェック」にする
+- 補足：`scripts/local-smoke.ps1` / `scripts/local-smoke.sh` は整備済みで、README に確認項目も記載済み。残タスクは **リリース後の必須チェック** として workflow / runbook に組み込むこと。
 
 ### 12.3 ロールバック/復旧（Runbook）
 - [ ] アプリの戻し方（例：デプロイスロット/直前ビルドへ戻す）を手順化
-- [ ] DB変更の扱い（基本は前進マイグレーション or バックアップ復元等）を方針化
+- 補足：現時点の方針は README にある「旧版アプリへ戻す + 必要時 DB バックアップ復元」まで。**slot / 旧 artifact / 手動再デプロイのどれを正とするか**は未確定。
+- [x] DB変更の扱い（基本は前進マイグレーション or バックアップ復元等）を方針化
+- 決定事項：DB 変更は **前進マイグレーションを基本**とし、即時復旧が必要で schema 変更が後方互換でない場合は **migration 前バックアップからの復元**を正とする。`database update <oldMigration>` のような **直接の Down migration は通常運用にしない**。
 - [ ] 失敗検知の基準（エラー率/例外/応答時間など）と「戻す判断」を決める
+- 補足：Application Insights で見る対象（5xx / 例外 / 応答時間）は README に記載済み。**閾値と rollback 判断基準**は未確定。
 
 ### 12.4 画像運用の紐づけ（Runbook）
 - [ ] 画像バックアップ/ライフサイクルの手順を「デプロイ後運用」に紐づけて文書化
