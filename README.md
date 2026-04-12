@@ -295,6 +295,46 @@ dotnet .\PetHealthManagement.Web.dll --apply-migrations
   - サーバ応答時間の悪化
   - availability test の失敗
 
+## 画像運用 Runbook
+
+- 本番画像は `Storage__RootPath` 配下で運用します。現行の `FileSystemImageStorageService` は `images/` に本体、`tmp/` に一時ファイルを置きます
+- 初期リリースでは Blob mount を使わず、App Service の `/home` 配下を正として扱います。保存先の例は `Storage__RootPath=/home/pethealth-storage` です
+
+### バックアップとライフサイクル
+
+- デプロイ後運用では `Storage__RootPath` 配下をバックアップ対象に含めます。App Service Backup が使えるプランではそれを優先し、未対応プランでは同等の定期コピーを別手段で確保します
+- 少なくとも 1 日 1 回の定期バックアップを取り、さらに**画像アップロード/削除実装を変更するリリース前**、**Admin 削除やアカウント削除を伴う保守前**にはオンデマンドのバックアップを追加します
+- 画像を戻すときは、いきなり production の `/home/pethealth-storage` を丸ごと上書きせず、まず隔離した場所へ復元して対象の `images/...` だけを確認します。その後に必要なファイルだけを production へ戻し、認可付き `GET /images/{imageId}` の smoke で確認します
+- `tmp/` は通常リクエスト完了時に片付く想定ですが、異常終了時の残骸があり得ます。週次運用で `tmp/` に 24 時間超の古いファイルが残っていないか確認し、アプリ停止やメンテナンス時間帯に削除します
+- 保存容量、バックアップ時間、CDN 配信、画像ライフサイクル管理がボトルネックになった時点で、`IImageStorageService` 差し替えによる Blob 移行タスクを起票します
+
+### 削除失敗時の運用再試行
+
+- 初期リリースでは画像削除失敗専用の retry queue や定期バッチはまだ持ちません。**Application Insights のログを起点にした運用再試行**を正とします
+- 削除失敗は `Failed to delete image file` という warning ログで記録され、`imageCategory`、`ownerId`、`resourceType`、`resourceId`、`phase`、`imageId`、`storageKey` を付けて追跡できます
+- 監視画面では次の KQL を起点に、削除失敗の未処理件数を確認します
+
+```kusto
+traces
+| where message has "Failed to delete image file"
+| project
+    timestamp,
+    severityLevel,
+    message,
+    imageCategory = tostring(customDimensions.ImageCategory),
+    ownerId = tostring(customDimensions.OwnerId),
+    resourceType = tostring(customDimensions.ResourceType),
+    resourceId = tostring(customDimensions.ResourceId),
+    phase = tostring(customDimensions.Phase),
+    imageId = tostring(customDimensions.ImageId),
+    storageKey = tostring(customDimensions.StorageKey)
+| order by timestamp desc
+```
+
+- 運用で削除失敗を見つけたら、まず対象画像がまだアプリから参照されていないかを確認します。まだ使われている画像なら削除せず、参照切れなのにファイルが残っている場合だけ `storageKey` の実体を手動削除します
+- 手動削除の結果は、`timestamp`、`imageId`、`storageKey`、対応者、結果を運用メモへ残します。ファイルが既に無い場合は「解消済み」としてクローズします
+- 同じ `phase` や同じ機能で削除失敗が継続する場合は、運用で吸収し続けず、retry queue / background job / 定期バッチの実装タスクを別 PR で切ります
+
 ## 依存関係更新の運用
 
 - `.github/dependabot.yml` で Dependabot version updates を有効にしています
