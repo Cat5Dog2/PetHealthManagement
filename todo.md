@@ -356,12 +356,12 @@
 - 決定事項：GitHub Actions の `CD` workflow で deploy 後に `scripts/local-smoke.sh --use-existing-app` を必須実行し、`APP_BASE_URL`・`SMOKE_TEST_EMAIL`・`SMOKE_TEST_PASSWORD`・`SMOKE_TEST_IMAGE_URL` を使って **ログイン / Pets 一覧 / 認可付き画像 GET** を確認する。
 
 ### 12.3 ロールバック/復旧（Runbook）
-- [ ] アプリの戻し方（例：デプロイスロット/直前ビルドへ戻す）を手順化
-- 補足：現時点の方針は README にある「旧版アプリへ戻す + 必要時 DB バックアップ復元」まで。**slot / 旧 artifact / 手動再デプロイのどれを正とするか**は未確定。
+- [x] アプリの戻し方（例：デプロイスロット/直前ビルドへ戻す）を手順化
+- 決定事項：現行構成では deployment slot は使わず、GitHub Actions の `Rollback Production` workflow を **手動実行**して、指定した既知の良品 `target_ref` を production に再デプロイする。rollback 後は `CD` と同じ smoke 条件で再確認する。
 - [x] DB変更の扱い（基本は前進マイグレーション or バックアップ復元等）を方針化
 - 決定事項：DB 変更は **前進マイグレーションを基本**とし、即時復旧が必要で schema 変更が後方互換でない場合は **migration 前バックアップからの復元**を正とする。`database update <oldMigration>` のような **直接の Down migration は通常運用にしない**。
-- [ ] 失敗検知の基準（エラー率/例外/応答時間など）と「戻す判断」を決める
-- 補足：Application Insights で見る対象（5xx / 例外 / 応答時間）は README に記載済み。**閾値と rollback 判断基準**は未確定。
+- [x] 失敗検知の基準（エラー率/例外/応答時間など）と「戻す判断」を決める
+- 決定事項：rollback 判断は **smoke 失敗を最優先**とし、Application Insights では `5xx >= 5% or 10件/5分`、`未処理例外 >= 10件/5分`、`平均応答時間がデプロイ前の2倍以上または5秒超で継続`、`availability test 連続失敗` を目安にする。
 
 ### 12.4 画像運用の紐づけ（Runbook）
 - [ ] 画像バックアップ/ライフサイクルの手順を「デプロイ後運用」に紐づけて文書化
