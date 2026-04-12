@@ -16,6 +16,12 @@
 .PARAMETER Password
   Login password for the optional authenticated smoke step.
 
+.PARAMETER UseExistingApp
+  When set, uses the app already running at BaseUrl instead of starting a local process.
+
+.PARAMETER ImageUrl
+  Optional absolute or relative image URL to verify after login.
+
 .PARAMETER ExpectAdmin
   When set, also verifies /Admin/Users after login.
 #>
@@ -24,6 +30,8 @@ param(
   [string]$BaseUrl = 'https://localhost:7115',
   [string]$Email,
   [string]$Password,
+  [switch]$UseExistingApp,
+  [string]$ImageUrl,
   [switch]$ExpectAdmin
 )
 
@@ -142,6 +150,23 @@ function Wait-UntilAvailable {
   throw "Timed out waiting for $Uri"
 }
 
+function Resolve-RequestUri {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$BaseUrl,
+    [Parameter(Mandatory = $true)]
+    [string]$Candidate
+  )
+
+  $resolvedUri = $null
+  if ([Uri]::TryCreate($Candidate, [UriKind]::Absolute, [ref]$resolvedUri)) {
+    return $resolvedUri.AbsoluteUri
+  }
+
+  $baseUri = [Uri]::new(($BaseUrl.TrimEnd('/') + '/'))
+  return [Uri]::new($baseUri, $Candidate).AbsoluteUri
+}
+
 function Get-RepoRoot([string]$StartDir) {
   $dir = Get-Item -LiteralPath $StartDir
   for ($i = 0; $i -lt 9; $i++) {
@@ -176,24 +201,30 @@ $repoRoot = Get-RepoRoot $scriptDir
 $stdoutPath = Join-Path ([System.IO.Path]::GetTempPath()) "pethealth-local-smoke-stdout-$([guid]::NewGuid().ToString('N')).log"
 $stderrPath = Join-Path ([System.IO.Path]::GetTempPath()) "pethealth-local-smoke-stderr-$([guid]::NewGuid().ToString('N')).log"
 $completed = $false
+$process = $null
 
-Write-Info 'Checking HTTPS development certificate before smoke run...'
-& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $scriptDir 'dev-certs.ps1')
-if ($LASTEXITCODE -ne 0) {
-  throw 'HTTPS development certificate check failed.'
+if (-not $UseExistingApp) {
+  Write-Info 'Checking HTTPS development certificate before smoke run...'
+  & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $scriptDir 'dev-certs.ps1')
+  if ($LASTEXITCODE -ne 0) {
+    throw 'HTTPS development certificate check failed.'
+  }
+
+  Write-Info "Starting app at $BaseUrl ..."
+  $process = Start-Process `
+    -FilePath 'dotnet' `
+    -ArgumentList @('run', '--project', 'src/PetHealthManagement.Web', '--launch-profile', 'https', '--no-build') `
+    -WorkingDirectory $repoRoot `
+    -RedirectStandardOutput $stdoutPath `
+    -RedirectStandardError $stderrPath `
+    -PassThru
+}
+else {
+  Write-Info "Using existing app at $BaseUrl ..."
 }
 
-Write-Info "Starting app at $BaseUrl ..."
-$process = Start-Process `
-  -FilePath 'dotnet' `
-  -ArgumentList @('run', '--project', 'src/PetHealthManagement.Web', '--launch-profile', 'https', '--no-build') `
-  -WorkingDirectory $repoRoot `
-  -RedirectStandardOutput $stdoutPath `
-  -RedirectStandardError $stderrPath `
-  -PassThru
-
 try {
-  Wait-UntilAvailable -Uri $BaseUrl -StartupLogPath $stdoutPath
+  Wait-UntilAvailable -Uri $BaseUrl -StartupLogPath ($(if ($UseExistingApp) { $null } else { $stdoutPath }))
 
   $homeResponse = Invoke-WebRequestAllowErrors -Uri "$BaseUrl/"
   if ($homeResponse.StatusCode -ne 200) {
@@ -255,6 +286,19 @@ try {
   $petsResponse = Invoke-WebRequestAllowErrors -Uri "$BaseUrl/Pets" -WebSession $session
   if ($petsResponse.StatusCode -ne 200) {
     throw "Authenticated /Pets returned unexpected status code: $($petsResponse.StatusCode)"
+  }
+
+  if (-not [string]::IsNullOrWhiteSpace($ImageUrl)) {
+    $resolvedImageUrl = Resolve-RequestUri -BaseUrl $BaseUrl -Candidate $ImageUrl
+    $imageResponse = Invoke-WebRequestAllowErrors -Uri $resolvedImageUrl -WebSession $session
+    if ($imageResponse.StatusCode -ne 200) {
+      throw "Authenticated image request returned unexpected status code: $($imageResponse.StatusCode)"
+    }
+
+    $nosniffHeader = $imageResponse.Headers['X-Content-Type-Options']
+    if (-not [string]::Equals($nosniffHeader, 'nosniff', [StringComparison]::OrdinalIgnoreCase)) {
+      throw 'Authenticated image response did not include X-Content-Type-Options: nosniff.'
+    }
   }
 
   if ($ExpectAdmin) {

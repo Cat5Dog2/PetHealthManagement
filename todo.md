@@ -352,8 +352,8 @@
 - 決定事項：migration は App Service 起動時に自動実行せず、GitHub Actions の `Production Migrations` workflow を **手動実行**して GitHub Actions runner から Azure SQL へ 1 回だけ適用する。接続文字列は Key Vault から取得し、成功後に `CD` workflow の deploy job を進める。
 - [x] ログ/監視（Application Insights等）
 - 決定事項：アプリ監視は **Azure Monitor Application Insights + Azure Monitor OpenTelemetry Distro** を正とし、`APPLICATIONINSIGHTS_CONNECTION_STRING`（または `AzureMonitor__ConnectionString`）がある場合のみ有効化する。Cloud Role Name は既定で `PetHealthManagement.Web`、必要に応じて `OTEL_SERVICE_NAME` で上書きする。
-- [ ] **スモークテスト**（ログイン/一覧表示/画像GET）を「リリース後の必須チェック」にする
-- 補足：`scripts/local-smoke.ps1` / `scripts/local-smoke.sh` は整備済みで、README に確認項目も記載済み。残タスクは **リリース後の必須チェック** として workflow / runbook に組み込むこと。
+- [x] **スモークテスト**（ログイン/一覧表示/画像GET）を「リリース後の必須チェック」にする
+- 決定事項：GitHub Actions の `CD` workflow で deploy 後に `scripts/local-smoke.sh --use-existing-app` を必須実行し、`APP_BASE_URL`・`SMOKE_TEST_EMAIL`・`SMOKE_TEST_PASSWORD`・`SMOKE_TEST_IMAGE_URL` を使って **ログイン / Pets 一覧 / 認可付き画像 GET** を確認する。
 
 ### 12.3 ロールバック/復旧（Runbook）
 - [ ] アプリの戻し方（例：デプロイスロット/直前ビルドへ戻す）を手順化

@@ -59,6 +59,18 @@ wait_until_available() {
   return 1
 }
 
+resolve_request_uri() {
+  local base_url="$1"
+  local candidate="$2"
+
+  if [[ "$candidate" =~ ^https?:// ]]; then
+    printf '%s' "$candidate"
+    return 0
+  fi
+
+  printf '%s/%s' "${base_url%/}" "${candidate#/}"
+}
+
 perform_request() {
   : >"$RESPONSE_BODY_PATH"
   : >"$RESPONSE_HEADERS_PATH"
@@ -87,6 +99,8 @@ extract_antiforgery_token() {
 BASE_URL="https://localhost:7115"
 EMAIL=""
 PASSWORD=""
+USE_EXISTING_APP=false
+IMAGE_URL=""
 EXPECT_ADMIN=false
 
 while [[ $# -gt 0 ]]; do
@@ -101,6 +115,14 @@ while [[ $# -gt 0 ]]; do
       ;;
     --password)
       PASSWORD="${2:-}"
+      shift 2
+      ;;
+    --use-existing-app)
+      USE_EXISTING_APP=true
+      shift
+      ;;
+    --image-url)
+      IMAGE_URL="${2:-}"
       shift 2
       ;;
     --expect-admin)
@@ -154,15 +176,19 @@ if ! command -v curl >/dev/null 2>&1; then
   exit 1
 fi
 
-log "Checking HTTPS development certificate before smoke run..."
-bash "$SCRIPT_DIR/dev-certs.sh"
+if [[ "$USE_EXISTING_APP" == "false" ]]; then
+  log "Checking HTTPS development certificate before smoke run..."
+  bash "$SCRIPT_DIR/dev-certs.sh"
 
-log "Starting app at $BASE_URL ..."
-dotnet run --project src/PetHealthManagement.Web --launch-profile https --no-build \
-  >"$STDOUT_PATH" 2>"$STDERR_PATH" &
-APP_PID="$!"
+  log "Starting app at $BASE_URL ..."
+  dotnet run --project src/PetHealthManagement.Web --launch-profile https --no-build \
+    >"$STDOUT_PATH" 2>"$STDERR_PATH" &
+  APP_PID="$!"
+else
+  log "Using existing app at $BASE_URL ..."
+fi
 
-wait_until_available "$BASE_URL" "$STDOUT_PATH"
+wait_until_available "$BASE_URL" "$([[ "$USE_EXISTING_APP" == "true" ]] && printf '' || printf '%s' "$STDOUT_PATH")"
 
 status_code="$(perform_request "$BASE_URL/")"
 if [[ "$status_code" != "200" ]]; then
@@ -236,6 +262,20 @@ status_code="$(perform_request -c "$COOKIE_JAR_PATH" -b "$COOKIE_JAR_PATH" "$BAS
 if [[ "$status_code" != "200" ]]; then
   echo "Authenticated /Pets returned unexpected status code: $status_code" >&2
   exit 1
+fi
+
+if [[ -n "$IMAGE_URL" ]]; then
+  RESOLVED_IMAGE_URL="$(resolve_request_uri "$BASE_URL" "$IMAGE_URL")"
+  status_code="$(perform_request -c "$COOKIE_JAR_PATH" -b "$COOKIE_JAR_PATH" "$RESOLVED_IMAGE_URL")"
+  if [[ "$status_code" != "200" ]]; then
+    echo "Authenticated image request returned unexpected status code: $status_code" >&2
+    exit 1
+  fi
+
+  if ! grep -Fiq 'X-Content-Type-Options: nosniff' "$RESPONSE_HEADERS_PATH"; then
+    echo "Authenticated image response did not include X-Content-Type-Options: nosniff." >&2
+    exit 1
+  fi
 fi
 
 if [[ "$EXPECT_ADMIN" == "true" ]]; then
