@@ -225,6 +225,30 @@ dotnet .\PetHealthManagement.Web.dll --apply-migrations
 - 本番で安易に `database update <oldMigration>` のような Down migration を直接流す運用は採りません。人間レビュー済みで安全性が確認できた場合だけ例外扱いにします
 - 復旧後は `__EFMigrationsHistory`、アプリログ、デプロイ記録を確認し、どの migration まで適用されたかを運用メモへ残します
 
+### アプリの戻し方
+
+- 現行構成では deployment slot をまだ使っていないため、**production への戻し方は「既知の良品 ref を再デプロイする」**を正とします
+- GitHub Actions の `.github/workflows/rollback-production.yml` を `workflow_dispatch` で手動実行し、`target_ref` に戻したい commit SHA / tag / branch を指定します
+- rollback workflow は対象 ref を checkout し、**Release build → full test → publish → Azure App Service deploy → post-rollback smoke** を 1 本で実行します
+- rollback 後の smoke は `CD` と同じ `APP_BASE_URL` / `SMOKE_TEST_EMAIL` / `SMOKE_TEST_PASSWORD` / `SMOKE_TEST_IMAGE_URL` を使います
+- schema 変更が後方互換でない場合は、アプリの rollback だけでは不整合が残るため、**migration 前バックアップから DB を復元する判断**まで含めて実施します
+- 将来 App Service の Standard 以上で slot 運用へ切り替える場合は、staging slot への deploy と swap-back を第一候補として再評価します
+
+### 戻す判断基準
+
+- **即時 rollback**
+  - post-deploy smoke が失敗した
+  - ログイン / `/Pets` / 認可付き画像 GET のどれかが壊れた
+  - 本番 5xx が継続して増加し、5 分で **5% 以上** または **10 件以上** を確認した
+- **15 分以内に rollback 判断**
+  - 未処理例外が 5 分で **10 件以上** 継続し、前進修正の見込みが立たない
+  - 平均サーバ応答時間がデプロイ前の **2 倍以上** または **5 秒超** で継続する
+  - Application Insights availability test が連続失敗する
+- **前進修正を優先**
+  - 監視上は健全で、表示崩れや軽微な UX 不具合などユーザー影響が限定的
+  - schema rollback を伴わず短時間で修正デプロイできる
+- rollback を実施したら、Application Insights、smoke 実行結果、対象 ref、DB 復元の有無を運用メモへ残します
+
 ## GitHub Actions デプロイ
 
 - `.github/workflows/cd.yml` は `main` への push と `workflow_dispatch` を契機に、Release の `build -> full test -> publish -> deploy` を実行します
@@ -245,6 +269,7 @@ dotnet .\PetHealthManagement.Web.dll --apply-migrations
 - App Service のアプリ設定は workflow では変更しません。`ConnectionStrings__DefaultConnection` は Key Vault reference、`Storage__RootPath` は `/home/...` を事前に構成しておきます
 - 手動で再デプロイしたい場合は、Actions の `CD` workflow を `main` で `Run workflow` します
 - smoke 用には、MyPage / Pets / 対象画像にアクセスできる**専用の維持データ**を持ったユーザーを運用で用意しておきます
+- rollback が必要な場合は、Actions の `Rollback Production` workflow を `main` から手動実行し、`target_ref` に既知の良品 ref を指定します
 
 ## Application Insights monitoring
 
@@ -263,10 +288,12 @@ dotnet .\PetHealthManagement.Web.dll --apply-migrations
   - 画像アップロード拒否・削除失敗
   - アカウント削除 / Admin 削除の監査寄りログ
   - HTTP request / dependency の失敗率と応答時間
+  - availability test による外形監視
 - Application Insights 側では少なくとも次のアラートを作る前提です
   - 5xx エラー率の急増
   - 例外件数の急増
   - サーバ応答時間の悪化
+  - availability test の失敗
 
 ## 依存関係更新の運用
 

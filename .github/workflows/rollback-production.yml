@@ -1,0 +1,119 @@
+name: Rollback Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_ref:
+        description: "Commit SHA, tag, or branch to redeploy to production"
+        required: true
+        type: string
+      reason:
+        description: "Short reason for the rollback"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+env:
+  CONFIGURATION: Release
+  PUBLISH_ARTIFACT_NAME: rollback-webapp-publish
+  PUBLISH_DIRECTORY: ${{ github.workspace }}/artifacts/publish
+  WEB_PROJECT_PATH: src/PetHealthManagement.Web/PetHealthManagement.Web.csproj
+
+jobs:
+  rollback-production:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+
+    steps:
+      - name: Validate rollback configuration
+        shell: bash
+        env:
+          APP_BASE_URL: ${{ vars.APP_BASE_URL }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_WEBAPP_NAME: ${{ vars.AZURE_WEBAPP_NAME }}
+          SMOKE_TEST_EMAIL: ${{ secrets.SMOKE_TEST_EMAIL }}
+          SMOKE_TEST_IMAGE_URL: ${{ vars.SMOKE_TEST_IMAGE_URL }}
+          SMOKE_TEST_PASSWORD: ${{ secrets.SMOKE_TEST_PASSWORD }}
+          TARGET_REF: ${{ inputs.target_ref }}
+        run: |
+          [[ "$GITHUB_REF" == "refs/heads/main" ]] || { echo "Run this workflow from main only."; exit 1; }
+          [[ -n "$TARGET_REF" ]] || { echo "Missing target_ref input."; exit 1; }
+          [[ -n "$APP_BASE_URL" ]] || { echo "Missing production environment variable APP_BASE_URL"; exit 1; }
+          [[ -n "$AZURE_WEBAPP_NAME" ]] || { echo "Missing production environment variable AZURE_WEBAPP_NAME"; exit 1; }
+          [[ -n "$AZURE_CLIENT_ID" ]] || { echo "Missing production secret AZURE_CLIENT_ID"; exit 1; }
+          [[ -n "$AZURE_TENANT_ID" ]] || { echo "Missing production secret AZURE_TENANT_ID"; exit 1; }
+          [[ -n "$AZURE_SUBSCRIPTION_ID" ]] || { echo "Missing production secret AZURE_SUBSCRIPTION_ID"; exit 1; }
+          [[ -n "$SMOKE_TEST_EMAIL" ]] || { echo "Missing production secret SMOKE_TEST_EMAIL"; exit 1; }
+          [[ -n "$SMOKE_TEST_PASSWORD" ]] || { echo "Missing production secret SMOKE_TEST_PASSWORD"; exit 1; }
+          [[ -n "$SMOKE_TEST_IMAGE_URL" ]] || { echo "Missing production variable SMOKE_TEST_IMAGE_URL"; exit 1; }
+
+      - name: Checkout target ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.target_ref }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Dotnet info
+        run: dotnet --info
+
+      - name: Build
+        run: bash ./scripts/build.sh --configuration Release
+
+      - name: Full test suite
+        run: bash ./scripts/test.sh --configuration Release --no-build
+
+      - name: Publish web app
+        run: dotnet publish "$WEB_PROJECT_PATH" -c "$CONFIGURATION" -o "$PUBLISH_DIRECTORY" --no-build
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Record rollback reason
+        shell: bash
+        env:
+          ROLLBACK_REASON: ${{ inputs.reason }}
+          TARGET_REF: ${{ inputs.target_ref }}
+        run: |
+          echo "Rolling back production to $TARGET_REF"
+          if [[ -n "$ROLLBACK_REASON" ]]; then
+            echo "Reason: $ROLLBACK_REASON"
+          fi
+
+      - name: Deploy rollback build to Azure App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ vars.AZURE_WEBAPP_NAME }}
+          package: ${{ env.PUBLISH_DIRECTORY }}
+
+      - name: Post-rollback smoke checks
+        env:
+          APP_BASE_URL: ${{ vars.APP_BASE_URL }}
+          SMOKE_TEST_EMAIL: ${{ secrets.SMOKE_TEST_EMAIL }}
+          SMOKE_TEST_PASSWORD: ${{ secrets.SMOKE_TEST_PASSWORD }}
+          SMOKE_TEST_IMAGE_URL: ${{ vars.SMOKE_TEST_IMAGE_URL }}
+        run: >
+          bash ./scripts/local-smoke.sh
+          --use-existing-app
+          --base-url "$APP_BASE_URL"
+          --email "$SMOKE_TEST_EMAIL"
+          --password "$SMOKE_TEST_PASSWORD"
+          --image-url "$SMOKE_TEST_IMAGE_URL"
