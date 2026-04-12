@@ -231,14 +231,20 @@ dotnet .\PetHealthManagement.Web.dll --apply-migrations
 - deploy job は GitHub Environment `production` に紐づけています。承認を入れたい場合は environment protection rules で制御します
 - デプロイ先は Azure App Service on Linux を前提とし、Azure への認証は GitHub Actions の OIDC (`azure/login`) を使います
 - この workflow はアプリ成果物のデプロイまでを担当します。schema 変更を含むリリースでは、先に `Production Migrations` workflow を流してから deploy job を進めます
+- deploy の最後に `scripts/local-smoke.sh --use-existing-app` を実行し、**ログイン / 一覧表示 / 画像 GET** を post-deploy smoke として必須化しています
 - `production` environment に最低限必要な設定は次です
+  - Variable: `APP_BASE_URL=https://<app-host>`
   - Variable: `AZURE_WEBAPP_NAME=<app-service-name>`
+  - Variable: `SMOKE_TEST_IMAGE_URL=/images/<smoke-image-id>` または `https://<app-host>/images/<smoke-image-id>`
   - Secret: `AZURE_CLIENT_ID=<federated-credential-client-id>`
   - Secret: `AZURE_TENANT_ID=<tenant-id>`
   - Secret: `AZURE_SUBSCRIPTION_ID=<subscription-id>`
+  - Secret: `SMOKE_TEST_EMAIL=<smoke-user-email>`
+  - Secret: `SMOKE_TEST_PASSWORD=<smoke-user-password>`
 - Azure 側では、GitHub の `main` ブランチからこの workflow を信頼する federated credential を作成し、対象 App Service へデプロイ可能な権限を付与します
 - App Service のアプリ設定は workflow では変更しません。`ConnectionStrings__DefaultConnection` は Key Vault reference、`Storage__RootPath` は `/home/...` を事前に構成しておきます
 - 手動で再デプロイしたい場合は、Actions の `CD` workflow を `main` で `Run workflow` します
+- smoke 用には、MyPage / Pets / 対象画像にアクセスできる**専用の維持データ**を持ったユーザーを運用で用意しておきます
 
 ## Application Insights monitoring
 
@@ -275,16 +281,20 @@ dotnet .\PetHealthManagement.Web.dll --apply-migrations
 
 - HTTPS プロファイルでアプリを起動し、トップページ、ログイン画面、保護ページのリダイレクト、共通エラーページの応答を確認できます
 - `-Email` と `-Password` を渡すと、ログイン後の `MyPage` と `Pets` まで確認します
+- `-ImageUrl` / `--image-url` を渡すと、ログイン後に認可付き画像 GET も確認します
 - Admin ユーザーで確認する場合は `-ExpectAdmin` を付けると `/Admin/Users` も確認します
+- 既に起動済みの環境を叩く場合は `-UseExistingApp` / `--use-existing-app` を使います
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/local-smoke.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/local-smoke.ps1 -Email 'admin@example.com' -Password 'Admin123!' -ExpectAdmin
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/local-smoke.ps1 -UseExistingApp -BaseUrl 'https://pethealth.example.com' -Email 'smoke@example.com' -Password 'Smoke123!' -ImageUrl '/images/<image-id>'
 ```
 
 ```bash
 bash ./scripts/local-smoke.sh
 bash ./scripts/local-smoke.sh --email 'admin@example.com' --password 'Admin123!' --expect-admin
+bash ./scripts/local-smoke.sh --use-existing-app --base-url 'https://pethealth.example.com' --email 'smoke@example.com' --password 'Smoke123!' --image-url '/images/<image-id>'
 ```
 
 ## セキュリティ既定値

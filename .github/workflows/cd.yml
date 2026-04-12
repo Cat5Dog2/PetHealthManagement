@@ -66,15 +66,23 @@ jobs:
       - name: Validate deployment configuration
         shell: bash
         env:
+          APP_BASE_URL: ${{ vars.APP_BASE_URL }}
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           AZURE_WEBAPP_NAME: ${{ vars.AZURE_WEBAPP_NAME }}
+          SMOKE_TEST_EMAIL: ${{ secrets.SMOKE_TEST_EMAIL }}
+          SMOKE_TEST_IMAGE_URL: ${{ vars.SMOKE_TEST_IMAGE_URL }}
+          SMOKE_TEST_PASSWORD: ${{ secrets.SMOKE_TEST_PASSWORD }}
         run: |
+          [[ -n "$APP_BASE_URL" ]] || { echo "Missing production environment variable APP_BASE_URL"; exit 1; }
           [[ -n "$AZURE_WEBAPP_NAME" ]] || { echo "Missing production environment variable AZURE_WEBAPP_NAME"; exit 1; }
           [[ -n "$AZURE_CLIENT_ID" ]] || { echo "Missing production secret AZURE_CLIENT_ID"; exit 1; }
           [[ -n "$AZURE_TENANT_ID" ]] || { echo "Missing production secret AZURE_TENANT_ID"; exit 1; }
           [[ -n "$AZURE_SUBSCRIPTION_ID" ]] || { echo "Missing production secret AZURE_SUBSCRIPTION_ID"; exit 1; }
+          [[ -n "$SMOKE_TEST_EMAIL" ]] || { echo "Missing production secret SMOKE_TEST_EMAIL"; exit 1; }
+          [[ -n "$SMOKE_TEST_PASSWORD" ]] || { echo "Missing production secret SMOKE_TEST_PASSWORD"; exit 1; }
+          [[ -n "$SMOKE_TEST_IMAGE_URL" ]] || { echo "Missing production variable SMOKE_TEST_IMAGE_URL"; exit 1; }
 
       - name: Download publish artifact
         uses: actions/download-artifact@v4
@@ -94,3 +102,17 @@ jobs:
         with:
           app-name: ${{ vars.AZURE_WEBAPP_NAME }}
           package: ${{ env.PUBLISH_DIRECTORY }}
+
+      - name: Post-deploy smoke checks
+        env:
+          APP_BASE_URL: ${{ vars.APP_BASE_URL }}
+          SMOKE_TEST_EMAIL: ${{ secrets.SMOKE_TEST_EMAIL }}
+          SMOKE_TEST_PASSWORD: ${{ secrets.SMOKE_TEST_PASSWORD }}
+          SMOKE_TEST_IMAGE_URL: ${{ vars.SMOKE_TEST_IMAGE_URL }}
+        run: >
+          bash ./scripts/local-smoke.sh
+          --use-existing-app
+          --base-url "$APP_BASE_URL"
+          --email "$SMOKE_TEST_EMAIL"
+          --password "$SMOKE_TEST_PASSWORD"
+          --image-url "$SMOKE_TEST_IMAGE_URL"
