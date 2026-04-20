@@ -1,0 +1,12 @@
+@model string
+
+@if (!string.IsNullOrWhiteSpace(Model))
+{
+    var statusMessageClass = Model.StartsWith("Error", StringComparison.OrdinalIgnoreCase)
+        ? "alert-danger"
+        : "alert-success";
+
+    <div class="alert @statusMessageClass" role="alert">
+        @Model
+    </div>
+}

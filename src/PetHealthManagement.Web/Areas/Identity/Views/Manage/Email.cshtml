@@ -1,0 +1,46 @@
+@model PetHealthManagement.Web.ViewModels.Identity.Manage.IdentityManageEmailViewModel
+@{
+    ViewData["Title"] = "メールアドレス";
+}
+
+<div class="page-heading">
+    <div>
+        <h1>アカウント管理</h1>
+        <p class="text-muted">メールアドレスを確認できます。</p>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-md-4">
+        <partial name="_ManageNav" />
+    </div>
+    <div class="col-md-8">
+        <section class="form-panel">
+            <h2 class="h4 mb-3">メールアドレス</h2>
+            <partial name="_StatusMessage" model="Model.StatusMessage" />
+
+            <form method="post" class="d-flex flex-column gap-3">
+                <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+                <div>
+                    <label asp-for="Email" class="form-label">現在のメールアドレス</label>
+                    <input asp-for="Email" class="form-control" disabled />
+                    <div class="form-text">確認状態: @(Model.IsEmailConfirmed ? "確認済み" : "未確認")</div>
+                </div>
+
+                <div>
+                    <label asp-for="NewEmail" class="form-label">新しいメールアドレス</label>
+                    <input asp-for="NewEmail" class="form-control" autocomplete="email" />
+                    <span asp-validation-for="NewEmail" class="text-danger"></span>
+                </div>
+
+                <button type="submit" class="btn btn-primary">メールアドレスを更新</button>
+            </form>
+        </section>
+    </div>
+</div>
+
+@section Scripts
+{
+    <partial name="_ValidationScriptsPartial" />
+}
