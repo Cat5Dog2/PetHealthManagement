@@ -69,6 +69,9 @@ public class PetsController(
                 pet.Name,
                 pet.SpeciesCode,
                 pet.Breed,
+                pet.Sex,
+                pet.BirthDate,
+                pet.AdoptedDate,
                 pet.OwnerId,
                 pet.IsPublic,
                 pet.PhotoImageId,
@@ -154,6 +157,9 @@ public class PetsController(
             Name = pet.Name,
             SpeciesLabel = SpeciesCatalog.ToLabel(pet.SpeciesCode),
             Breed = pet.Breed,
+            Sex = pet.Sex,
+            BirthDate = pet.BirthDate,
+            AdoptedDate = pet.AdoptedDate,
             OwnerDisplayName = ownerDisplayName,
             IsPublic = pet.IsPublic,
             IsOwner = isOwner,
@@ -171,6 +177,9 @@ public class PetsController(
             name: string.Empty,
             speciesCode: string.Empty,
             breed: null,
+            sex: null,
+            birthDate: null,
+            adoptedDate: null,
             isPublic: true,
             currentPhotoUrl: null,
             rowVersion: null,
@@ -198,6 +207,9 @@ public class PetsController(
                 name: viewModel.Name,
                 speciesCode: viewModel.SpeciesCode,
                 breed: viewModel.Breed,
+                sex: viewModel.Sex,
+                birthDate: viewModel.BirthDate,
+                adoptedDate: viewModel.AdoptedDate,
                 isPublic: viewModel.IsPublic,
                 currentPhotoUrl: null,
                 rowVersion: null,
@@ -214,6 +226,9 @@ public class PetsController(
             Name = viewModel.Name.Trim(),
             SpeciesCode = viewModel.SpeciesCode.Trim().ToUpperInvariant(),
             Breed = NormalizeBreed(viewModel.Breed),
+            Sex = NormalizeSex(viewModel.Sex),
+            BirthDate = viewModel.BirthDate,
+            AdoptedDate = viewModel.AdoptedDate,
             IsPublic = viewModel.IsPublic,
             CreatedAt = now,
             UpdatedAt = now
@@ -240,6 +255,9 @@ public class PetsController(
                 name: viewModel.Name,
                 speciesCode: viewModel.SpeciesCode,
                 breed: viewModel.Breed,
+                sex: viewModel.Sex,
+                birthDate: viewModel.BirthDate,
+                adoptedDate: viewModel.AdoptedDate,
                 isPublic: viewModel.IsPublic,
                 currentPhotoUrl: null,
                 rowVersion: null,
@@ -278,6 +296,9 @@ public class PetsController(
             name: pet.Name,
             speciesCode: pet.SpeciesCode,
             breed: pet.Breed,
+            sex: pet.Sex,
+            birthDate: pet.BirthDate,
+            adoptedDate: pet.AdoptedDate,
             isPublic: pet.IsPublic,
             currentPhotoUrl: ResolvePetPhotoUrl(pet.PhotoImageId),
             rowVersion: RowVersionCodec.Encode(pet.RowVersion),
@@ -313,6 +334,9 @@ public class PetsController(
                 name: viewModel.Name,
                 speciesCode: viewModel.SpeciesCode,
                 breed: viewModel.Breed,
+                sex: viewModel.Sex,
+                birthDate: viewModel.BirthDate,
+                adoptedDate: viewModel.AdoptedDate,
                 isPublic: viewModel.IsPublic,
                 currentPhotoUrl: ResolvePetPhotoUrl(pet.PhotoImageId),
                 rowVersion: viewModel.RowVersion,
@@ -387,6 +411,9 @@ public class PetsController(
                     name: viewModel.Name,
                     speciesCode: viewModel.SpeciesCode,
                     breed: viewModel.Breed,
+                    sex: viewModel.Sex,
+                    birthDate: viewModel.BirthDate,
+                    adoptedDate: viewModel.AdoptedDate,
                     isPublic: viewModel.IsPublic,
                     currentPhotoUrl: ResolvePetPhotoUrl(pet.PhotoImageId),
                     rowVersion: RowVersionCodec.Encode(pet.RowVersion),
@@ -449,6 +476,9 @@ public class PetsController(
         string name,
         string speciesCode,
         string? breed,
+        string? sex,
+        DateTime? birthDate,
+        DateTime? adoptedDate,
         bool isPublic,
         string? currentPhotoUrl,
         string? rowVersion,
@@ -464,6 +494,9 @@ public class PetsController(
             Name = name,
             SpeciesCode = speciesCode,
             Breed = breed,
+            Sex = sex,
+            BirthDate = birthDate,
+            AdoptedDate = adoptedDate,
             IsPublic = isPublic,
             CurrentPhotoUrl = currentPhotoUrl,
             RowVersion = rowVersion,
@@ -490,6 +523,12 @@ public class PetsController(
     private static string? NormalizeBreed(string? breed)
     {
         var normalized = breed?.Trim();
+        return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
+    }
+
+    private static string? NormalizeSex(string? sex)
+    {
+        var normalized = sex?.Trim();
         return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
     }
 
@@ -529,6 +568,9 @@ public class PetsController(
             name: pet.Name,
             speciesCode: pet.SpeciesCode,
             breed: pet.Breed,
+            sex: pet.Sex,
+            birthDate: pet.BirthDate,
+            adoptedDate: pet.AdoptedDate,
             isPublic: pet.IsPublic,
             currentPhotoUrl: ResolvePetPhotoUrl(pet.PhotoImageId),
             rowVersion: RowVersionCodec.Encode(pet.RowVersion),
@@ -552,6 +594,9 @@ public class PetsController(
         pet.Name = viewModel.Name.Trim();
         pet.SpeciesCode = viewModel.SpeciesCode.Trim().ToUpperInvariant();
         pet.Breed = NormalizeBreed(viewModel.Breed);
+        pet.Sex = NormalizeSex(viewModel.Sex);
+        pet.BirthDate = viewModel.BirthDate;
+        pet.AdoptedDate = viewModel.AdoptedDate;
         pet.IsPublic = viewModel.IsPublic;
         pet.UpdatedAt = DateTimeOffset.UtcNow;
     }
@@ -562,6 +607,9 @@ public class PetsController(
             pet.Name,
             pet.SpeciesCode,
             pet.Breed,
+            pet.Sex,
+            pet.BirthDate,
+            pet.AdoptedDate,
             pet.IsPublic,
             pet.UpdatedAt);
     }
@@ -571,6 +619,9 @@ public class PetsController(
         pet.Name = snapshot.Name;
         pet.SpeciesCode = snapshot.SpeciesCode;
         pet.Breed = snapshot.Breed;
+        pet.Sex = snapshot.Sex;
+        pet.BirthDate = snapshot.BirthDate;
+        pet.AdoptedDate = snapshot.AdoptedDate;
         pet.IsPublic = snapshot.IsPublic;
         pet.UpdatedAt = snapshot.UpdatedAt;
     }
@@ -579,6 +630,9 @@ public class PetsController(
         string Name,
         string SpeciesCode,
         string? Breed,
+        string? Sex,
+        DateTime? BirthDate,
+        DateTime? AdoptedDate,
         bool IsPublic,
         DateTimeOffset UpdatedAt);
 }

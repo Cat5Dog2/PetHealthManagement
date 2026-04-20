@@ -1,9 +1,14 @@
 @model PetHealthManagement.Web.ViewModels.Visits.VisitEditViewModel
 @{
-    ViewData["Title"] = "Visit Create";
+    ViewData["Title"] = "通院作成";
 }
 
-<h1>通院履歴作成</h1>
+<div class="page-heading">
+    <div>
+        <h1>通院作成</h1>
+        <p class="text-muted">@Model.PetName の通院内容を記録します。</p>
+    </div>
+</div>
 
 <form asp-action="Create" method="post" enctype="multipart/form-data" class="d-flex flex-column gap-3">
     <partial name="_VisitForm" model="Model" />

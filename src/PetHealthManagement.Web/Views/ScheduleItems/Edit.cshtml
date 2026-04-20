@@ -1,9 +1,14 @@
 @model PetHealthManagement.Web.ViewModels.ScheduleItems.ScheduleItemEditViewModel
 @{
-    ViewData["Title"] = "Schedule Item Edit";
+    ViewData["Title"] = "予定編集";
 }
 
-<h1>予定編集</h1>
+<div class="page-heading">
+    <div>
+        <h1>予定編集</h1>
+        <p class="text-muted">@Model.PetName の予定を更新します。</p>
+    </div>
+</div>
 
 <form asp-action="Edit"
       asp-route-scheduleItemId="@Model.ScheduleItemId"

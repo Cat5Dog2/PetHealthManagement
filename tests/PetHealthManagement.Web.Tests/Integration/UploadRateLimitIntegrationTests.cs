@@ -48,7 +48,7 @@ public class UploadRateLimitIntegrationTests
             Assert.True(limitedResponse.Headers.TryGetValues("Retry-After", out _));
 
             var html = await limitedResponse.Content.ReadAsStringAsync();
-            Assert.Contains("429 Too Many Requests", html, StringComparison.Ordinal);
+            Assert.Contains("少し時間をおいてから、もう一度お試しください。", html, StringComparison.Ordinal);
         }
 
         var otherAntiforgery = await factory.CreateAntiforgeryRequestDataAsync("other-user");

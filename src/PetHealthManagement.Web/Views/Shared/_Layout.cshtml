@@ -1,43 +1,40 @@
-﻿<!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="ja">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - PetHealthManagement.Web</title>
+    <title>@ViewData["Title"] - うちの子健康カルテ</title>
     <script type="importmap"></script>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/PetHealthManagement.Web.styles.css" asp-append-version="true" />
 </head>
 <body>
-    <header>
-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
-            <div class="container-fluid">
-                <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">PetHealthManagement.Web</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
-                        aria-expanded="false" aria-label="Toggle navigation">
+    <header class="app-topbar">
+        <nav class="navbar navbar-expand-sm navbar-light px-3">
+            <div class="container-fluid px-0">
+                <a class="navbar-brand app-brand" asp-area="" asp-controller="Home" asp-action="Index">うちの子健康カルテ</a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="mainNavigation"
+                        aria-expanded="false" aria-label="メニューを開く">
                     <span class="navbar-toggler-icon"></span>
                 </button>
-                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
+                <div id="mainNavigation" class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
                     <ul class="navbar-nav flex-grow-1">
                         <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Index">Home</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+                            <a class="nav-link" asp-area="" asp-controller="Home" asp-action="Index">トップ</a>
                         </li>
                         @if (User.Identity?.IsAuthenticated == true)
                         {
                             <li class="nav-item">
-                                <a class="nav-link text-dark" asp-area="" asp-controller="MyPage" asp-action="Index">MyPage</a>
+                                <a class="nav-link" asp-area="" asp-controller="MyPage" asp-action="Index">ホーム</a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link text-dark" asp-area="" asp-controller="Pets" asp-action="Index">Pets</a>
+                                <a class="nav-link" asp-area="" asp-controller="Pets" asp-action="Index">ペット</a>
                             </li>
                             @if (User.IsInRole("Admin"))
                             {
                                 <li class="nav-item">
-                                    <a class="nav-link text-dark" asp-area="Admin" asp-controller="Users" asp-action="Index">Admin</a>
+                                    <a class="nav-link" asp-area="Admin" asp-controller="Users" asp-action="Index">Admin</a>
                                 </li>
                             }
                         }
@@ -47,17 +44,25 @@
             </div>
         </nav>
     </header>
-    <div class="container">
-        <main role="main" class="pb-3">
-            @RenderBody()
-        </main>
-    </div>
 
-    <footer class="border-top footer text-muted">
-        <div class="container">
-            &copy; 2026 - PetHealthManagement.Web - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
-        </div>
+    <main role="main" class="app-main">
+        @RenderBody()
+    </main>
+
+    <footer class="app-footer">
+        &copy; 2026 うちの子健康カルテ
     </footer>
+
+    @if (User.Identity?.IsAuthenticated == true)
+    {
+        <nav class="app-bottom-nav" aria-label="主な操作">
+            <a asp-area="" asp-controller="MyPage" asp-action="Index">ホーム</a>
+            <a asp-area="" asp-controller="Pets" asp-action="Index">ペット</a>
+            <a asp-area="" asp-controller="Pets" asp-action="Create" asp-route-returnUrl="/MyPage">登録</a>
+            <a asp-area="" asp-controller="Account" asp-action="EditProfile" asp-route-returnUrl="/MyPage">設定</a>
+        </nav>
+    }
+
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>

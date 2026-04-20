@@ -57,6 +57,15 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.Property(p => p.Breed)
                 .HasMaxLength(100);
 
+            entity.Property(p => p.Sex)
+                .HasMaxLength(10);
+
+            entity.Property(p => p.BirthDate)
+                .HasColumnType("date");
+
+            entity.Property(p => p.AdoptedDate)
+                .HasColumnType("date");
+
             entity.Property(p => p.IsPublic)
                 .HasDefaultValue(true);
 

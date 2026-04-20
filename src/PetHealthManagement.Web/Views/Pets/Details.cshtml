@@ -1,57 +1,74 @@
 @model PetHealthManagement.Web.ViewModels.Pets.PetDetailsViewModel
 @{
-    ViewData["Title"] = "Pet Details";
+    ViewData["Title"] = "ペット詳細";
 }
 
-<h1>ペット詳細</h1>
+<article class="surface">
+    <div class="d-flex flex-column gap-4">
+        <img src="@Model.PhotoUrl" alt="@Model.Name の写真" class="pet-photo" />
 
-<div class="mb-3">
-    <img src="@Model.PhotoUrl" alt="@Model.Name の写真" style="max-width: 320px; max-height: 320px; object-fit: cover;" />
-</div>
+        <div>
+            <div class="pet-card__title mb-3">
+                <h1>@Model.Name</h1>
+                <span class="chip @(Model.IsPublic ? "" : "chip-muted")">@(Model.IsPublic ? "公開" : "非公開")</span>
+            </div>
 
-<dl class="row">
-    <dt class="col-sm-3">名前</dt>
-    <dd class="col-sm-9">@Model.Name</dd>
-
-    <dt class="col-sm-3">種別</dt>
-    <dd class="col-sm-9">@Model.SpeciesLabel</dd>
-
-    <dt class="col-sm-3">品種</dt>
-    <dd class="col-sm-9">@(string.IsNullOrWhiteSpace(Model.Breed) ? "-" : Model.Breed)</dd>
-
-    <dt class="col-sm-3">オーナー</dt>
-    <dd class="col-sm-9">@Model.OwnerDisplayName</dd>
-
-    <dt class="col-sm-3">公開設定</dt>
-    <dd class="col-sm-9">@(Model.IsPublic ? "公開" : "非公開")</dd>
-</dl>
-
-@if (Model.IsOwner)
-{
-    <div class="mb-3">
-        <p class="mb-2">オーナー向け導線</p>
-        <div class="d-flex gap-2 flex-wrap mb-2">
-            <a class="btn btn-outline-primary"
-               asp-action="Edit"
-               asp-route-petId="@Model.PetId"
-               asp-route-returnUrl="@Model.ReturnUrl">
-                編集
-            </a>
-            <form asp-action="Delete"
-                  asp-route-petId="@Model.PetId"
-                  method="post"
-                  class="d-inline"
-                  onsubmit="return confirm('このペットを削除します。よろしいですか？');">
-                <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
-                <button type="submit" class="btn btn-outline-danger">削除</button>
-            </form>
+            <dl class="detail-grid">
+                <div>
+                    <dt>種別</dt>
+                    <dd>@Model.SpeciesLabel</dd>
+                </div>
+                <div>
+                    <dt>品種</dt>
+                    <dd>@(string.IsNullOrWhiteSpace(Model.Breed) ? "-" : Model.Breed)</dd>
+                </div>
+                <div>
+                    <dt>性別</dt>
+                    <dd>@(string.IsNullOrWhiteSpace(Model.Sex) ? "-" : Model.Sex)</dd>
+                </div>
+                <div>
+                    <dt>誕生日</dt>
+                    <dd>@(Model.BirthDate?.ToString("yyyy/MM/dd") ?? "-")</dd>
+                </div>
+                <div>
+                    <dt>迎えた日</dt>
+                    <dd>@(Model.AdoptedDate?.ToString("yyyy/MM/dd") ?? "-")</dd>
+                </div>
+                <div>
+                    <dt>オーナー</dt>
+                    <dd>@Model.OwnerDisplayName</dd>
+                </div>
+            </dl>
         </div>
-        <div class="d-flex gap-2 flex-wrap">
-            <a class="btn btn-outline-secondary" href="/HealthLogs?petId=@Model.PetId">健康ログ</a>
-            <a class="btn btn-outline-secondary" href="/ScheduleItems?petId=@Model.PetId">予定</a>
-            <a class="btn btn-outline-secondary" href="/Visits?petId=@Model.PetId">通院履歴</a>
-        </div>
+
+        @if (Model.IsOwner)
+        {
+            <div>
+                <p class="fw-bold mb-2">記録</p>
+                <div class="action-row mb-3">
+                    <a class="btn btn-outline-secondary" href="/HealthLogs?petId=@Model.PetId">健康ログ</a>
+                    <a class="btn btn-outline-secondary" href="/ScheduleItems?petId=@Model.PetId">予定</a>
+                    <a class="btn btn-outline-secondary" href="/Visits?petId=@Model.PetId">通院</a>
+                </div>
+
+                <div class="action-row">
+                    <a class="btn btn-outline-primary"
+                       asp-action="Edit"
+                       asp-route-petId="@Model.PetId"
+                       asp-route-returnUrl="@Model.ReturnUrl">
+                        編集
+                    </a>
+                    <form asp-action="Delete"
+                          asp-route-petId="@Model.PetId"
+                          method="post"
+                          onsubmit="return confirm('このペットを削除します。よろしいですか？');">
+                        <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+                        <button type="submit" class="btn btn-outline-danger">削除</button>
+                    </form>
+                </div>
+            </div>
+        }
+
+        <a class="btn btn-primary" href="@Model.ReturnUrl">一覧へ戻る</a>
     </div>
-}
-
-<a class="btn btn-primary" href="@Model.ReturnUrl">一覧へ戻る</a>
+</article>

@@ -1,135 +1,130 @@
 @model PetHealthManagement.Web.ViewModels.ScheduleItems.ScheduleItemIndexViewModel
 @{
-    ViewData["Title"] = "Schedule Items";
+    ViewData["Title"] = "予定";
     var currentUrl = $"{Context.Request.Path}{Context.Request.QueryString}";
 }
 
-<div class="d-flex flex-column gap-3">
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
-        <div>
-            <h1 class="mb-1">@Model.PetName の予定</h1>
-            <p class="text-muted mb-0">期日が近い順に確認できます。</p>
-        </div>
-        <div class="d-flex gap-2">
-            <a class="btn btn-primary"
-               asp-action="Create"
-               asp-route-petId="@Model.PetId"
-               asp-route-returnUrl="@currentUrl">
-                新しい予定
-            </a>
-            <a class="btn btn-outline-secondary"
-               asp-controller="Pets"
-               asp-action="Details"
-               asp-route-petId="@Model.PetId"
-               asp-route-returnUrl="/Pets">
-                ペット詳細へ
-            </a>
-        </div>
+<div class="page-heading">
+    <div>
+        <h1>@Model.PetName の予定</h1>
+        <p class="text-muted">期日が近い順に確認できます。</p>
     </div>
-
-    <p class="mb-0">全 @Model.TotalCount 件 / @Model.Page ページ目（1ページ @Model.PageSize 件）</p>
-
-    @if (Model.ScheduleItems.Count == 0)
-    {
-        <div class="alert alert-secondary mb-0">
-            まだ予定は登録されていません。
-        </div>
-    }
-    else
-    {
-        <div class="table-responsive">
-            <table class="table table-striped align-middle mb-0">
-                <thead>
-                    <tr>
-                        <th>期日</th>
-                        <th>種別</th>
-                        <th>タイトル</th>
-                        <th>メモ</th>
-                        <th>完了</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var scheduleItem in Model.ScheduleItems)
-                    {
-                        <tr>
-                            <td>@scheduleItem.DueDate.ToString("yyyy/MM/dd")</td>
-                            <td>@scheduleItem.TypeLabel</td>
-                            <td>@scheduleItem.Title</td>
-                            <td>@(string.IsNullOrWhiteSpace(scheduleItem.NoteExcerpt) ? "-" : scheduleItem.NoteExcerpt)</td>
-                            <td>
-                                <form asp-action="SetDone"
-                                      asp-route-scheduleItemId="@scheduleItem.ScheduleItemId"
-                                      method="post"
-                                      class="d-inline">
-                                    <input class="form-check-input"
-                                           type="checkbox"
-                                           name="isDone"
-                                           value="true"
-                                           @(scheduleItem.IsDone ? "checked" : null)
-                                           onchange="this.form.submit()" />
-                                    <input type="hidden" name="isDone" value="false" />
-                                    <input type="hidden" name="petId" value="@Model.PetId" />
-                                    <input type="hidden" name="page" value="@Model.Page" />
-                                    <input type="hidden" name="returnUrl" value="@currentUrl" />
-                                </form>
-                            </td>
-                            <td>
-                                <div class="d-flex gap-2">
-                                    <a asp-action="Details"
-                                       asp-route-scheduleItemId="@scheduleItem.ScheduleItemId"
-                                       asp-route-returnUrl="@currentUrl"
-                                       class="btn btn-sm btn-outline-primary">
-                                        詳細
-                                    </a>
-                                    <a asp-action="Edit"
-                                       asp-route-scheduleItemId="@scheduleItem.ScheduleItemId"
-                                       asp-route-returnUrl="@currentUrl"
-                                       class="btn btn-sm btn-outline-secondary">
-                                        編集
-                                    </a>
-                                    <form asp-action="Delete"
-                                          asp-route-scheduleItemId="@scheduleItem.ScheduleItemId"
-                                          method="post"
-                                          class="d-inline"
-                                          onsubmit="return confirm('この予定を削除しますか？');">
-                                        <input type="hidden" name="petId" value="@Model.PetId" />
-                                        <input type="hidden" name="page" value="@Model.Page" />
-                                        <input type="hidden" name="returnUrl" value="@currentUrl" />
-                                        <button type="submit" class="btn btn-sm btn-outline-danger">削除</button>
-                                    </form>
-                                </div>
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
-    }
-
-    @if (Model.TotalPages > 1)
-    {
-        <nav aria-label="予定一覧ページャー">
-            <ul class="pagination mb-0">
-                @for (var pageNumber = 1; pageNumber <= Model.TotalPages; pageNumber++)
-                {
-                    if (pageNumber == Model.Page)
-                    {
-                        <li class="page-item active"><span class="page-link">@pageNumber</span></li>
-                    }
-                    else
-                    {
-                        <li class="page-item">
-                            <a class="page-link"
-                               asp-action="Index"
-                               asp-route-petId="@Model.PetId"
-                               asp-route-page="@pageNumber">
-                                @pageNumber
-                            </a>
-                        </li>
-                    }
-                }
-            </ul>
-        </nav>
-    }
+    <div class="action-row">
+        <a class="btn btn-primary"
+           asp-action="Create"
+           asp-route-petId="@Model.PetId"
+           asp-route-returnUrl="@currentUrl">
+            予定を追加
+        </a>
+        <a class="btn btn-outline-secondary"
+           asp-controller="Pets"
+           asp-action="Details"
+           asp-route-petId="@Model.PetId"
+           asp-route-returnUrl="/Pets">
+            ペット詳細
+        </a>
+    </div>
 </div>
+
+<p class="text-muted">全 @Model.TotalCount 件 / @Model.Page ページ目</p>
+
+@if (Model.ScheduleItems.Count == 0)
+{
+    <div class="surface">まだ予定は登録されていません。</div>
+}
+else
+{
+    <div class="record-list">
+        @foreach (var scheduleItem in Model.ScheduleItems)
+        {
+            <article class="record-card">
+                <div class="d-flex flex-wrap justify-content-between gap-2">
+                    <p class="record-card__title">@scheduleItem.DueDate.ToString("yyyy/MM/dd")</p>
+                    <span class="chip @(scheduleItem.IsDone ? "chip-muted" : "")">@(scheduleItem.IsDone ? "完了" : "未完了")</span>
+                </div>
+
+                <dl class="detail-grid record-grid">
+                    <div>
+                        <dt>種別</dt>
+                        <dd>@scheduleItem.TypeLabel</dd>
+                    </div>
+                    <div>
+                        <dt>タイトル</dt>
+                        <dd>@scheduleItem.Title</dd>
+                    </div>
+                    <div>
+                        <dt>メモ</dt>
+                        <dd>@(string.IsNullOrWhiteSpace(scheduleItem.NoteExcerpt) ? "-" : scheduleItem.NoteExcerpt)</dd>
+                    </div>
+                </dl>
+
+                <form asp-action="SetDone"
+                      asp-route-scheduleItemId="@scheduleItem.ScheduleItemId"
+                      method="post"
+                      class="d-flex align-items-center gap-2">
+                    <input class="form-check-input"
+                           type="checkbox"
+                           name="isDone"
+                           value="true"
+                           @(scheduleItem.IsDone ? "checked" : null)
+                           onchange="this.form.submit()" />
+                    <label class="form-check-label">完了にする</label>
+                    <input type="hidden" name="isDone" value="false" />
+                    <input type="hidden" name="petId" value="@Model.PetId" />
+                    <input type="hidden" name="page" value="@Model.Page" />
+                    <input type="hidden" name="returnUrl" value="@currentUrl" />
+                </form>
+
+                <div class="action-row">
+                    <a asp-action="Details"
+                       asp-route-scheduleItemId="@scheduleItem.ScheduleItemId"
+                       asp-route-returnUrl="@currentUrl"
+                       class="btn btn-sm btn-outline-primary">
+                        詳細
+                    </a>
+                    <a asp-action="Edit"
+                       asp-route-scheduleItemId="@scheduleItem.ScheduleItemId"
+                       asp-route-returnUrl="@currentUrl"
+                       class="btn btn-sm btn-outline-secondary">
+                        編集
+                    </a>
+                    <form asp-action="Delete"
+                          asp-route-scheduleItemId="@scheduleItem.ScheduleItemId"
+                          method="post"
+                          onsubmit="return confirm('この予定を削除しますか？');">
+                        <input type="hidden" name="petId" value="@Model.PetId" />
+                        <input type="hidden" name="page" value="@Model.Page" />
+                        <input type="hidden" name="returnUrl" value="@currentUrl" />
+                        <button type="submit" class="btn btn-sm btn-outline-danger">削除</button>
+                    </form>
+                </div>
+            </article>
+        }
+    </div>
+}
+
+@if (Model.TotalPages > 1)
+{
+    <nav aria-label="予定一覧ページャー" class="mt-4">
+        <ul class="pagination mb-0">
+            @for (var pageNumber = 1; pageNumber <= Model.TotalPages; pageNumber++)
+            {
+                if (pageNumber == Model.Page)
+                {
+                    <li class="page-item active"><span class="page-link">@pageNumber</span></li>
+                }
+                else
+                {
+                    <li class="page-item">
+                        <a class="page-link"
+                           asp-action="Index"
+                           asp-route-petId="@Model.PetId"
+                           asp-route-page="@pageNumber">
+                            @pageNumber
+                        </a>
+                    </li>
+                }
+            }
+        </ul>
+    </nav>
+}

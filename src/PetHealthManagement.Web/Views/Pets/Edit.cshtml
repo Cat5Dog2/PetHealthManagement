@@ -1,11 +1,16 @@
 @model PetHealthManagement.Web.ViewModels.Pets.PetEditViewModel
 @{
-    ViewData["Title"] = "Pet Edit";
+    ViewData["Title"] = "ペット編集";
 }
 
-<h1>ペット編集</h1>
+<div class="page-heading">
+    <div>
+        <h1>ペット編集</h1>
+        <p class="text-muted">プロフィールと公開設定を更新します。</p>
+    </div>
+</div>
 
-<form asp-action="Edit" asp-route-petId="@Model.PetId" method="post" enctype="multipart/form-data">
+<form asp-action="Edit" asp-route-petId="@Model.PetId" method="post" enctype="multipart/form-data" class="form-panel">
     <partial name="_PetForm" model="Model" />
 </form>
 

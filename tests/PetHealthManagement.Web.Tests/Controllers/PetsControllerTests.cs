@@ -131,6 +131,9 @@ public class PetsControllerTests
             Name = "New Pet",
             SpeciesCode = "DOG",
             Breed = "Shiba",
+            Sex = " メス ",
+            BirthDate = new DateTime(2024, 4, 2),
+            AdoptedDate = new DateTime(2024, 5, 3),
             IsPublic = true
         };
 
@@ -139,6 +142,11 @@ public class PetsControllerTests
         var redirectResult = Assert.IsType<RedirectResult>(result);
         Assert.Equal("/MyPage", redirectResult.Url);
         Assert.Equal(1, await dbContext.Pets.CountAsync());
+
+        var created = await dbContext.Pets.SingleAsync();
+        Assert.Equal("メス", created.Sex);
+        Assert.Equal(new DateTime(2024, 4, 2), created.BirthDate);
+        Assert.Equal(new DateTime(2024, 5, 3), created.AdoptedDate);
     }
 
     [Fact]
@@ -192,6 +200,9 @@ public class PetsControllerTests
             Name = "After",
             SpeciesCode = "CAT",
             Breed = "Mix",
+            Sex = " 不明 ",
+            BirthDate = new DateTime(2023, 1, 2),
+            AdoptedDate = new DateTime(2023, 2, 3),
             IsPublic = false,
             RowVersion = EncodeRowVersion()
         }, null);
@@ -202,6 +213,9 @@ public class PetsControllerTests
         var updated = await dbContext.Pets.SingleAsync(x => x.Id == 21);
         Assert.Equal("After", updated.Name);
         Assert.Equal("CAT", updated.SpeciesCode);
+        Assert.Equal("不明", updated.Sex);
+        Assert.Equal(new DateTime(2023, 1, 2), updated.BirthDate);
+        Assert.Equal(new DateTime(2023, 2, 3), updated.AdoptedDate);
         Assert.False(updated.IsPublic);
     }
 
@@ -232,8 +246,14 @@ public class PetsControllerTests
             controller.ModelState[string.Empty]!.Errors,
             error => error.ErrorMessage == ConcurrencyMessages.RecordModified);
         Assert.Equal("Before", model.Name);
+        Assert.Equal("オス", model.Sex);
+        Assert.Equal(new DateTime(2024, 1, 2), model.BirthDate);
+        Assert.Equal(new DateTime(2024, 2, 3), model.AdoptedDate);
         Assert.Equal("Before", savedPet.Name);
         Assert.Equal("DOG", savedPet.SpeciesCode);
+        Assert.Equal("オス", savedPet.Sex);
+        Assert.Equal(new DateTime(2024, 1, 2), savedPet.BirthDate);
+        Assert.Equal(new DateTime(2024, 2, 3), savedPet.AdoptedDate);
         Assert.True(savedPet.IsPublic);
     }
 
@@ -330,6 +350,9 @@ public class PetsControllerTests
             Name = name,
             SpeciesCode = "DOG",
             Breed = "Shiba",
+            Sex = "オス",
+            BirthDate = new DateTime(2024, 1, 2),
+            AdoptedDate = new DateTime(2024, 2, 3),
             IsPublic = isPublic,
             RowVersion = NewRowVersion(),
             CreatedAt = now,

@@ -18,6 +18,17 @@ public class PetEditViewModel
     [StringLength(InputValidationLimits.Pets.BreedMaxLength)]
     public string? Breed { get; set; }
 
+    [StringLength(InputValidationLimits.Pets.SexMaxLength)]
+    public string? Sex { get; set; }
+
+    [DataType(DataType.Date)]
+    [DisplayFormat(DataFormatString = "{0:" + InputValidationLimits.DateInputFormat + "}", ApplyFormatInEditMode = true)]
+    public DateTime? BirthDate { get; set; }
+
+    [DataType(DataType.Date)]
+    [DisplayFormat(DataFormatString = "{0:" + InputValidationLimits.DateInputFormat + "}", ApplyFormatInEditMode = true)]
+    public DateTime? AdoptedDate { get; set; }
+
     public bool IsPublic { get; set; } = true;
 
     public IFormFile? PhotoFile { get; set; }

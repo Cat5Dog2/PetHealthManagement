@@ -1,8 +1,28 @@
-﻿@{
-    ViewData["Title"] = "Home Page";
+@{
+    ViewData["Title"] = "トップ";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
-</div>
+<section class="home-intro">
+    <div class="home-visual" aria-hidden="true">
+        <img src="~/images/default/avatar-placeholder.svg" alt="" />
+        <img src="~/images/default/pet-placeholder.svg" alt="" />
+    </div>
+
+    <div class="d-flex flex-column gap-3 align-items-center">
+        <h1>うちの子健康カルテ</h1>
+        <p>体調、予定、通院の記録をひとつに。</p>
+
+        <div class="action-row justify-content-center">
+            @if (User.Identity?.IsAuthenticated == true)
+            {
+                <a class="btn btn-primary" asp-controller="MyPage" asp-action="Index">ホームへ</a>
+                <a class="btn btn-outline-primary" asp-controller="Pets" asp-action="Index">ペットを見る</a>
+            }
+            else
+            {
+                <a class="btn btn-primary" asp-area="Identity" asp-page="/Account/Login">ログイン</a>
+                <a class="btn btn-outline-primary" asp-area="Identity" asp-page="/Account/Register">新規登録</a>
+            }
+        </div>
+    </div>
+</section>
