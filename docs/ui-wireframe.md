@@ -1,16 +1,21 @@
-# ペット健康管理アプリ UIワイヤー
-## 1) 共通レイアウト（ヘッダ＋ナビ＋共通仕様）
+# うちの子健康カルテ UIワイヤー
+## 1) 共通レイアウト（モバイルファースト＋ナビ＋共通仕様）
 
 ```mermaid
 flowchart TB
-  HeaderAnon["Header（未ログイン）<br/>Logo | Login / Register"]
-  HeaderAuth["Header（ログイン）<br/>Logo | MyPage | Pets | (Admin) | Logout"]
+  HeaderAnon["Top App Bar（未ログイン）<br/>うちの子健康カルテ | Login / Register"]
+  HeaderAuth["Top App Bar（ログイン）<br/>うちの子健康カルテ | Logout"]
+  BottomNav["Bottom Nav（ログイン）<br/>ホーム(/MyPage) | ペット(/Pets) | 既存機能の文脈導線"]
   Body["Body<br/>(画面ごとのコンテンツ)"]
 
   HeaderAnon --> Body
   HeaderAuth --> Body
+  Body --> BottomNav
 ```
 
+- スマホ幅を主対象にしたモバイルファーストUIとし、PC幅では読みやすい最大幅を持つレスポンシブ表示にする
+- 第1段階では既存画面の見た目と操作性を改善し、新規の健康分析/月間カレンダー/通知設定/バックアップ等は追加しない
+- 下部ナビを使う場合、未実装機能へのリンクやダミー画面は置かず、既存URLへの導線だけを出す
 - 一覧は原則 **10件/ページ**、ページ番号はクエリ `page`（1始まり）
 - 画像表示は原則 **`GET /images/{imageId}`（認可付き）**。未設定時はデフォルト画像
 - 画像アップロード（代表例）：`jpg/jpeg/png/webp`、**1ファイル最大2MB**、ユーザー合計 **100MB**、健康ログ/通院は **最大10枚（既存+追加合算）**
@@ -24,7 +29,7 @@ flowchart TB
 
 ```mermaid
 flowchart TB
-  Header["Header（未ログイン）<br/>Logo | Login / Register"]
+  Header["Top App Bar（未ログイン）<br/>うちの子健康カルテ | Login / Register"]
   Hero["ヒーロー<br/>・アプリ概要（健康管理/予定/通院記録）<br/>・スクリーンショット枠（任意）"]
   CTA["[Login / Register]（Identity UIへ）"]
   Note["※ ログイン済みは /MyPage へ誘導（自動遷移 or ボタン表示）"]:::note
@@ -59,16 +64,18 @@ flowchart TB
 
 ---
 
-## 5) MyPage（/MyPage）
+## 5) MyPage（/MyPage、ホーム/設定相当）
 
 ```mermaid
 flowchart TB
-  Header["Header（ログイン）<br/>Logo | MyPage | Pets | (Admin) | Logout"]
+  Header["Top App Bar（ログイン）<br/>うちの子健康カルテ | Logout"]
+  BottomNav["Bottom Nav<br/>ホーム | ペット | 既存機能の文脈導線"]
   Profile["プロフィールカード<br/>- Avatar（/images/{imageId} or default）<br/>- 表示名<br/>- Email<br/>[プロフィール編集]<br/>[パスワード変更]<br/>[アカウント削除]"]
   Pets["自分のペット一覧<br/>[＋ペット登録]<br/>ペットカード×N<br/>- サムネイル（/images/{imageId} or default）/名前<br/>- 公開/非公開バッジ<br/>[詳細]"]
   Empty["（0件の場合）<br/>ペットを登録してください"]:::note
 
   Header --> Profile --> Pets
+  Pets --> BottomNav
   Pets -.-> Empty
 
   classDef note fill:#fff,stroke:#999,stroke-dasharray: 4 4,color:#333;
@@ -360,7 +367,7 @@ flowchart TB
 
 ```mermaid
 flowchart TB
-  Header["Header<br/>Logo | MyPage | Pets | Admin | Logout"]
+  Header["Top App Bar<br/>うちの子健康カルテ | Admin | Logout"]
   List["ユーザー一覧（Adminのみ）<br/>行：表示名 | Email | (作成日) | [削除]"]
   DeleteConfirm["削除確認（モーダル）<br/>[削除する]（POST /Admin/Users/Delete/{userId}）<br/>[キャンセル]"]:::note
   Danger["注意：削除は関連データ（ペット/健康ログ/予定/通院/画像）を含む物理削除"]:::note
