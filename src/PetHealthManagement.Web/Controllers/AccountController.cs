@@ -22,7 +22,7 @@ public class AccountController(
     IUserDataDeletionService userDataDeletionService,
     ILogger<AccountController> logger) : Controller
 {
-    private const string DefaultAvatarUrl = "/images/default/avatar-placeholder.svg";
+    private const string DefaultAvatarUrl = "/images/default/avatar-placeholder.webp";
 
     [HttpGet("EditProfile")]
     public async Task<IActionResult> EditProfile(string? returnUrl)

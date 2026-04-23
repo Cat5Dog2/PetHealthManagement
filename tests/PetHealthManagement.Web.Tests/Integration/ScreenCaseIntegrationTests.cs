@@ -55,7 +55,7 @@ public class ScreenCaseIntegrationTests
 
         var html = await ReadDecodedHtmlAsync(response);
         Assert.Contains("owner@example.com", html, StringComparison.Ordinal);
-        Assert.Contains("/images/default/avatar-placeholder.svg", html, StringComparison.Ordinal);
+        Assert.Contains("/images/default/avatar-placeholder.webp", html, StringComparison.Ordinal);
         Assert.Contains("href=\"/Account/EditProfile?returnUrl=%2FMyPage\"", html, StringComparison.Ordinal);
         Assert.Contains("href=\"/Account/Delete?returnUrl=%2FMyPage\"", html, StringComparison.Ordinal);
         Assert.Contains("href=\"/Pets/Create?returnUrl=%2FMyPage\"", html, StringComparison.Ordinal);
@@ -155,7 +155,7 @@ public class ScreenCaseIntegrationTests
             var html = await ReadDecodedHtmlAsync(getResponse);
             Assert.Contains("name=\"returnUrl\" value=\"/Pets?page=2\"", html, StringComparison.Ordinal);
             Assert.Contains("href=\"/Pets?page=2\"", html, StringComparison.Ordinal);
-            Assert.Contains("/images/default/avatar-placeholder.svg", html, StringComparison.Ordinal);
+            Assert.Contains("/images/default/avatar-placeholder.webp", html, StringComparison.Ordinal);
         }
 
         using (var postContent = CreateEditProfileContent(

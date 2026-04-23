@@ -19,7 +19,7 @@ public class PetsController(
     IPetPhotoService petPhotoService,
     IPetDeletionService petDeletionService) : Controller
 {
-    private const string DefaultPetPhotoUrl = "/images/default/pet-placeholder.svg";
+    private const string DefaultPetPhotoUrl = "/images/default/pet-placeholder.webp";
 
     [HttpGet("")]
     public async Task<IActionResult> Index(string? nameKeyword, string? speciesFilter, string? page)
