@@ -94,7 +94,11 @@ a:hover {
 }
 
 .btn {
+  align-items: center;
+  display: inline-flex;
   font-weight: 700;
+  justify-content: center;
+  text-align: center;
 }
 
 .btn-primary {
@@ -261,7 +265,7 @@ a:hover {
   background: #eef7f4;
   border-radius: 8px;
   height: auto;
-  object-fit: cover;
+  object-fit: contain;
   width: 100%;
 }
 
