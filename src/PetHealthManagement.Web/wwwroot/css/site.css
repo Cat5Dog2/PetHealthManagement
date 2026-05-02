@@ -246,7 +246,7 @@ a:hover {
   border-radius: 8px;
   box-shadow: 0 8px 18px rgba(36, 58, 56, 0.12);
   height: 116px;
-  object-fit: cover;
+  object-fit: contain;
   padding: 10px;
   width: 116px;
 }
