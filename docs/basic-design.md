@@ -150,7 +150,7 @@
 | 共通エラー | GET | `/Error/{statusCode}` | `ErrorController.Index` | 匿名可 |
 | MyPage | GET | `/MyPage` | `MyPageController.Index` | 認証必須 |
 | プロフィール編集 | GET/POST | `/Account/EditProfile` | `AccountController.EditProfile` | 認証必須 |
-| パスワード変更 | GET/POST | `/Account/Manage/ChangePassword` | Identity 標準 | 認証必須 |
+| パスワード変更 | GET/POST | `/Identity/Account/Manage/ChangePassword` | Identity 標準 | 認証必須 |
 | アカウント削除（確認） | GET | `/Account/Delete` | `AccountController.Delete` | 認証必須 |
 | アカウント削除（実行） | POST | `/Account/DeleteConfirmed` | `AccountController.DeleteConfirmed` | 認証必須 |
 | ペット一覧（公開検索） | GET | `/Pets?page={page}` | `PetsController.Index` | 認証必須 |

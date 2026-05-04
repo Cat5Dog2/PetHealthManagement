@@ -226,7 +226,7 @@
 | エラーページ | GET | `/Error/{statusCode}` | 匿名可 |
 | MyPage | GET | `/MyPage` | 認証必須 |
 | プロフィール編集 | GET/POST | `/Account/EditProfile` | 認証必須 |
-| パスワード変更 | GET/POST | `/Account/Manage/ChangePassword` | 認証必須（Identity標準） |
+| パスワード変更 | GET/POST | `/Identity/Account/Manage/ChangePassword` | 認証必須（Identity標準） |
 | アカウント削除（確認） | GET | `/Account/Delete` | 認証必須 |
 | アカウント削除（実行） | POST | `/Account/DeleteConfirmed` | 認証必須 |
 | ペット一覧 | GET | `/Pets` | 認証必須 |
@@ -295,14 +295,14 @@
   - バリデーション：200（同画面）
   - 未ログイン：302（ログインへ）
 
-#### GET `/Account/Manage/ChangePassword`
+#### GET `/Identity/Account/Manage/ChangePassword`
 - 概要：パスワード変更画面（ASP.NET Core Identity 標準のスキャフォールドを利用）
 - 認可：認証必須
 - 備考：
   - 本機能は Identity 標準実装に準拠するため、**入力項目・バリデーション詳細は Identity の実装（画面/モデル）を正**とする。
   - 仕様上 `returnUrl` を扱う場合は「1.12 戻り先指定 `returnUrl`」に従う。
 
-#### POST `/Account/Manage/ChangePassword`
+#### POST `/Identity/Account/Manage/ChangePassword`
 - 概要：パスワード変更の実行（Identity 標準）
 - 認可：認証必須
 - Content-Type：`application/x-www-form-urlencoded`

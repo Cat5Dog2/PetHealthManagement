@@ -95,7 +95,7 @@ flowchart TB
 
 ---
 
-## 7) パスワード変更（/Account/Manage/ChangePassword）※Identity 標準
+## 7) パスワード変更（/Identity/Account/Manage/ChangePassword）※Identity 標準
 
 - Current Password / New Password / Confirm New Password
 - 成功時：`returnUrl` があれば戻る、なければ `/MyPage`

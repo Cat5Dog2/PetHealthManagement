@@ -14,6 +14,8 @@ internal sealed class TestFileBackedImageStorageService : IImageStorageService, 
 
     public HashSet<string> FailingDeleteStorageKeys { get; init; } = [];
 
+    public bool FailMoveToStorage { get; init; }
+
     public List<string> DeletedStorageKeys { get; } = [];
 
     public List<string> MovedStorageKeys { get; } = [];
@@ -40,6 +42,11 @@ internal sealed class TestFileBackedImageStorageService : IImageStorageService, 
         _ = cancellationToken;
 
         MovedStorageKeys.Add(storageKey);
+        if (FailMoveToStorage)
+        {
+            throw new IOException("Simulated move failure.");
+        }
+
         var destinationPath = Path.Combine(RootPath, storageKey.Replace('/', Path.DirectorySeparatorChar));
         Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
         File.Copy(sourcePath, destinationPath, overwrite: true);
