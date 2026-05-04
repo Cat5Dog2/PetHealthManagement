@@ -80,7 +80,8 @@ public class HealthLogImageService(
         }
 
         var processedUploads = new List<ProcessedUpload>();
-        var movedUploads = new List<MovedUpload>();
+        var registeredUploads = new List<RegisteredUpload>();
+        var movedUploads = new List<RegisteredUpload>();
         var deletedAssets = imagesToDelete
             .Select(x => x.Image)
             .Where(x => x is not null)
@@ -107,9 +108,10 @@ public class HealthLogImageService(
                 processedUploads.Add(processed);
             }
 
-            var currentUserUsedBytes = await dbContext.ImageAssets
+            var readyUserUsedBytes = await dbContext.ImageAssets
                 .Where(x => x.OwnerId == ownerId && x.Status == ImageAssetStatus.Ready)
                 .SumAsync(x => (long?)x.SizeBytes, cancellationToken) ?? 0;
+            var currentUserUsedBytes = Math.Max(owner.UsedImageBytes, readyUserUsedBytes);
 
             var deletedBytes = deletedAssets.Sum(x => x.SizeBytes);
             var addedBytes = processedUploads.Sum(x => x.SizeBytes);
@@ -129,14 +131,61 @@ public class HealthLogImageService(
                 return HealthLogImageUpdateResult.Fail(ImageUploadErrorMessages.TotalStorageExceeded);
             }
 
+            var nextSortOrder = existingImages
+                .Where(x => !normalizedDeleteImageIds.Contains(x.ImageId))
+                .Select(x => x.SortOrder)
+                .DefaultIfEmpty(0)
+                .Max();
+
             foreach (var processedUpload in processedUploads)
             {
+                nextSortOrder += 1;
+
                 var imageId = Guid.NewGuid();
                 var storageKey = $"images/{imageId:N}{processedUpload.Extension}";
+                var newAsset = new ImageAsset
+                {
+                    ImageId = imageId,
+                    StorageKey = storageKey,
+                    ContentType = processedUpload.ContentType!,
+                    SizeBytes = processedUpload.SizeBytes,
+                    OwnerId = ownerId,
+                    Category = "HealthLog",
+                    Status = ImageAssetStatus.Pending,
+                    CreatedAt = DateTimeOffset.UtcNow
+                };
+
+                registeredUploads.Add(new RegisteredUpload(newAsset, processedUpload.ProcessedTempPath));
+                dbContext.ImageAssets.Add(newAsset);
+
+                dbContext.HealthLogImages.Add(new HealthLogImage
+                {
+                    HealthLogId = healthLog.Id,
+                    ImageId = imageId,
+                    SortOrder = nextSortOrder
+                });
+            }
+
+            if (registeredUploads.Count > 0)
+            {
+                owner.UsedImageBytes = currentUserUsedBytes + addedBytes;
 
                 try
                 {
-                    await imageStorageService.MoveToStorageAsync(processedUpload.ProcessedTempPath, storageKey, cancellationToken);
+                    await dbContext.SaveChangesAsync(cancellationToken);
+                }
+                catch (DbUpdateConcurrencyException ex)
+                {
+                    ImageOperationLogging.LogPersistenceFailed(
+                        logger,
+                        ex,
+                        "HealthLog",
+                        ownerId,
+                        "HealthLog",
+                        healthLog.Id,
+                        ImageOperationLogging.Phases.SaveChanges);
+                    dbContext.ChangeTracker.Clear();
+                    return HealthLogImageUpdateResult.ConcurrencyConflict();
                 }
                 catch (Exception ex)
                 {
@@ -147,47 +196,49 @@ public class HealthLogImageService(
                         ownerId,
                         "HealthLog",
                         healthLog.Id,
-                        ImageOperationLogging.Phases.MoveToStorage,
-                        storageKey);
-                    await CleanupMovedFilesAsync(ownerId, healthLog.Id, movedUploads, cancellationToken);
+                        ImageOperationLogging.Phases.SaveChanges);
+                    dbContext.ChangeTracker.Clear();
                     return HealthLogImageUpdateResult.Fail(ImageUploadErrorMessages.SaveFailed);
                 }
 
-                movedUploads.Add(new MovedUpload(
-                    imageId,
-                    storageKey,
-                    processedUpload.ContentType!,
-                    processedUpload.SizeBytes));
-            }
-
-            var nextSortOrder = existingImages
-                .Where(x => !normalizedDeleteImageIds.Contains(x.ImageId))
-                .Select(x => x.SortOrder)
-                .DefaultIfEmpty(0)
-                .Max();
-
-            foreach (var movedUpload in movedUploads)
-            {
-                nextSortOrder += 1;
-
-                dbContext.ImageAssets.Add(new ImageAsset
+                foreach (var registeredUpload in registeredUploads)
                 {
-                    ImageId = movedUpload.ImageId,
-                    StorageKey = movedUpload.StorageKey,
-                    ContentType = movedUpload.ContentType,
-                    SizeBytes = movedUpload.SizeBytes,
-                    OwnerId = ownerId,
-                    Category = "HealthLog",
-                    Status = ImageAssetStatus.Ready,
-                    CreatedAt = DateTimeOffset.UtcNow
-                });
+                    try
+                    {
+                        await imageStorageService.MoveToStorageAsync(
+                            registeredUpload.ProcessedTempPath,
+                            registeredUpload.Asset.StorageKey,
+                            cancellationToken);
+                    }
+                    catch (Exception ex)
+                    {
+                        ImageOperationLogging.LogPersistenceFailed(
+                            logger,
+                            ex,
+                            "HealthLog",
+                            ownerId,
+                            "HealthLog",
+                            healthLog.Id,
+                            ImageOperationLogging.Phases.MoveToStorage,
+                            registeredUpload.Asset.StorageKey);
+                        dbContext.ChangeTracker.Clear();
+                        await CleanupMovedFilesAsync(ownerId, healthLog.Id, movedUploads, cancellationToken);
+                        await CleanupRegisteredUploadsAsync(
+                            ownerId,
+                            healthLog.Id,
+                            registeredUploads,
+                            currentUserUsedBytes,
+                            cancellationToken);
+                        return HealthLogImageUpdateResult.Fail(ImageUploadErrorMessages.SaveFailed);
+                    }
 
-                dbContext.HealthLogImages.Add(new HealthLogImage
+                    movedUploads.Add(registeredUpload);
+                }
+
+                foreach (var registeredUpload in registeredUploads)
                 {
-                    HealthLogId = healthLog.Id,
-                    ImageId = movedUpload.ImageId,
-                    SortOrder = nextSortOrder
-                });
+                    registeredUpload.Asset.Status = ImageAssetStatus.Ready;
+                }
             }
 
             if (imagesToDelete.Count > 0)
@@ -218,6 +269,12 @@ public class HealthLogImageService(
                     ImageOperationLogging.Phases.SaveChanges);
                 dbContext.ChangeTracker.Clear();
                 await CleanupMovedFilesAsync(ownerId, healthLog.Id, movedUploads, cancellationToken);
+                await CleanupRegisteredUploadsAsync(
+                    ownerId,
+                    healthLog.Id,
+                    registeredUploads,
+                    currentUserUsedBytes,
+                    cancellationToken);
                 return HealthLogImageUpdateResult.ConcurrencyConflict();
             }
             catch (Exception ex)
@@ -232,6 +289,12 @@ public class HealthLogImageService(
                     ImageOperationLogging.Phases.SaveChanges);
                 dbContext.ChangeTracker.Clear();
                 await CleanupMovedFilesAsync(ownerId, healthLog.Id, movedUploads, cancellationToken);
+                await CleanupRegisteredUploadsAsync(
+                    ownerId,
+                    healthLog.Id,
+                    registeredUploads,
+                    currentUserUsedBytes,
+                    cancellationToken);
                 return HealthLogImageUpdateResult.Fail(ImageUploadErrorMessages.SaveFailed);
             }
 
@@ -401,14 +464,14 @@ public class HealthLogImageService(
     private async Task CleanupMovedFilesAsync(
         string ownerId,
         int healthLogId,
-        IEnumerable<MovedUpload> movedUploads,
+        IEnumerable<RegisteredUpload> movedUploads,
         CancellationToken cancellationToken)
     {
         foreach (var movedUpload in movedUploads)
         {
             try
             {
-                await imageStorageService.DeleteIfExistsAsync(movedUpload.StorageKey, cancellationToken);
+                await imageStorageService.DeleteIfExistsAsync(movedUpload.Asset.StorageKey, cancellationToken);
             }
             catch (Exception ex)
             {
@@ -420,9 +483,65 @@ public class HealthLogImageService(
                     "HealthLog",
                     healthLogId,
                     ImageOperationLogging.Phases.RollbackCleanup,
-                    movedUpload.ImageId,
-                    movedUpload.StorageKey);
+                    movedUpload.Asset.ImageId,
+                    movedUpload.Asset.StorageKey);
             }
+        }
+    }
+
+    private async Task CleanupRegisteredUploadsAsync(
+        string ownerId,
+        int healthLogId,
+        IReadOnlyCollection<RegisteredUpload> registeredUploads,
+        long previousUsedBytes,
+        CancellationToken cancellationToken)
+    {
+        if (registeredUploads.Count == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            var imageIds = registeredUploads
+                .Select(x => x.Asset.ImageId)
+                .ToArray();
+
+            var registeredLogImages = await dbContext.HealthLogImages
+                .Where(x => x.HealthLogId == healthLogId && imageIds.Contains(x.ImageId))
+                .ToListAsync(cancellationToken);
+            var registeredAssets = await dbContext.ImageAssets
+                .Where(x => imageIds.Contains(x.ImageId))
+                .ToListAsync(cancellationToken);
+            var owner = await dbContext.Users.FirstOrDefaultAsync(x => x.Id == ownerId, cancellationToken);
+
+            if (registeredLogImages.Count > 0)
+            {
+                dbContext.HealthLogImages.RemoveRange(registeredLogImages);
+            }
+
+            if (registeredAssets.Count > 0)
+            {
+                dbContext.ImageAssets.RemoveRange(registeredAssets);
+            }
+
+            if (owner is not null)
+            {
+                owner.UsedImageBytes = previousUsedBytes;
+            }
+
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            ImageOperationLogging.LogPersistenceFailed(
+                logger,
+                ex,
+                "HealthLog",
+                ownerId,
+                "HealthLog",
+                healthLogId,
+                ImageOperationLogging.Phases.RollbackCleanup);
         }
     }
 
@@ -462,7 +581,7 @@ public class HealthLogImageService(
             => new(false, errorMessage, string.Empty, string.Empty, null, null, 0);
     }
 
-    private sealed record MovedUpload(Guid ImageId, string StorageKey, string ContentType, long SizeBytes);
+    private sealed record RegisteredUpload(ImageAsset Asset, string ProcessedTempPath);
 
     private sealed record ImageProcessingResult(bool Succeeded, string? ErrorMessage, string? Extension, string? ContentType, long SizeBytes)
     {

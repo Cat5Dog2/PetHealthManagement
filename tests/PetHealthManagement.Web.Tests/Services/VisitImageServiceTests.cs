@@ -214,6 +214,62 @@ public class VisitImageServiceTests
         Assert.Equal(10, rejectionLog.Properties["ResourceId"]);
     }
 
+    [Fact]
+    public async Task ApplyImageChangesAsync_RollsBackPendingImages_WhenMoveToStorageFails()
+    {
+        await using var dbContext = CreateDbContext();
+        using var storage = new TestFileBackedImageStorageService("visit-image-tests")
+        {
+            FailMoveToStorage = true
+        };
+
+        dbContext.Users.Add(new ApplicationUser { Id = "user-a", UserName = "userA" });
+        dbContext.Pets.Add(NewPet(1, "user-a"));
+        dbContext.Visits.Add(new Visit
+        {
+            Id = 10,
+            PetId = 1,
+            VisitDate = new DateTime(2026, 3, 21),
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        });
+
+        var deleteImageId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        dbContext.ImageAssets.Add(NewImageAsset(deleteImageId, "user-a", "Visit", "images/delete.jpg", 120));
+        dbContext.VisitImages.Add(new VisitImage
+        {
+            Id = 1,
+            VisitId = 10,
+            ImageId = deleteImageId,
+            SortOrder = 1
+        });
+
+        await dbContext.SaveChangesAsync();
+
+        var service = new VisitImageService(dbContext, storage, NullLogger<VisitImageService>.Instance);
+        var visit = await dbContext.Visits.SingleAsync(x => x.Id == 10);
+
+        var result = await service.ApplyImageChangesAsync(
+            visit,
+            "user-a",
+            [CreateImageFormFile("new.png", "image/png")],
+            [deleteImageId]);
+
+        var owner = await dbContext.Users.SingleAsync(x => x.Id == "user-a");
+        var assets = await dbContext.ImageAssets.ToListAsync();
+        var visitImages = await dbContext.VisitImages.ToListAsync();
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(ImageUploadErrorMessages.SaveFailed, result.ErrorMessage);
+        var asset = Assert.Single(assets);
+        Assert.Equal(deleteImageId, asset.ImageId);
+        var visitImage = Assert.Single(visitImages);
+        Assert.Equal(deleteImageId, visitImage.ImageId);
+        Assert.Equal(120, owner.UsedImageBytes);
+        Assert.Single(storage.MovedStorageKeys);
+        Assert.Empty(storage.DeletedStorageKeys);
+    }
+
     private static ApplicationDbContext CreateDbContext()
     {
         return TestDbContextFactory.CreateInMemoryDbContext("visit-image-tests");

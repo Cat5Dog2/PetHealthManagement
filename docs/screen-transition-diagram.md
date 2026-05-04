@@ -7,7 +7,7 @@ flowchart LR
   Login --> MyPage["MyPage（ホーム/設定相当）<br/>(/MyPage)"]
 
   MyPage --> EditProfile["プロフィール編集<br/>(/Account/EditProfile)"]
-  MyPage --> ChangePassword["パスワード変更<br/>(/Account/Manage/ChangePassword)"]
+  MyPage --> ChangePassword["パスワード変更<br/>(/Identity/Account/Manage/ChangePassword)"]
   MyPage --> AccountDelete["アカウント削除（確認）<br/>(/Account/Delete)"]
   AccountDelete --> AccountDeleteConfirmed["アカウント削除（実行）<br/>(POST /Account/DeleteConfirmed)"]
 
