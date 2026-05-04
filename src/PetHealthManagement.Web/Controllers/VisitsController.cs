@@ -505,7 +505,7 @@ public class VisitsController(
 
     private static bool HasImageChanges(VisitEditViewModel viewModel)
     {
-        return viewModel.NewFiles.Count > 0 || viewModel.DeleteImageIds.Length > 0;
+        return viewModel.NewFiles?.Count > 0 || viewModel.DeleteImageIds.Length > 0;
     }
 
     private static void ApplyVisitEditValues(Visit visit, VisitEditViewModel viewModel)

@@ -508,7 +508,7 @@ public class HealthLogsController(
 
     private static bool HasImageChanges(HealthLogEditViewModel viewModel)
     {
-        return viewModel.NewFiles.Count > 0 || viewModel.DeleteImageIds.Length > 0;
+        return viewModel.NewFiles?.Count > 0 || viewModel.DeleteImageIds.Length > 0;
     }
 
     private static void ApplyHealthLogEditValues(HealthLog healthLog, HealthLogEditViewModel viewModel)
