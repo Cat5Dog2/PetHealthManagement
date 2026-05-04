@@ -1,8 +1,10 @@
+# うちの子健康カルテ 画面遷移図
+
 ```mermaid
 flowchart LR
   Home["Home<br/>(/)<br/>匿名可"] --> Login["Login / Register<br/>(Identity UI)"]
 
-  Login --> MyPage["MyPage<br/>(/MyPage)"]
+  Login --> MyPage["MyPage（ホーム/設定相当）<br/>(/MyPage)"]
 
   MyPage --> EditProfile["プロフィール編集<br/>(/Account/EditProfile)"]
   MyPage --> ChangePassword["パスワード変更<br/>(/Account/Manage/ChangePassword)"]
@@ -66,12 +68,14 @@ flowchart LR
   NotePublic["※ PetDetails は自分 or IsPublic=true のみ（非公開は404）"]:::note
   NoteAdmin["※ /Admin は Admin のみ"]:::note
   NoteError["※ 400/403/404 等は /Error/{statusCode} を表示"]:::note
+  NotePhase1["※ 第1段階UIでは健康分析/月間カレンダー等の新規画面は追加しない"]:::note
 
   NoteAuth -.-> MyPage
   NoteOwner -.-> HealthLogsIndex
   NotePublic -.-> PetDetails
   NoteAdmin -.-> AdminUsers
   NoteError -.-> ErrorPage
+  NotePhase1 -.-> MyPage
 
   classDef note fill:#fff,stroke:#999,stroke-dasharray: 4 4,color:#333;
 ```

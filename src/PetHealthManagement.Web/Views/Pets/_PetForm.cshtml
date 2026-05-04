@@ -9,13 +9,13 @@
     <div class="mb-3">
         <label class="form-label">現在の写真</label>
         <div>
-            <img src="@Model.CurrentPhotoUrl" alt="現在のペット写真" style="max-width: 240px; max-height: 240px;" />
+            <img src="@Model.CurrentPhotoUrl" alt="現在のペット写真" class="pet-photo" style="max-width: 240px;" />
         </div>
     </div>
 }
 
 <div class="mb-3">
-    <label asp-for="Name" class="form-label"></label>
+    <label asp-for="Name" class="form-label">名前</label>
     <input asp-for="Name"
            class="form-control"
            maxlength="@PetHealthManagement.Web.Infrastructure.InputValidationLimits.Pets.NameMaxLength" />
@@ -35,11 +35,43 @@
 </div>
 
 <div class="mb-3">
-    <label asp-for="Breed" class="form-label"></label>
+    <label asp-for="Breed" class="form-label">品種</label>
     <input asp-for="Breed"
            class="form-control"
            maxlength="@PetHealthManagement.Web.Infrastructure.InputValidationLimits.Pets.BreedMaxLength" />
     <span asp-validation-for="Breed" class="text-danger"></span>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-md-4">
+        <label asp-for="Sex" class="form-label">性別</label>
+        <input asp-for="Sex"
+               class="form-control"
+               list="pet-sex-options"
+               maxlength="@PetHealthManagement.Web.Infrastructure.InputValidationLimits.Pets.SexMaxLength" />
+        <datalist id="pet-sex-options">
+            <option value="オス"></option>
+            <option value="メス"></option>
+            <option value="不明"></option>
+        </datalist>
+        <span asp-validation-for="Sex" class="text-danger"></span>
+    </div>
+    <div class="col-md-4">
+        <label asp-for="BirthDate" class="form-label">誕生日</label>
+        <input asp-for="BirthDate"
+               type="date"
+               class="form-control"
+               asp-format="{0:yyyy-MM-dd}" />
+        <span asp-validation-for="BirthDate" class="text-danger"></span>
+    </div>
+    <div class="col-md-4">
+        <label asp-for="AdoptedDate" class="form-label">迎えた日</label>
+        <input asp-for="AdoptedDate"
+               type="date"
+               class="form-control"
+               asp-format="{0:yyyy-MM-dd}" />
+        <span asp-validation-for="AdoptedDate" class="text-danger"></span>
+    </div>
 </div>
 
 <div class="form-check mb-3">

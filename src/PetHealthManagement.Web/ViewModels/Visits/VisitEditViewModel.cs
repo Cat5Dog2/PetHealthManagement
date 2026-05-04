@@ -30,7 +30,7 @@ public class VisitEditViewModel
 
     public List<VisitExistingImageViewModel> ExistingImages { get; set; } = [];
 
-    public List<IFormFile> NewFiles { get; set; } = [];
+    public List<IFormFile>? NewFiles { get; set; } = [];
 
     public Guid[] DeleteImageIds { get; set; } = [];
 

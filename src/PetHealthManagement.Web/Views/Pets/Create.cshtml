@@ -1,11 +1,16 @@
 @model PetHealthManagement.Web.ViewModels.Pets.PetEditViewModel
 @{
-    ViewData["Title"] = "Pet Create";
+    ViewData["Title"] = "ペット登録";
 }
 
-<h1>ペット作成</h1>
+<div class="page-heading">
+    <div>
+        <h1>ペット登録</h1>
+        <p class="text-muted">基本情報と写真を登録します。</p>
+    </div>
+</div>
 
-<form asp-action="Create" method="post" enctype="multipart/form-data">
+<form asp-action="Create" method="post" enctype="multipart/form-data" class="form-panel">
     <partial name="_PetForm" model="Model" />
 </form>
 

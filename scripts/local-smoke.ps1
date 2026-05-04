@@ -268,9 +268,9 @@ try {
 
   $loginForm = @{
     '__RequestVerificationToken' = $tokenMatch.Groups[1].Value
-    'Input.Email' = $Email
-    'Input.Password' = $Password
-    'Input.RememberMe' = 'false'
+    'Email' = $Email
+    'Password' = $Password
+    'RememberMe' = 'false'
   }
 
   $authenticatedResponse = Invoke-WebRequestAllowErrors -Uri "$BaseUrl/Identity/Account/Login" -Method POST -WebSession $session -Body $loginForm -DisableRedirect

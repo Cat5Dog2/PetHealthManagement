@@ -55,7 +55,7 @@ public class ScreenCaseIntegrationTests
 
         var html = await ReadDecodedHtmlAsync(response);
         Assert.Contains("owner@example.com", html, StringComparison.Ordinal);
-        Assert.Contains("/images/default/avatar-placeholder.svg", html, StringComparison.Ordinal);
+        Assert.Contains("/images/default/avatar-placeholder.webp", html, StringComparison.Ordinal);
         Assert.Contains("href=\"/Account/EditProfile?returnUrl=%2FMyPage\"", html, StringComparison.Ordinal);
         Assert.Contains("href=\"/Account/Delete?returnUrl=%2FMyPage\"", html, StringComparison.Ordinal);
         Assert.Contains("href=\"/Pets/Create?returnUrl=%2FMyPage\"", html, StringComparison.Ordinal);
@@ -65,6 +65,73 @@ public class ScreenCaseIntegrationTests
         Assert.Contains("href=\"/Visits?petId=1\"", html, StringComparison.Ordinal);
         Assert.Contains("Mugi", html, StringComparison.Ordinal);
         Assert.DoesNotContain("Other User Pet", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task IdentityManagePages_RenderJapaneseText()
+    {
+        await using var factory = new IntegrationTestWebApplicationFactory();
+        await factory.ResetDatabaseAsync(dbContext =>
+        {
+            SeedUsers(dbContext);
+            return Task.CompletedTask;
+        });
+
+        using var client = factory.CreateAuthenticatedClient("owner-user");
+
+        foreach (var (path, expectedText) in new[]
+                 {
+                     ("/Identity/Account/Manage", "プロフィール"),
+                     ("/Identity/Account/Manage/Email", "メールアドレス"),
+                     ("/Identity/Account/Manage/ChangePassword", "パスワード"),
+                     ("/Identity/Account/Manage/TwoFactorAuthentication", "二要素認証"),
+                     ("/Identity/Account/Manage/PersonalData", "個人データ")
+                 })
+        {
+            using var response = await client.GetAsync(path);
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+            var html = await ReadDecodedHtmlAsync(response);
+            Assert.Contains("アカウント管理", html, StringComparison.Ordinal);
+            Assert.Contains(expectedText, html, StringComparison.Ordinal);
+            Assert.Contains("メールアドレス", html, StringComparison.Ordinal);
+            Assert.Contains("パスワード", html, StringComparison.Ordinal);
+            Assert.DoesNotContain("Manage your account", html, StringComparison.Ordinal);
+            Assert.DoesNotContain("Change your account settings", html, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public async Task IdentityLoginAndRegisterPages_RenderJapaneseText()
+    {
+        await using var factory = new IntegrationTestWebApplicationFactory();
+        await factory.ResetDatabaseAsync(_ => Task.CompletedTask);
+
+        using var client = factory.CreateAnonymousClient();
+
+        foreach (var (path, expectedTitle, expectedButton) in new[]
+                 {
+                     ("/Identity/Account/Login?ReturnUrl=%2FMyPage", "ログイン", "ログイン"),
+                     ("/Identity/Account/Register?ReturnUrl=%2FMyPage", "新規登録", "登録する")
+                 })
+        {
+            using var response = await client.GetAsync(path);
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+            var html = await ReadDecodedHtmlAsync(response);
+            Assert.Contains(expectedTitle, html, StringComparison.Ordinal);
+            Assert.Contains(expectedButton, html, StringComparison.Ordinal);
+            Assert.Contains("メールアドレス", html, StringComparison.Ordinal);
+            Assert.Contains("パスワード", html, StringComparison.Ordinal);
+            Assert.Contains("name=\"ReturnUrl\" value=\"/MyPage\"", html, StringComparison.Ordinal);
+            Assert.DoesNotContain("Use a local account", html, StringComparison.Ordinal);
+            Assert.DoesNotContain("Use another service", html, StringComparison.Ordinal);
+            Assert.DoesNotContain("There are no external authentication services configured", html, StringComparison.Ordinal);
+            Assert.DoesNotContain("Create a new account", html, StringComparison.Ordinal);
+            Assert.DoesNotContain("Remember me?", html, StringComparison.Ordinal);
+        }
     }
 
     [Fact]
@@ -88,7 +155,7 @@ public class ScreenCaseIntegrationTests
             var html = await ReadDecodedHtmlAsync(getResponse);
             Assert.Contains("name=\"returnUrl\" value=\"/Pets?page=2\"", html, StringComparison.Ordinal);
             Assert.Contains("href=\"/Pets?page=2\"", html, StringComparison.Ordinal);
-            Assert.Contains("/images/default/avatar-placeholder.svg", html, StringComparison.Ordinal);
+            Assert.Contains("/images/default/avatar-placeholder.webp", html, StringComparison.Ordinal);
         }
 
         using (var postContent = CreateEditProfileContent(

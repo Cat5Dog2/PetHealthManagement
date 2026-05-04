@@ -1,9 +1,14 @@
 @model PetHealthManagement.Web.ViewModels.Visits.VisitEditViewModel
 @{
-    ViewData["Title"] = "Visit Edit";
+    ViewData["Title"] = "通院編集";
 }
 
-<h1>通院履歴編集</h1>
+<div class="page-heading">
+    <div>
+        <h1>通院編集</h1>
+        <p class="text-muted">@Model.PetName の通院内容を更新します。</p>
+    </div>
+</div>
 
 <form asp-action="Edit"
       asp-route-visitId="@Model.VisitId"

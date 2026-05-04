@@ -33,7 +33,7 @@ public class HealthLogEditViewModel
 
     public List<HealthLogExistingImageViewModel> ExistingImages { get; set; } = [];
 
-    public List<IFormFile> NewFiles { get; set; } = [];
+    public List<IFormFile>? NewFiles { get; set; } = [];
 
     public Guid[] DeleteImageIds { get; set; } = [];
 

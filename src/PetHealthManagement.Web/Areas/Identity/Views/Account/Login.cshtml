@@ -1,0 +1,58 @@
+@model PetHealthManagement.Web.ViewModels.Identity.Account.IdentityLoginViewModel
+@{
+    ViewData["Title"] = "ログイン";
+}
+
+<div class="page-heading">
+    <div>
+        <h1>ログイン</h1>
+        <p class="text-muted">メールアドレスとパスワードを入力してください。</p>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-7">
+        <section class="form-panel">
+            <form method="post" class="d-flex flex-column gap-3">
+                <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+                <input type="hidden" asp-for="ReturnUrl" />
+
+                <div>
+                    <label asp-for="Email" class="form-label">メールアドレス</label>
+                    <input asp-for="Email" class="form-control" autocomplete="username" placeholder="name@example.com" />
+                    <span asp-validation-for="Email" class="text-danger"></span>
+                </div>
+
+                <div>
+                    <label asp-for="Password" class="form-label">パスワード</label>
+                    <input asp-for="Password" class="form-control" autocomplete="current-password" placeholder="パスワード" />
+                    <span asp-validation-for="Password" class="text-danger"></span>
+                </div>
+
+                <div class="form-check">
+                    <input asp-for="RememberMe" class="form-check-input" />
+                    <label asp-for="RememberMe" class="form-check-label">ログイン状態を保持する</label>
+                </div>
+
+                <button type="submit" class="btn btn-primary">ログイン</button>
+            </form>
+
+            <div class="d-flex flex-column gap-2 mt-4">
+                <a asp-area="Identity" asp-controller="Account" asp-action="Register" asp-route-returnUrl="@Model.ReturnUrl">新規登録はこちら</a>
+                <span class="text-muted">パスワードを忘れた場合は、管理者に連絡してください。</span>
+            </div>
+        </section>
+    </div>
+
+    <div class="col-lg-5">
+        <section class="surface">
+            <h2 class="h4">外部サービスログイン</h2>
+            <p class="text-muted mb-0">現在、外部サービスでのログインは利用できません。</p>
+        </section>
+    </div>
+</div>
+
+@section Scripts
+{
+    <partial name="_ValidationScriptsPartial" />
+}

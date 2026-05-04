@@ -261,6 +261,38 @@ public class HealthLogImageIntegrationTests
 
         Assert.Equal(2, createdState.ImageIds.Count);
 
+        using (var editWithoutImageChangesContent = CreateHealthLogEditPayload(
+                   antiforgery,
+                   note: "updated note",
+                   deleteImageId: null,
+                   files: [],
+                   healthLogId: createdState.Id,
+                   rowVersion: createdState.RowVersion))
+        using (var editWithoutImageChangesResponse = await ownerClient.PostAsync($"/HealthLogs/Edit/{createdState.Id}", editWithoutImageChangesContent))
+        {
+            Assert.Equal(HttpStatusCode.Redirect, editWithoutImageChangesResponse.StatusCode);
+            Assert.Equal($"/HealthLogs/Details/{createdState.Id}", editWithoutImageChangesResponse.Headers.Location?.OriginalString);
+        }
+
+        var noImageChangeState = await factory.ExecuteDbContextAsync(async dbContext =>
+        {
+            var healthLog = await dbContext.HealthLogs.SingleAsync();
+            var imageIds = await dbContext.HealthLogImages
+                .Where(x => x.HealthLogId == healthLog.Id)
+                .OrderBy(x => x.SortOrder)
+                .Select(x => x.ImageId)
+                .ToListAsync();
+
+            return new
+            {
+                healthLog.Note,
+                ImageIds = imageIds
+            };
+        });
+
+        Assert.Equal("updated note", noImageChangeState.Note);
+        Assert.Equal(2, noImageChangeState.ImageIds.Count);
+
         using (var ownerImageResponse = await ownerClient.GetAsync($"/images/{createdState.ImageIds[0]:D}"))
         {
             Assert.Equal(HttpStatusCode.OK, ownerImageResponse.StatusCode);

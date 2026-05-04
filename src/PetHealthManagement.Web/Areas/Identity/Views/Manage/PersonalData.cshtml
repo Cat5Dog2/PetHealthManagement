@@ -1,0 +1,26 @@
+@{
+    ViewData["Title"] = "個人データ";
+}
+
+<div class="page-heading">
+    <div>
+        <h1>アカウント管理</h1>
+        <p class="text-muted">個人データと削除について確認できます。</p>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-md-4">
+        <partial name="_ManageNav" />
+    </div>
+    <div class="col-md-8">
+        <section class="surface">
+            <h2 class="h4 mb-3">個人データ</h2>
+            <p>アカウントを削除すると、プロフィール、ペット、健康ログ、予定、通院履歴、画像を含む関連データが削除されます。</p>
+            <p class="text-muted">削除操作は元に戻せません。</p>
+            <a asp-area="" asp-controller="Account" asp-action="Delete" asp-route-returnUrl="/Identity/Account/Manage/PersonalData" class="btn btn-outline-danger">
+                アカウント削除へ
+            </a>
+        </section>
+    </div>
+</div>

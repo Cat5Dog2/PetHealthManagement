@@ -80,6 +80,7 @@ builder.Services.AddControllersWithViews(options =>
 {
     options.Filters.Add(new AutoValidateAntiforgeryTokenAttribute());
 });
+builder.Services.AddRazorPages();
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -209,6 +210,11 @@ app.UseAuthorization();
 app.MapStaticAssets();
 
 app.MapControllerRoute(
+    name: "identity_manage",
+    pattern: "Identity/Account/Manage/{action=Index}",
+    defaults: new { area = "Identity", controller = "Manage" });
+
+app.MapControllerRoute(
     name: "areas",
     pattern: "{area:exists}/{controller=Home}/{action=Index}/{id?}");
 
@@ -216,6 +222,8 @@ app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}")
     .WithStaticAssets();
+
+app.MapControllers();
 
 app.MapRazorPages()
    .WithStaticAssets();

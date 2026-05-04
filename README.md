@@ -1,6 +1,6 @@
-# PetHealthManagement
+# うちの子健康カルテ
 
-ペット健康管理アプリです。ASP.NET Core MVC、Identity、EF Core、SQL Server を使用しています。
+ペットの健康記録、予定、通院履歴を管理するWebアプリです。ASP.NET Core MVC、Identity、EF Core、SQL Server を使用しています。
 
 ## 前提環境
 

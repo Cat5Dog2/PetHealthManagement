@@ -242,9 +242,9 @@ status_code="$(
     -b "$COOKIE_JAR_PATH" \
     --max-redirs 0 \
     --data-urlencode "__RequestVerificationToken=$ANTIFORGERY_TOKEN" \
-    --data-urlencode "Input.Email=$EMAIL" \
-    --data-urlencode "Input.Password=$PASSWORD" \
-    --data-urlencode "Input.RememberMe=false" \
+    --data-urlencode "Email=$EMAIL" \
+    --data-urlencode "Password=$PASSWORD" \
+    --data-urlencode "RememberMe=false" \
     "$BASE_URL/Identity/Account/Login"
 )"
 if [[ "$status_code" != "302" ]]; then

@@ -1,0 +1,45 @@
+@model PetHealthManagement.Web.ViewModels.Identity.Manage.IdentityManageProfileViewModel
+@{
+    ViewData["Title"] = "プロフィール";
+}
+
+<div class="page-heading">
+    <div>
+        <h1>アカウント管理</h1>
+        <p class="text-muted">アカウント設定を変更できます。</p>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-md-4">
+        <partial name="_ManageNav" />
+    </div>
+    <div class="col-md-8">
+        <section class="form-panel">
+            <h2 class="h4 mb-3">プロフィール</h2>
+            <partial name="_StatusMessage" model="Model.StatusMessage" />
+
+            <form method="post" class="d-flex flex-column gap-3">
+                <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+                <div>
+                    <label asp-for="Username" class="form-label">ユーザー名</label>
+                    <input asp-for="Username" class="form-control" disabled />
+                </div>
+
+                <div>
+                    <label asp-for="PhoneNumber" class="form-label">電話番号</label>
+                    <input asp-for="PhoneNumber" class="form-control" placeholder="電話番号を入力" />
+                    <span asp-validation-for="PhoneNumber" class="text-danger"></span>
+                </div>
+
+                <button type="submit" class="btn btn-primary">保存</button>
+            </form>
+        </section>
+    </div>
+</div>
+
+@section Scripts
+{
+    <partial name="_ValidationScriptsPartial" />
+}

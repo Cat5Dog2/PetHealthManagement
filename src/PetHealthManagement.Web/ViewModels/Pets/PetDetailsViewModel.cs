@@ -12,6 +12,12 @@ public class PetDetailsViewModel
 
     public string? Breed { get; set; }
 
+    public string? Sex { get; set; }
+
+    public DateTime? BirthDate { get; set; }
+
+    public DateTime? AdoptedDate { get; set; }
+
     public string OwnerDisplayName { get; set; } = string.Empty;
 
     public bool IsPublic { get; set; }

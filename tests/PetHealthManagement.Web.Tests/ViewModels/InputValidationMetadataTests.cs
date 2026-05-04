@@ -31,13 +31,15 @@ public class InputValidationMetadataTests
         {
             Name = new string('a', InputValidationLimits.Pets.NameMaxLength + 1),
             SpeciesCode = "DOG",
-            Breed = new string('b', InputValidationLimits.Pets.BreedMaxLength + 1)
+            Breed = new string('b', InputValidationLimits.Pets.BreedMaxLength + 1),
+            Sex = new string('s', InputValidationLimits.Pets.SexMaxLength + 1)
         };
 
         var validationResults = Validate(model);
 
         AssertHasValidationErrorFor(validationResults, nameof(PetEditViewModel.Name));
         AssertHasValidationErrorFor(validationResults, nameof(PetEditViewModel.Breed));
+        AssertHasValidationErrorFor(validationResults, nameof(PetEditViewModel.Sex));
     }
 
     [Fact]
@@ -119,6 +121,14 @@ public class InputValidationMetadataTests
             InputValidationLimits.DateInputFormat);
         AssertDateMetadata(
             typeof(ScheduleItemEditViewModel).GetProperty(nameof(ScheduleItemEditViewModel.DueDate))!,
+            DataType.Date,
+            InputValidationLimits.DateInputFormat);
+        AssertDateMetadata(
+            typeof(PetEditViewModel).GetProperty(nameof(PetEditViewModel.BirthDate))!,
+            DataType.Date,
+            InputValidationLimits.DateInputFormat);
+        AssertDateMetadata(
+            typeof(PetEditViewModel).GetProperty(nameof(PetEditViewModel.AdoptedDate))!,
             DataType.Date,
             InputValidationLimits.DateInputFormat);
     }

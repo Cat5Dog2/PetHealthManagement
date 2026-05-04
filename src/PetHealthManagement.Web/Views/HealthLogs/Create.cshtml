@@ -1,9 +1,14 @@
 @model PetHealthManagement.Web.ViewModels.HealthLogs.HealthLogEditViewModel
 @{
-    ViewData["Title"] = "Health Log Create";
+    ViewData["Title"] = "健康ログ作成";
 }
 
-<h1>健康ログ作成</h1>
+<div class="page-heading">
+    <div>
+        <h1>健康ログ作成</h1>
+        <p class="text-muted">@Model.PetName の体調を記録します。</p>
+    </div>
+</div>
 
 <form asp-action="Create" method="post" enctype="multipart/form-data" class="d-flex flex-column gap-3">
     <partial name="_HealthLogForm" model="Model" />

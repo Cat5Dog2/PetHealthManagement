@@ -21,6 +21,13 @@ public class Pet
     [MaxLength(100)]
     public string? Breed { get; set; }
 
+    [MaxLength(10)]
+    public string? Sex { get; set; }
+
+    public DateTime? BirthDate { get; set; }
+
+    public DateTime? AdoptedDate { get; set; }
+
     public bool IsPublic { get; set; } = true;
 
     public Guid? PhotoImageId { get; set; }

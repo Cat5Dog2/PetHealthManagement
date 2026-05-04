@@ -13,8 +13,8 @@ namespace PetHealthManagement.Web.Controllers;
 [Route("MyPage")]
 public class MyPageController(ApplicationDbContext dbContext) : Controller
 {
-    private const string DefaultAvatarUrl = "/images/default/avatar-placeholder.svg";
-    private const string DefaultPetPhotoUrl = "/images/default/pet-placeholder.svg";
+    private const string DefaultAvatarUrl = "/images/default/avatar-placeholder.webp";
+    private const string DefaultPetPhotoUrl = "/images/default/pet-placeholder.webp";
 
     [HttpGet("")]
     public async Task<IActionResult> Index()

@@ -10,7 +10,7 @@ public class EditProfileViewModel
 
     public IFormFile? AvatarFile { get; set; }
 
-    public string CurrentAvatarUrl { get; set; } = "/images/default/avatar-placeholder.svg";
+    public string CurrentAvatarUrl { get; set; } = "/images/default/avatar-placeholder.webp";
 
     public string? ReturnUrl { get; set; }
 

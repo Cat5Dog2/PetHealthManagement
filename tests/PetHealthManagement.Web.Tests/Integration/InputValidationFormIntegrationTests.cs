@@ -42,6 +42,13 @@ public class InputValidationFormIntegrationTests
             "Breed",
             "maxlength",
             InputValidationLimits.Pets.BreedMaxLength.ToString());
+        AssertElementHasAttribute(
+            createPetHtml,
+            "Sex",
+            "maxlength",
+            InputValidationLimits.Pets.SexMaxLength.ToString());
+        AssertElementHasAttribute(createPetHtml, "BirthDate", "type", "date");
+        AssertElementHasAttribute(createPetHtml, "AdoptedDate", "type", "date");
     }
 
     [Fact]

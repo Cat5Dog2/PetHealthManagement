@@ -15,6 +15,7 @@ public static class InputValidationLimits
         public const int NameMaxLength = 50;
         public const int SpeciesCodeMaxLength = 50;
         public const int BreedMaxLength = 100;
+        public const int SexMaxLength = 10;
     }
 
     public static class HealthLogs

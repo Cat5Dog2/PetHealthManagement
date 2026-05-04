@@ -50,12 +50,16 @@ public class ImageFlowIntegrationTests
         var persistedState = await factory.ExecuteDbContextAsync(async dbContext =>
         {
             var visit = await dbContext.Visits.SingleAsync();
+            visit.RowVersion ??= [1, 0, 0, 0];
+            await dbContext.SaveChangesAsync();
+
             var visitImage = await dbContext.VisitImages.SingleAsync();
             var imageAsset = await dbContext.ImageAssets.SingleAsync(x => x.Category == "Visit");
 
             return new
             {
                 visit.Id,
+                RowVersion = Convert.ToBase64String(visit.RowVersion),
                 visitImage.ImageId,
                 imageAsset.ContentType
             };
@@ -73,6 +77,33 @@ public class ImageFlowIntegrationTests
             Assert.Contains("nosniff", nosniffValues.Single(), StringComparison.OrdinalIgnoreCase);
             Assert.NotEmpty(await ownerImageResponse.Content.ReadAsByteArrayAsync());
         }
+
+        using (var editContent = CreateVisitEditContent(
+                   antiforgery,
+                   petId: 1,
+                   persistedState.Id,
+                   persistedState.RowVersion,
+                   note: "updated note"))
+        using (var editResponse = await ownerClient.PostAsync($"/Visits/Edit/{persistedState.Id}", editContent))
+        {
+            Assert.Equal(HttpStatusCode.Redirect, editResponse.StatusCode);
+            Assert.Equal($"/Visits/Details/{persistedState.Id}", editResponse.Headers.Location?.OriginalString);
+        }
+
+        var editedState = await factory.ExecuteDbContextAsync(async dbContext =>
+        {
+            var visit = await dbContext.Visits.SingleAsync();
+            var visitImageCount = await dbContext.VisitImages.CountAsync();
+
+            return new
+            {
+                visit.Note,
+                VisitImageCount = visitImageCount
+            };
+        });
+
+        Assert.Equal("updated note", editedState.Note);
+        Assert.Equal(1, editedState.VisitImageCount);
 
         using (var otherClient = factory.CreateAuthenticatedClient("other-user"))
         using (var otherImageResponse = await otherClient.GetAsync($"/images/{persistedState.ImageId:D}"))
@@ -199,6 +230,33 @@ public class ImageFlowIntegrationTests
         content.Add(new StringContent(petId.ToString()), nameof(VisitEditViewModel.PetId));
         content.Add(new StringContent("2026-03-24"), nameof(VisitEditViewModel.VisitDate));
         content.Add(new StringContent(string.Empty), "returnUrl");
+
+        foreach (var file in files)
+        {
+            var fileContent = new ByteArrayContent(file.Content);
+            fileContent.Headers.ContentType = MediaTypeHeaderValue.Parse(file.ContentType);
+            content.Add(fileContent, nameof(VisitEditViewModel.NewFiles), file.FileName);
+        }
+
+        return content;
+    }
+
+    private static MultipartFormDataContent CreateVisitEditContent(
+        AntiforgeryRequestData antiforgeryRequestData,
+        int petId,
+        int visitId,
+        string rowVersion,
+        string? note = null,
+        params UploadFile[] files)
+    {
+        var content = new MultipartFormDataContent();
+        content.Add(new StringContent(antiforgeryRequestData.RequestToken), antiforgeryRequestData.FormFieldName);
+        content.Add(new StringContent(petId.ToString()), nameof(VisitEditViewModel.PetId));
+        content.Add(new StringContent(visitId.ToString()), nameof(VisitEditViewModel.VisitId));
+        content.Add(new StringContent("2026-03-24"), nameof(VisitEditViewModel.VisitDate));
+        content.Add(new StringContent(note ?? "updated note"), nameof(VisitEditViewModel.Note));
+        content.Add(new StringContent(rowVersion), nameof(VisitEditViewModel.RowVersion));
+        content.Add(new StringContent(string.Empty), nameof(VisitEditViewModel.ReturnUrl));
 
         foreach (var file in files)
         {
