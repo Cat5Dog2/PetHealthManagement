@@ -165,6 +165,7 @@ internal static class ImageAttachmentUpdateExecutor
             {
                 owner.UsedImageBytes = currentUserUsedBytes + addedBytes;
 
+                // Persist Pending rows before moving files; only Ready assets are served.
                 try
                 {
                     await dbContext.SaveChangesAsync(cancellationToken);
@@ -480,6 +481,7 @@ internal static class ImageAttachmentUpdateExecutor
             return;
         }
 
+        // The caller clears tracked state before rollback, so reload rows before removing them.
         try
         {
             var imageIds = registeredUploads

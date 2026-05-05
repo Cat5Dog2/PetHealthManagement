@@ -299,6 +299,7 @@ public class VisitsController(
             return await BuildConcurrencyConflictResultAsync(visit, viewModel.ReturnUrl);
         }
 
+        // Run image changes before mutating this tracked record; the image service saves internally.
         var imageChangeResult = await ApplyImageChangesForEditAsync(visitId, visit, userId, viewModel);
         if (imageChangeResult is not null)
         {

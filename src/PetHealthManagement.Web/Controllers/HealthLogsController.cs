@@ -303,6 +303,7 @@ public class HealthLogsController(
             return await BuildConcurrencyConflictResultAsync(healthLog, viewModel.ReturnUrl);
         }
 
+        // Run image changes before mutating this tracked record; the image service saves internally.
         var imageChangeResult = await ApplyImageChangesForEditAsync(healthLogId, healthLog, userId, viewModel);
         if (imageChangeResult is not null)
         {
