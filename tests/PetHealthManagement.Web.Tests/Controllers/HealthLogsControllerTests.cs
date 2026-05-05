@@ -366,6 +366,7 @@ public class HealthLogsControllerTests
             Id = 10,
             PetId = 1,
             RecordedAt = new DateTimeOffset(2026, 3, 21, 9, 0, 0, TimeSpan.FromHours(9)),
+            WeightKg = 5.4,
             RowVersion = NewRowVersion(),
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
@@ -374,7 +375,8 @@ public class HealthLogsControllerTests
 
         var imageService = new FakeHealthLogImageService
         {
-            NextResult = HealthLogImageUpdateResult.Fail("画像エラー")
+            NextResult = HealthLogImageUpdateResult.Fail("画像エラー"),
+            BeforeReturnAsync = async () => await dbContext.SaveChangesAsync()
         };
 
         var controller = BuildController(dbContext, "user-a", imageService);
@@ -383,6 +385,7 @@ public class HealthLogsControllerTests
         {
             PetId = 1,
             RecordedAt = new DateTime(2026, 3, 23, 8, 15, 0),
+            WeightKg = 5.6,
             DeleteImageIds = [Guid.NewGuid()],
             RowVersion = EncodeRowVersion()
         });
@@ -394,6 +397,7 @@ public class HealthLogsControllerTests
         Assert.False(controller.ModelState.IsValid);
         Assert.Equal(10, model.HealthLogId);
         Assert.Equal(new DateTimeOffset(2026, 3, 21, 9, 0, 0, TimeSpan.FromHours(9)), unchangedHealthLog.RecordedAt);
+        Assert.Equal(5.4, unchangedHealthLog.WeightKg);
         Assert.Equal(1, imageService.CallCount);
     }
 
@@ -597,7 +601,9 @@ public class HealthLogsControllerTests
 
         public HealthLogImageUpdateResult NextResult { get; init; } = HealthLogImageUpdateResult.Success();
 
-        public Task<HealthLogImageUpdateResult> ApplyImageChangesAsync(
+        public Func<Task>? BeforeReturnAsync { get; init; }
+
+        public async Task<HealthLogImageUpdateResult> ApplyImageChangesAsync(
             HealthLog healthLog,
             string ownerId,
             IReadOnlyCollection<IFormFile>? newFiles,
@@ -606,7 +612,12 @@ public class HealthLogsControllerTests
         {
             CallCount += 1;
             LastPetId = healthLog.PetId;
-            return Task.FromResult(NextResult);
+            if (BeforeReturnAsync is not null)
+            {
+                await BeforeReturnAsync();
+            }
+
+            return NextResult;
         }
     }
 

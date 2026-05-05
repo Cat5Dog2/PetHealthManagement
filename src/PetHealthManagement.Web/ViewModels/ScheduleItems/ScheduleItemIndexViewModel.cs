@@ -8,11 +8,15 @@ public class ScheduleItemIndexViewModel
 
     public string PetName { get; set; } = string.Empty;
 
+    public string? TypeFilter { get; set; }
+
     public int Page { get; set; } = 1;
 
     public int PageSize { get; set; } = DefaultPageSize;
 
     public int TotalCount { get; set; }
+
+    public List<ScheduleItemTypeOptionViewModel> TypeOptions { get; set; } = [];
 
     public List<ScheduleItemListItemViewModel> ScheduleItems { get; set; } = [];
 

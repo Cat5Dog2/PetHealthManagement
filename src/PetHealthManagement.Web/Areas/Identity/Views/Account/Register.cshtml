@@ -24,6 +24,12 @@
                 </div>
 
                 <div>
+                    <label asp-for="DisplayName" class="form-label"></label>
+                    <input asp-for="DisplayName" class="form-control" autocomplete="nickname" placeholder="表示名（任意）" />
+                    <span asp-validation-for="DisplayName" class="text-danger"></span>
+                </div>
+
+                <div>
                     <label asp-for="Password" class="form-label">パスワード</label>
                     <input asp-for="Password" class="form-control" autocomplete="new-password" placeholder="パスワード" />
                     <span asp-validation-for="Password" class="text-danger"></span>

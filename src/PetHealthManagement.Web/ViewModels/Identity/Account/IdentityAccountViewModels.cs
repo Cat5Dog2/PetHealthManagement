@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using PetHealthManagement.Web.Infrastructure;
 
 namespace PetHealthManagement.Web.ViewModels.Identity.Account;
 
@@ -26,6 +27,10 @@ public sealed class IdentityRegisterViewModel
     [EmailAddress(ErrorMessage = "メールアドレスの形式が正しくありません。")]
     [Display(Name = "メールアドレス")]
     public string Email { get; set; } = string.Empty;
+
+    [StringLength(InputValidationLimits.Profile.DisplayNameMaxLength)]
+    [Display(Name = "表示名")]
+    public string? DisplayName { get; set; }
 
     [Required(ErrorMessage = "パスワードを入力してください。")]
     [StringLength(100, ErrorMessage = "{0} は {2} 文字以上 {1} 文字以内で入力してください。", MinimumLength = 6)]

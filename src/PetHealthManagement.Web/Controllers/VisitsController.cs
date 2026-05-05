@@ -299,10 +299,6 @@ public class VisitsController(
             return await BuildConcurrencyConflictResultAsync(visit, viewModel.ReturnUrl);
         }
 
-        dbContext.Entry(visit).Property(x => x.RowVersion).OriginalValue = postedRowVersion;
-        var originalValues = CaptureVisitEditValues(visit);
-        ApplyVisitEditValues(visit, viewModel);
-
         if (HasImageChanges(viewModel))
         {
             var imageUpdateResult = await visitImageService.ApplyImageChangesAsync(
@@ -329,14 +325,13 @@ public class VisitsController(
 
             if (!imageUpdateResult.Succeeded)
             {
-                RestoreVisitEditValues(visit, originalValues);
                 ModelState.AddModelError(nameof(VisitEditViewModel.NewFiles), imageUpdateResult.ErrorMessage!);
                 return View(await BuildEditViewModelAsync(visit, viewModel.ReturnUrl, viewModel));
             }
-
-            var imageRedirectUrl = ReturnUrlHelper.ResolveLocalReturnUrl(viewModel.ReturnUrl, $"/Visits/Details/{visitId}");
-            return Redirect(imageRedirectUrl);
         }
+
+        dbContext.Entry(visit).Property(x => x.RowVersion).OriginalValue = postedRowVersion;
+        ApplyVisitEditValues(visit, viewModel);
 
         try
         {
@@ -515,7 +510,7 @@ public class VisitsController(
 
     private static bool HasImageChanges(VisitEditViewModel viewModel)
     {
-        return viewModel.NewFiles?.Count > 0 || viewModel.DeleteImageIds.Length > 0;
+        return viewModel.NewFiles?.Count > 0 || (viewModel.DeleteImageIds?.Length ?? 0) > 0;
     }
 
     private static void ApplyVisitEditValues(Visit visit, VisitEditViewModel viewModel)
@@ -528,38 +523,9 @@ public class VisitsController(
         visit.UpdatedAt = DateTimeOffset.UtcNow;
     }
 
-    private static VisitEditSnapshot CaptureVisitEditValues(Visit visit)
-    {
-        return new VisitEditSnapshot(
-            visit.VisitDate,
-            visit.ClinicName,
-            visit.Diagnosis,
-            visit.Prescription,
-            visit.Note,
-            visit.UpdatedAt);
-    }
-
-    private static void RestoreVisitEditValues(Visit visit, VisitEditSnapshot snapshot)
-    {
-        visit.VisitDate = snapshot.VisitDate;
-        visit.ClinicName = snapshot.ClinicName;
-        visit.Diagnosis = snapshot.Diagnosis;
-        visit.Prescription = snapshot.Prescription;
-        visit.Note = snapshot.Note;
-        visit.UpdatedAt = snapshot.UpdatedAt;
-    }
-
     private static bool HasExpectedRowVersion(byte[]? currentRowVersion, byte[] postedRowVersion)
     {
         return currentRowVersion is not null
             && currentRowVersion.AsSpan().SequenceEqual(postedRowVersion);
     }
-
-    private sealed record VisitEditSnapshot(
-        DateTime VisitDate,
-        string? ClinicName,
-        string? Diagnosis,
-        string? Prescription,
-        string? Note,
-        DateTimeOffset UpdatedAt);
 }

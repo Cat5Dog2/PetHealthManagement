@@ -9,7 +9,7 @@ namespace PetHealthManagement.Web.Tests.Integration;
 public class InputValidationFormIntegrationTests
 {
     [Fact]
-    public async Task EditProfileAndPetCreate_RenderConfiguredMaxLengthAttributes()
+    public async Task RegisterEditProfileAndPetCreate_RenderConfiguredMaxLengthAttributes()
     {
         await using var factory = new IntegrationTestWebApplicationFactory();
         await factory.ResetDatabaseAsync(dbContext =>
@@ -17,6 +17,16 @@ public class InputValidationFormIntegrationTests
             SeedOwnerAndPet(dbContext);
             return Task.CompletedTask;
         });
+
+        using var anonymousClient = factory.CreateAnonymousClient();
+        using var registerResponse = await anonymousClient.GetAsync("/Identity/Account/Register");
+        Assert.Equal(HttpStatusCode.OK, registerResponse.StatusCode);
+        var registerHtml = await registerResponse.Content.ReadAsStringAsync();
+        AssertElementHasAttribute(
+            registerHtml,
+            "DisplayName",
+            "maxlength",
+            InputValidationLimits.Profile.DisplayNameMaxLength.ToString());
 
         using var client = factory.CreateAuthenticatedClient("owner-user");
 

@@ -26,6 +26,32 @@
     </div>
 </div>
 
+<form asp-action="Index" method="get" class="surface mb-4">
+    <input type="hidden" name="petId" value="@Model.PetId" />
+    <div class="row g-3">
+        <div class="col-md-10">
+            <label for="typeFilter" class="form-label">種別</label>
+            <select id="typeFilter" name="typeFilter" class="form-select">
+                <option value="">すべて</option>
+                @foreach (var option in Model.TypeOptions)
+                {
+                    if (string.Equals(option.Code, Model.TypeFilter, StringComparison.OrdinalIgnoreCase))
+                    {
+                        <option value="@option.Code" selected>@option.Label</option>
+                    }
+                    else
+                    {
+                        <option value="@option.Code">@option.Label</option>
+                    }
+                }
+            </select>
+        </div>
+        <div class="col-md-2 d-grid align-self-end">
+            <button type="submit" class="btn btn-primary">検索</button>
+        </div>
+    </div>
+</form>
+
 <p class="text-muted">全 @Model.TotalCount 件 / @Model.Page ページ目</p>
 
 @if (Model.ScheduleItems.Count == 0)
@@ -119,6 +145,7 @@ else
                         <a class="page-link"
                            asp-action="Index"
                            asp-route-petId="@Model.PetId"
+                           asp-route-typeFilter="@Model.TypeFilter"
                            asp-route-page="@pageNumber">
                             @pageNumber
                         </a>

@@ -77,6 +77,30 @@ public class ScheduleItemsControllerTests
     }
 
     [Fact]
+    public async Task Index_FiltersByType_AndReturnsTypeOptions()
+    {
+        await using var dbContext = CreateDbContext();
+        dbContext.Pets.Add(NewPet(1, "user-a", "Mugi"));
+        dbContext.ScheduleItems.AddRange(
+            NewScheduleItem(10, 1, ScheduleItemTypeCatalog.Vaccine, "Vaccine"),
+            NewScheduleItem(11, 1, ScheduleItemTypeCatalog.Medicine, "Medicine"),
+            NewScheduleItem(12, 1, ScheduleItemTypeCatalog.Visit, "Visit"));
+        await dbContext.SaveChangesAsync();
+
+        var controller = BuildController(dbContext, "user-a");
+        var result = await controller.Index(petId: 1, page: null, typeFilter: "medicine");
+
+        var viewResult = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<ScheduleItemIndexViewModel>(viewResult.Model);
+
+        Assert.Equal(ScheduleItemTypeCatalog.Medicine, model.TypeFilter);
+        Assert.Equal(1, model.TotalCount);
+        Assert.Single(model.ScheduleItems);
+        Assert.Equal(11, model.ScheduleItems[0].ScheduleItemId);
+        Assert.Contains(model.TypeOptions, option => option.Code == ScheduleItemTypeCatalog.Medicine);
+    }
+
+    [Fact]
     public async Task Details_ReturnsNotFound_ForNonOwnerScheduleItem()
     {
         await using var dbContext = CreateDbContext();
