@@ -138,7 +138,7 @@ public class VisitsController(
             Prescription = visit.Prescription,
             Note = visit.Note,
             Images = images,
-            ReturnUrl = ReturnUrlHelper.ResolveLocalReturnUrl(returnUrl, $"/Visits?petId={visit.PetId}")
+            ReturnUrl = ReturnUrlHelper.ResolveLocalReturnUrl(returnUrl, PetActivityUrlHelper.VisitList(visit.PetId))
         };
 
         return View(viewModel);
@@ -238,7 +238,7 @@ public class VisitsController(
             return View(BuildCreateViewModel(pet, viewModel.ReturnUrl, viewModel));
         }
 
-        var redirectUrl = ReturnUrlHelper.ResolveLocalReturnUrl(viewModel.ReturnUrl, $"/Visits?petId={pet.Id}");
+        var redirectUrl = ReturnUrlHelper.ResolveLocalReturnUrl(viewModel.ReturnUrl, PetActivityUrlHelper.VisitList(pet.Id));
         return Redirect(redirectUrl);
     }
 
@@ -299,35 +299,10 @@ public class VisitsController(
             return await BuildConcurrencyConflictResultAsync(visit, viewModel.ReturnUrl);
         }
 
-        if (HasImageChanges(viewModel))
+        var imageChangeResult = await ApplyImageChangesForEditAsync(visitId, visit, userId, viewModel);
+        if (imageChangeResult is not null)
         {
-            var imageUpdateResult = await visitImageService.ApplyImageChangesAsync(
-                visit,
-                userId,
-                viewModel.NewFiles,
-                viewModel.DeleteImageIds,
-                HttpContext.RequestAborted);
-
-            if (imageUpdateResult.IsConcurrencyConflict)
-            {
-                var currentVisit = await ownershipAuthorizer.FindOwnedVisitAsync(
-                    visitId,
-                    userId,
-                    asNoTracking: true,
-                    HttpContext.RequestAborted);
-                if (currentVisit is null)
-                {
-                    return NotFound();
-                }
-
-                return await BuildConcurrencyConflictResultAsync(currentVisit, viewModel.ReturnUrl);
-            }
-
-            if (!imageUpdateResult.Succeeded)
-            {
-                ModelState.AddModelError(nameof(VisitEditViewModel.NewFiles), imageUpdateResult.ErrorMessage!);
-                return View(await BuildEditViewModelAsync(visit, viewModel.ReturnUrl, viewModel));
-            }
+            return imageChangeResult;
         }
 
         dbContext.Entry(visit).Property(x => x.RowVersion).OriginalValue = postedRowVersion;
@@ -384,7 +359,7 @@ public class VisitsController(
 
         var redirectUrl = ReturnUrlHelper.ResolveLocalReturnUrl(
             returnUrl,
-            BuildVisitListUrl(visit.PetId, page));
+            PetActivityUrlHelper.VisitList(visit.PetId, page));
 
         await visitDeletionService.DeleteAsync(visit, userId, HttpContext.RequestAborted);
 
@@ -408,7 +383,7 @@ public class VisitsController(
             DeleteImageIds = source?.DeleteImageIds ?? [],
             RowVersion = source?.RowVersion,
             ReturnUrl = safeReturnUrl,
-            CancelUrl = ReturnUrlHelper.ResolveLocalReturnUrl(safeReturnUrl, $"/Visits?petId={pet.Id}")
+            CancelUrl = ReturnUrlHelper.ResolveLocalReturnUrl(safeReturnUrl, PetActivityUrlHelper.VisitList(pet.Id))
         };
     }
 
@@ -485,27 +460,53 @@ public class VisitsController(
         return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
     }
 
-    private static string BuildVisitListUrl(int petId, string? page)
-    {
-        var baseUrl = $"/Visits?petId={petId}";
-        if (string.IsNullOrWhiteSpace(page))
-        {
-            return baseUrl;
-        }
-
-        if (int.TryParse(page, out var parsedPage) && parsedPage > 0)
-        {
-            return $"{baseUrl}&page={PagingHelper.NormalizePage(parsedPage)}";
-        }
-
-        return $"{baseUrl}&page={PagingHelper.DefaultPage}";
-    }
-
     private async Task<ViewResult> BuildConcurrencyConflictResultAsync(Visit visit, string? returnUrl)
     {
         ModelState.Clear();
         ModelState.AddModelError(string.Empty, ConcurrencyMessages.RecordModified);
         return View("Edit", await BuildEditViewModelAsync(visit, returnUrl));
+    }
+
+    private async Task<IActionResult?> ApplyImageChangesForEditAsync(
+        int visitId,
+        Visit visit,
+        string userId,
+        VisitEditViewModel viewModel)
+    {
+        if (!HasImageChanges(viewModel))
+        {
+            return null;
+        }
+
+        var imageUpdateResult = await visitImageService.ApplyImageChangesAsync(
+            visit,
+            userId,
+            viewModel.NewFiles,
+            viewModel.DeleteImageIds,
+            HttpContext.RequestAborted);
+
+        if (imageUpdateResult.IsConcurrencyConflict)
+        {
+            var currentVisit = await ownershipAuthorizer.FindOwnedVisitAsync(
+                visitId,
+                userId,
+                asNoTracking: true,
+                HttpContext.RequestAborted);
+            if (currentVisit is null)
+            {
+                return NotFound();
+            }
+
+            return await BuildConcurrencyConflictResultAsync(currentVisit, viewModel.ReturnUrl);
+        }
+
+        if (imageUpdateResult.Succeeded)
+        {
+            return null;
+        }
+
+        ModelState.AddModelError(nameof(VisitEditViewModel.NewFiles), imageUpdateResult.ErrorMessage!);
+        return View(await BuildEditViewModelAsync(visit, viewModel.ReturnUrl, viewModel));
     }
 
     private static bool HasImageChanges(VisitEditViewModel viewModel)

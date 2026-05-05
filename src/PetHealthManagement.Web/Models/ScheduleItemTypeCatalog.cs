@@ -17,12 +17,7 @@ public static class ScheduleItemTypeCatalog
 
     public static bool IsKnownCode(string? code)
     {
-        if (string.IsNullOrWhiteSpace(code))
-        {
-            return false;
-        }
-
-        return All.Any(x => string.Equals(x.Code, code, StringComparison.OrdinalIgnoreCase));
+        return TryNormalizeCode(code, out _);
     }
 
     public static string ToLabel(string? code)
@@ -34,6 +29,47 @@ public static class ScheduleItemTypeCatalog
 
         var hit = All.FirstOrDefault(x => string.Equals(x.Code, code, StringComparison.OrdinalIgnoreCase));
         return hit is null ? code : hit.Label;
+    }
+
+    public static bool TryNormalizeCode(string? code, out string normalizedCode)
+    {
+        normalizedCode = string.Empty;
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            return false;
+        }
+
+        var hit = All.FirstOrDefault(x => string.Equals(x.Code, code.Trim(), StringComparison.OrdinalIgnoreCase));
+        if (hit is null)
+        {
+            return false;
+        }
+
+        normalizedCode = hit.Code;
+        return true;
+    }
+
+    public static string NormalizeKnownCode(string code)
+    {
+        if (TryNormalizeCode(code, out var normalizedCode))
+        {
+            return normalizedCode;
+        }
+
+        throw new ArgumentException("Unknown schedule item type code.", nameof(code));
+    }
+
+    public static string? NormalizeFilterCode(string? code)
+    {
+        var normalized = code?.Trim();
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return null;
+        }
+
+        return TryNormalizeCode(normalized, out var knownCode)
+            ? knownCode
+            : normalized.ToUpperInvariant();
     }
 
     public sealed record ScheduleItemTypeItem(string Code, string Label);

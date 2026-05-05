@@ -1,6 +1,6 @@
 namespace PetHealthManagement.Web.Models;
 
-public class VisitImage
+public class VisitImage : IImageAttachment
 {
     public int Id { get; set; }
 
