@@ -45,7 +45,7 @@ public class ScheduleItemsController(ApplicationDbContext dbContext) : Controlle
         }
 
         var normalizedPage = NormalizePage(page);
-        var normalizedTypeFilter = NormalizeTypeFilter(typeFilter);
+        var normalizedTypeFilter = ScheduleItemTypeCatalog.NormalizeFilterCode(typeFilter);
 
         var query = dbContext.ScheduleItems
             .AsNoTracking()
@@ -130,7 +130,7 @@ public class ScheduleItemsController(ApplicationDbContext dbContext) : Controlle
             Title = scheduleItem.Title,
             Note = scheduleItem.Note,
             IsDone = scheduleItem.IsDone,
-            ReturnUrl = ReturnUrlHelper.ResolveLocalReturnUrl(returnUrl, BuildScheduleItemListUrl(scheduleItem.PetId, page: null))
+            ReturnUrl = ReturnUrlHelper.ResolveLocalReturnUrl(returnUrl, PetActivityUrlHelper.ScheduleItemList(scheduleItem.PetId))
         };
 
         return View(viewModel);
@@ -185,7 +185,7 @@ public class ScheduleItemsController(ApplicationDbContext dbContext) : Controlle
         {
             PetId = pet.Id,
             DueDate = viewModel.DueDate!.Value.Date,
-            Type = NormalizeItemType(viewModel.ItemType),
+            Type = ScheduleItemTypeCatalog.NormalizeKnownCode(viewModel.ItemType),
             Title = NormalizeRequiredText(viewModel.Title),
             Note = NormalizeOptionalText(viewModel.Note),
             IsDone = false,
@@ -196,7 +196,7 @@ public class ScheduleItemsController(ApplicationDbContext dbContext) : Controlle
         dbContext.ScheduleItems.Add(scheduleItem);
         await dbContext.SaveChangesAsync(HttpContext.RequestAborted);
 
-        var redirectUrl = ReturnUrlHelper.ResolveLocalReturnUrl(viewModel.ReturnUrl, BuildScheduleItemListUrl(pet.Id, page: null));
+        var redirectUrl = ReturnUrlHelper.ResolveLocalReturnUrl(viewModel.ReturnUrl, PetActivityUrlHelper.ScheduleItemList(pet.Id));
         return Redirect(redirectUrl);
     }
 
@@ -251,7 +251,7 @@ public class ScheduleItemsController(ApplicationDbContext dbContext) : Controlle
 
         dbContext.Entry(scheduleItem).Property(x => x.RowVersion).OriginalValue = postedRowVersion;
         scheduleItem.DueDate = viewModel.DueDate!.Value.Date;
-        scheduleItem.Type = NormalizeItemType(viewModel.ItemType);
+        scheduleItem.Type = ScheduleItemTypeCatalog.NormalizeKnownCode(viewModel.ItemType);
         scheduleItem.Title = NormalizeRequiredText(viewModel.Title);
         scheduleItem.Note = NormalizeOptionalText(viewModel.Note);
         scheduleItem.UpdatedAt = DateTimeOffset.UtcNow;
@@ -304,7 +304,7 @@ public class ScheduleItemsController(ApplicationDbContext dbContext) : Controlle
 
         var redirectUrl = ReturnUrlHelper.ResolveLocalReturnUrl(
             returnUrl,
-            BuildScheduleItemListUrl(scheduleItem.PetId, page));
+            PetActivityUrlHelper.ScheduleItemList(scheduleItem.PetId, page));
 
         return Redirect(redirectUrl);
     }
@@ -333,7 +333,7 @@ public class ScheduleItemsController(ApplicationDbContext dbContext) : Controlle
 
         var redirectUrl = ReturnUrlHelper.ResolveLocalReturnUrl(
             returnUrl,
-            BuildScheduleItemListUrl(scheduleItem.PetId, page));
+            PetActivityUrlHelper.ScheduleItemList(scheduleItem.PetId, page));
 
         dbContext.ScheduleItems.Remove(scheduleItem);
         await dbContext.SaveChangesAsync(HttpContext.RequestAborted);
@@ -383,7 +383,7 @@ public class ScheduleItemsController(ApplicationDbContext dbContext) : Controlle
             Note = source?.Note,
             IsDone = false,
             ReturnUrl = safeReturnUrl,
-            CancelUrl = ReturnUrlHelper.ResolveLocalReturnUrl(safeReturnUrl, BuildScheduleItemListUrl(pet.Id, page: null)),
+            CancelUrl = ReturnUrlHelper.ResolveLocalReturnUrl(safeReturnUrl, PetActivityUrlHelper.ScheduleItemList(pet.Id)),
             TypeOptions = BuildTypeOptions()
         };
     }
@@ -462,26 +462,6 @@ public class ScheduleItemsController(ApplicationDbContext dbContext) : Controlle
         return PagingHelper.DefaultPage;
     }
 
-    private static string? NormalizeTypeFilter(string? typeFilter)
-    {
-        var normalized = typeFilter?.Trim();
-        if (string.IsNullOrWhiteSpace(normalized))
-        {
-            return null;
-        }
-
-        var hit = ScheduleItemTypeCatalog.All
-            .FirstOrDefault(x => string.Equals(x.Code, normalized, StringComparison.OrdinalIgnoreCase));
-
-        return hit?.Code ?? normalized.ToUpperInvariant();
-    }
-
-    private static string BuildScheduleItemListUrl(int petId, string? page)
-    {
-        var normalizedPage = NormalizePage(page);
-        return $"/ScheduleItems?petId={petId}&page={normalizedPage}";
-    }
-
     private static string? ToExcerpt(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
@@ -491,12 +471,6 @@ public class ScheduleItemsController(ApplicationDbContext dbContext) : Controlle
 
         var normalized = value.Trim();
         return normalized.Length <= 60 ? normalized : $"{normalized[..60]}...";
-    }
-
-    private static string NormalizeItemType(string itemType)
-    {
-        var hit = ScheduleItemTypeCatalog.All.First(x => string.Equals(x.Code, itemType, StringComparison.OrdinalIgnoreCase));
-        return hit.Code;
     }
 
     private static string NormalizeRequiredText(string value)

@@ -141,7 +141,7 @@ public class HealthLogsController(
             StoolCondition = healthLog.StoolCondition,
             Note = healthLog.Note,
             Images = images,
-            ReturnUrl = ReturnUrlHelper.ResolveLocalReturnUrl(returnUrl, $"/HealthLogs?petId={healthLog.PetId}")
+            ReturnUrl = ReturnUrlHelper.ResolveLocalReturnUrl(returnUrl, PetActivityUrlHelper.HealthLogList(healthLog.PetId))
         };
 
         return View(viewModel);
@@ -242,7 +242,7 @@ public class HealthLogsController(
             return View(BuildCreateViewModel(pet, viewModel.ReturnUrl, viewModel));
         }
 
-        var redirectUrl = ReturnUrlHelper.ResolveLocalReturnUrl(viewModel.ReturnUrl, $"/HealthLogs?petId={pet.Id}");
+        var redirectUrl = ReturnUrlHelper.ResolveLocalReturnUrl(viewModel.ReturnUrl, PetActivityUrlHelper.HealthLogList(pet.Id));
         return Redirect(redirectUrl);
     }
 
@@ -303,35 +303,11 @@ public class HealthLogsController(
             return await BuildConcurrencyConflictResultAsync(healthLog, viewModel.ReturnUrl);
         }
 
-        if (HasImageChanges(viewModel))
+        // Run image changes before mutating this tracked record; the image service saves internally.
+        var imageChangeResult = await ApplyImageChangesForEditAsync(healthLogId, healthLog, userId, viewModel);
+        if (imageChangeResult is not null)
         {
-            var imageUpdateResult = await healthLogImageService.ApplyImageChangesAsync(
-                healthLog,
-                userId,
-                viewModel.NewFiles,
-                viewModel.DeleteImageIds,
-                HttpContext.RequestAborted);
-
-            if (imageUpdateResult.IsConcurrencyConflict)
-            {
-                var currentHealthLog = await ownershipAuthorizer.FindOwnedHealthLogAsync(
-                    healthLogId,
-                    userId,
-                    asNoTracking: true,
-                    HttpContext.RequestAborted);
-                if (currentHealthLog is null)
-                {
-                    return NotFound();
-                }
-
-                return await BuildConcurrencyConflictResultAsync(currentHealthLog, viewModel.ReturnUrl);
-            }
-
-            if (!imageUpdateResult.Succeeded)
-            {
-                ModelState.AddModelError(nameof(HealthLogEditViewModel.NewFiles), imageUpdateResult.ErrorMessage!);
-                return View(await BuildEditViewModelAsync(healthLog, viewModel.ReturnUrl, viewModel));
-            }
+            return imageChangeResult;
         }
 
         dbContext.Entry(healthLog).Property(x => x.RowVersion).OriginalValue = postedRowVersion;
@@ -388,7 +364,7 @@ public class HealthLogsController(
 
         var redirectUrl = ReturnUrlHelper.ResolveLocalReturnUrl(
             returnUrl,
-            BuildHealthLogListUrl(healthLog.PetId, page));
+            PetActivityUrlHelper.HealthLogList(healthLog.PetId, page));
 
         await healthLogDeletionService.DeleteAsync(healthLog, userId, HttpContext.RequestAborted);
 
@@ -413,7 +389,7 @@ public class HealthLogsController(
             ExistingImages = [],
             RowVersion = source?.RowVersion,
             ReturnUrl = safeReturnUrl,
-            CancelUrl = ReturnUrlHelper.ResolveLocalReturnUrl(safeReturnUrl, $"/HealthLogs?petId={pet.Id}")
+            CancelUrl = ReturnUrlHelper.ResolveLocalReturnUrl(safeReturnUrl, PetActivityUrlHelper.HealthLogList(pet.Id))
         };
     }
 
@@ -481,18 +457,6 @@ public class HealthLogsController(
         return PagingHelper.DefaultPage;
     }
 
-    private static string BuildHealthLogListUrl(int petId, string? page)
-    {
-        var baseUrl = $"/HealthLogs?petId={petId}";
-
-        if (int.TryParse(page, out var parsedPage) && parsedPage > 0)
-        {
-            return $"{baseUrl}&page={PagingHelper.NormalizePage(parsedPage)}";
-        }
-
-        return baseUrl;
-    }
-
     private static string? ToExcerpt(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
@@ -509,6 +473,48 @@ public class HealthLogsController(
         ModelState.Clear();
         ModelState.AddModelError(string.Empty, ConcurrencyMessages.RecordModified);
         return View("Edit", await BuildEditViewModelAsync(healthLog, returnUrl));
+    }
+
+    private async Task<IActionResult?> ApplyImageChangesForEditAsync(
+        int healthLogId,
+        HealthLog healthLog,
+        string userId,
+        HealthLogEditViewModel viewModel)
+    {
+        if (!HasImageChanges(viewModel))
+        {
+            return null;
+        }
+
+        var imageUpdateResult = await healthLogImageService.ApplyImageChangesAsync(
+            healthLog,
+            userId,
+            viewModel.NewFiles,
+            viewModel.DeleteImageIds,
+            HttpContext.RequestAborted);
+
+        if (imageUpdateResult.IsConcurrencyConflict)
+        {
+            var currentHealthLog = await ownershipAuthorizer.FindOwnedHealthLogAsync(
+                healthLogId,
+                userId,
+                asNoTracking: true,
+                HttpContext.RequestAborted);
+            if (currentHealthLog is null)
+            {
+                return NotFound();
+            }
+
+            return await BuildConcurrencyConflictResultAsync(currentHealthLog, viewModel.ReturnUrl);
+        }
+
+        if (imageUpdateResult.Succeeded)
+        {
+            return null;
+        }
+
+        ModelState.AddModelError(nameof(HealthLogEditViewModel.NewFiles), imageUpdateResult.ErrorMessage!);
+        return View(await BuildEditViewModelAsync(healthLog, viewModel.ReturnUrl, viewModel));
     }
 
     private static bool HasImageChanges(HealthLogEditViewModel viewModel)

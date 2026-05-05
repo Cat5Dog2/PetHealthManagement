@@ -1,6 +1,6 @@
 namespace PetHealthManagement.Web.Models;
 
-public class HealthLogImage
+public class HealthLogImage : IImageAttachment
 {
     public int Id { get; set; }
 
