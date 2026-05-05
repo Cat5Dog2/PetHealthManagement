@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Headers;
+using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
 using PetHealthManagement.Web.Data;
@@ -134,6 +135,39 @@ public class ScreenCaseIntegrationTests
             Assert.DoesNotContain("Create a new account", html, StringComparison.Ordinal);
             Assert.DoesNotContain("Remember me?", html, StringComparison.Ordinal);
         }
+    }
+
+    [Fact]
+    public async Task Register_Post_PersistsSubmittedDisplayName()
+    {
+        await using var factory = new IntegrationTestWebApplicationFactory();
+        await factory.ResetDatabaseAsync(_ => Task.CompletedTask);
+
+        using var client = factory.CreateAnonymousClient();
+        using var getResponse = await client.GetAsync("/Identity/Account/Register?ReturnUrl=%2FMyPage");
+        Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
+
+        var token = ExtractAntiforgeryToken(await getResponse.Content.ReadAsStringAsync());
+        using var postResponse = await client.PostAsync(
+            "/Identity/Account/Register",
+            new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("__RequestVerificationToken", token),
+                new KeyValuePair<string, string>("Email", "new-owner@example.com"),
+                new KeyValuePair<string, string>("DisplayName", " New Owner "),
+                new KeyValuePair<string, string>("Password", "Pa$$w0rd!"),
+                new KeyValuePair<string, string>("ConfirmPassword", "Pa$$w0rd!"),
+                new KeyValuePair<string, string>("ReturnUrl", "/MyPage")
+            ]));
+
+        Assert.Equal(HttpStatusCode.Redirect, postResponse.StatusCode);
+        Assert.Equal("/MyPage", postResponse.Headers.Location?.OriginalString);
+
+        var registeredUser = await factory.ExecuteDbContextAsync(async dbContext =>
+            await dbContext.Users.SingleAsync(x => x.Email == "new-owner@example.com"));
+
+        Assert.Equal("New Owner", registeredUser.DisplayName);
+        Assert.True(registeredUser.EmailConfirmed);
     }
 
     [Fact]
@@ -474,6 +508,17 @@ public class ScreenCaseIntegrationTests
     private static async Task<string> ReadDecodedHtmlAsync(HttpResponseMessage response)
     {
         return WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
+    }
+
+    private static string ExtractAntiforgeryToken(string html)
+    {
+        var match = Regex.Match(
+            html,
+            @"<input\b[^>]*\bname=""__RequestVerificationToken""[^>]*\bvalue=""([^""]+)""",
+            RegexOptions.IgnoreCase);
+
+        Assert.True(match.Success, "Could not find the antiforgery token.");
+        return WebUtility.HtmlDecode(match.Groups[1].Value);
     }
 
     private sealed record UploadFile(string FileName, string ContentType, byte[] Content);

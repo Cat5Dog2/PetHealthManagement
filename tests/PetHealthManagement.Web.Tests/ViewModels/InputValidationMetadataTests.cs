@@ -3,6 +3,7 @@ using System.Reflection;
 using PetHealthManagement.Web.Infrastructure;
 using PetHealthManagement.Web.ViewModels.Account;
 using PetHealthManagement.Web.ViewModels.HealthLogs;
+using PetHealthManagement.Web.ViewModels.Identity.Account;
 using PetHealthManagement.Web.ViewModels.Pets;
 using PetHealthManagement.Web.ViewModels.ScheduleItems;
 using PetHealthManagement.Web.ViewModels.Visits;
@@ -22,6 +23,22 @@ public class InputValidationMetadataTests
         var validationResults = Validate(model);
 
         AssertHasValidationErrorFor(validationResults, nameof(EditProfileViewModel.DisplayName));
+    }
+
+    [Fact]
+    public void IdentityRegisterViewModel_DisplayName_RejectsValuesOverConfiguredLength()
+    {
+        var model = new IdentityRegisterViewModel
+        {
+            Email = "new@example.com",
+            DisplayName = new string('a', InputValidationLimits.Profile.DisplayNameMaxLength + 1),
+            Password = "Pa$$w0rd!",
+            ConfirmPassword = "Pa$$w0rd!"
+        };
+
+        var validationResults = Validate(model);
+
+        AssertHasValidationErrorFor(validationResults, nameof(IdentityRegisterViewModel.DisplayName));
     }
 
     [Fact]

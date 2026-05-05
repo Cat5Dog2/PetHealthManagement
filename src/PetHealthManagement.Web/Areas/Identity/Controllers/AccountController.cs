@@ -103,9 +103,9 @@ public class AccountController(
         {
             UserName = email,
             Email = email,
-            EmailConfirmed = true,
-            DisplayName = email.Length <= 50 ? email : email[..50]
+            EmailConfirmed = true
         };
+        user.DisplayName = UserDisplayNameHelper.ResolveForStorage(user, model.DisplayName);
 
         var result = await userManager.CreateAsync(user, model.Password);
         if (result.Succeeded)

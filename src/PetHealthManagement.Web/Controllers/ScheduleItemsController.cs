@@ -15,7 +15,7 @@ namespace PetHealthManagement.Web.Controllers;
 public class ScheduleItemsController(ApplicationDbContext dbContext) : Controller
 {
     [HttpGet("")]
-    public async Task<IActionResult> Index(int? petId, string? page)
+    public async Task<IActionResult> Index(int? petId, string? page, string? typeFilter = null)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(userId))
@@ -45,10 +45,18 @@ public class ScheduleItemsController(ApplicationDbContext dbContext) : Controlle
         }
 
         var normalizedPage = NormalizePage(page);
+        var normalizedTypeFilter = NormalizeTypeFilter(typeFilter);
 
         var query = dbContext.ScheduleItems
             .AsNoTracking()
-            .Where(x => x.PetId == pet.Id)
+            .Where(x => x.PetId == pet.Id);
+
+        if (!string.IsNullOrEmpty(normalizedTypeFilter))
+        {
+            query = query.Where(x => x.Type == normalizedTypeFilter);
+        }
+
+        query = query
             .OrderBy(x => x.DueDate)
             .ThenBy(x => x.Id);
 
@@ -72,9 +80,11 @@ public class ScheduleItemsController(ApplicationDbContext dbContext) : Controlle
         {
             PetId = pet.Id,
             PetName = pet.Name,
+            TypeFilter = normalizedTypeFilter,
             Page = normalizedPage,
             PageSize = ScheduleItemIndexViewModel.DefaultPageSize,
             TotalCount = totalCount,
+            TypeOptions = BuildTypeOptions(),
             ScheduleItems = scheduleItems
                 .Select(x => new ScheduleItemListItemViewModel
                 {
@@ -450,6 +460,20 @@ public class ScheduleItemsController(ApplicationDbContext dbContext) : Controlle
         }
 
         return PagingHelper.DefaultPage;
+    }
+
+    private static string? NormalizeTypeFilter(string? typeFilter)
+    {
+        var normalized = typeFilter?.Trim();
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return null;
+        }
+
+        var hit = ScheduleItemTypeCatalog.All
+            .FirstOrDefault(x => string.Equals(x.Code, normalized, StringComparison.OrdinalIgnoreCase));
+
+        return hit?.Code ?? normalized.ToUpperInvariant();
     }
 
     private static string BuildScheduleItemListUrl(int petId, string? page)

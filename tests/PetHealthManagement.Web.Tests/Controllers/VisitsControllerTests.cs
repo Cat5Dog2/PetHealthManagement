@@ -211,7 +211,8 @@ public class VisitsControllerTests
 
         var imageService = new FakeVisitImageService
         {
-            NextResult = VisitImageUpdateResult.Fail("Image error")
+            NextResult = VisitImageUpdateResult.Fail("Image error"),
+            BeforeReturnAsync = async () => await dbContext.SaveChangesAsync()
         };
 
         var controller = BuildController(dbContext, "user-a", imageService);
@@ -398,6 +399,7 @@ public class VisitsControllerTests
         {
             PetId = 1,
             VisitDate = new DateTime(2026, 3, 23),
+            ClinicName = "Updated Clinic",
             DeleteImageIds = [Guid.NewGuid()],
             RowVersion = EncodeRowVersion()
         });
@@ -409,6 +411,7 @@ public class VisitsControllerTests
         Assert.False(controller.ModelState.IsValid);
         Assert.Equal(10, model.VisitId);
         Assert.Equal(new DateTime(2026, 3, 21), unchangedVisit.VisitDate);
+        Assert.Equal("Clinic", unchangedVisit.ClinicName);
         Assert.Equal(1, imageService.CallCount);
     }
 
@@ -611,7 +614,9 @@ public class VisitsControllerTests
 
         public VisitImageUpdateResult NextResult { get; init; } = VisitImageUpdateResult.Success();
 
-        public Task<VisitImageUpdateResult> ApplyImageChangesAsync(
+        public Func<Task>? BeforeReturnAsync { get; init; }
+
+        public async Task<VisitImageUpdateResult> ApplyImageChangesAsync(
             Visit visit,
             string ownerId,
             IReadOnlyCollection<IFormFile>? newFiles,
@@ -625,7 +630,12 @@ public class VisitsControllerTests
 
             CallCount += 1;
             LastPetId = visit.PetId;
-            return Task.FromResult(NextResult);
+            if (BeforeReturnAsync is not null)
+            {
+                await BeforeReturnAsync();
+            }
+
+            return NextResult;
         }
     }
 

@@ -303,10 +303,6 @@ public class HealthLogsController(
             return await BuildConcurrencyConflictResultAsync(healthLog, viewModel.ReturnUrl);
         }
 
-        dbContext.Entry(healthLog).Property(x => x.RowVersion).OriginalValue = postedRowVersion;
-        var originalValues = CaptureHealthLogEditValues(healthLog);
-        ApplyHealthLogEditValues(healthLog, viewModel);
-
         if (HasImageChanges(viewModel))
         {
             var imageUpdateResult = await healthLogImageService.ApplyImageChangesAsync(
@@ -333,14 +329,13 @@ public class HealthLogsController(
 
             if (!imageUpdateResult.Succeeded)
             {
-                RestoreHealthLogEditValues(healthLog, originalValues);
                 ModelState.AddModelError(nameof(HealthLogEditViewModel.NewFiles), imageUpdateResult.ErrorMessage!);
                 return View(await BuildEditViewModelAsync(healthLog, viewModel.ReturnUrl, viewModel));
             }
-
-            var imageRedirectUrl = ReturnUrlHelper.ResolveLocalReturnUrl(viewModel.ReturnUrl, $"/HealthLogs/Details/{healthLogId}");
-            return Redirect(imageRedirectUrl);
         }
+
+        dbContext.Entry(healthLog).Property(x => x.RowVersion).OriginalValue = postedRowVersion;
+        ApplyHealthLogEditValues(healthLog, viewModel);
 
         try
         {
@@ -518,7 +513,7 @@ public class HealthLogsController(
 
     private static bool HasImageChanges(HealthLogEditViewModel viewModel)
     {
-        return viewModel.NewFiles?.Count > 0 || viewModel.DeleteImageIds.Length > 0;
+        return viewModel.NewFiles?.Count > 0 || (viewModel.DeleteImageIds?.Length ?? 0) > 0;
     }
 
     private static void ApplyHealthLogEditValues(HealthLog healthLog, HealthLogEditViewModel viewModel)
@@ -532,41 +527,9 @@ public class HealthLogsController(
         healthLog.UpdatedAt = DateTimeOffset.UtcNow;
     }
 
-    private static HealthLogEditSnapshot CaptureHealthLogEditValues(HealthLog healthLog)
-    {
-        return new HealthLogEditSnapshot(
-            healthLog.RecordedAt,
-            healthLog.WeightKg,
-            healthLog.FoodAmountGram,
-            healthLog.WalkMinutes,
-            healthLog.StoolCondition,
-            healthLog.Note,
-            healthLog.UpdatedAt);
-    }
-
-    private static void RestoreHealthLogEditValues(HealthLog healthLog, HealthLogEditSnapshot snapshot)
-    {
-        healthLog.RecordedAt = snapshot.RecordedAt;
-        healthLog.WeightKg = snapshot.WeightKg;
-        healthLog.FoodAmountGram = snapshot.FoodAmountGram;
-        healthLog.WalkMinutes = snapshot.WalkMinutes;
-        healthLog.StoolCondition = snapshot.StoolCondition;
-        healthLog.Note = snapshot.Note;
-        healthLog.UpdatedAt = snapshot.UpdatedAt;
-    }
-
     private static bool HasExpectedRowVersion(byte[]? currentRowVersion, byte[] postedRowVersion)
     {
         return currentRowVersion is not null
             && currentRowVersion.AsSpan().SequenceEqual(postedRowVersion);
     }
-
-    private sealed record HealthLogEditSnapshot(
-        DateTimeOffset RecordedAt,
-        double? WeightKg,
-        int? FoodAmountGram,
-        int? WalkMinutes,
-        string? StoolCondition,
-        string? Note,
-        DateTimeOffset UpdatedAt);
 }
