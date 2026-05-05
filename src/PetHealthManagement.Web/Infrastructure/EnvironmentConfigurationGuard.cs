@@ -30,7 +30,26 @@ public static class EnvironmentConfigurationGuard
                 $"{environmentName} cannot use the Development LocalDB connection string. Configure ConnectionStrings__DefaultConnection for this environment.");
         }
 
+        if (string.Equals(environmentName, Environments.Production, StringComparison.OrdinalIgnoreCase)
+            && !IsLinuxHomePath(storageRoot))
+        {
+            throw new InvalidOperationException(
+                "Production Storage:RootPath must be an absolute path under /home, for example Storage__RootPath=/home/pethealth-storage.");
+        }
+
         ValidateDataProtection(configuration, environmentName);
+    }
+
+    private static bool IsLinuxHomePath(string storageRoot)
+    {
+        var normalized = storageRoot.Trim();
+        if (!normalized.StartsWith("/home/", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var segments = normalized.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        return !segments.Any(segment => segment is "." or "..");
     }
 
     private static void ValidateDataProtection(IConfiguration configuration, string environmentName)

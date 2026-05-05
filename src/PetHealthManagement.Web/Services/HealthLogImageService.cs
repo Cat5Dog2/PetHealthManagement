@@ -369,6 +369,8 @@ public class HealthLogImageService(
             var processed = await ProcessAndValidateImageAsync(originalTempPath, processedTempPath, cancellationToken);
             if (!processed.Succeeded)
             {
+                TryDeleteTemporaryFile(originalTempPath);
+                TryDeleteTemporaryFile(processedTempPath);
                 return ProcessedUpload.Fail(processed.ErrorMessage!);
             }
 

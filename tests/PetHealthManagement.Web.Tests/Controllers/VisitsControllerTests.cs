@@ -232,6 +232,38 @@ public class VisitsControllerTests
     }
 
     [Fact]
+    public async Task CreatePost_RollsBackAndReturnsView_WhenImageUpdateHasConcurrencyConflict()
+    {
+        await using var dbContext = CreateDbContext();
+        dbContext.Pets.Add(NewPet(1, "user-a", "Mugi"));
+        await dbContext.SaveChangesAsync();
+
+        var imageService = new FakeVisitImageService
+        {
+            NextResult = VisitImageUpdateResult.ConcurrencyConflict()
+        };
+
+        var controller = BuildController(dbContext, "user-a", imageService);
+
+        var result = await controller.Create(new VisitEditViewModel
+        {
+            PetId = 1,
+            VisitDate = new DateTime(2026, 3, 22),
+            ReturnUrl = "/Visits?petId=1"
+        });
+
+        var viewResult = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<VisitEditViewModel>(viewResult.Model);
+
+        Assert.False(controller.ModelState.IsValid);
+        Assert.Contains(
+            controller.ModelState.SelectMany(x => x.Value!.Errors),
+            error => error.ErrorMessage == ConcurrencyMessages.RecordModified);
+        Assert.Equal(0, await dbContext.Visits.CountAsync());
+        Assert.Equal("Mugi", model.PetName);
+    }
+
+    [Fact]
     public async Task EditGet_ReturnsView_ForOwner_WithExistingImages()
     {
         await using var dbContext = CreateDbContext();

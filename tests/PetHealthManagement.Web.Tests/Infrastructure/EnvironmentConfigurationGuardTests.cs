@@ -9,7 +9,7 @@ public class EnvironmentConfigurationGuardTests
     [Theory]
     [InlineData("Development", "StorageRoot/Development", "Server=(localdb)\\mssqllocaldb;Database=PetHealthManagement;Trusted_Connection=True;MultipleActiveResultSets=true")]
     [InlineData("Staging", "StorageRoot/Staging", null)]
-    [InlineData("Production", "StorageRoot/Production", null)]
+    [InlineData("Production", "/home/pethealth-storage", null)]
     public void EnvironmentSpecificAppSettings_AreLoaded(string environmentName, string expectedStorageRoot, string? expectedConnectionString)
     {
         var configuration = BuildConfiguration(environmentName);
@@ -45,13 +45,34 @@ public class EnvironmentConfigurationGuardTests
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["ConnectionStrings:DefaultConnection"] = "Server=(localdb)\\mssqllocaldb;Database=PetHealthManagement;Trusted_Connection=True;MultipleActiveResultSets=true",
-                ["Storage:RootPath"] = "StorageRoot/Staging"
+                ["Storage:RootPath"] = "/home/pethealth-storage"
             })
             .Build();
 
         var exception = Assert.Throws<InvalidOperationException>(() => EnvironmentConfigurationGuard.Validate(configuration, "Production"));
 
         Assert.Contains("cannot use the Development LocalDB connection string", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("StorageRoot/Production")]
+    [InlineData("/home/../tmp")]
+    [InlineData("\\home\\pethealth-storage")]
+    public void Validate_RejectsProductionStorageOutsideHome(string storageRoot)
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:DefaultConnection"] = "Server=tcp:pethealth.database.windows.net,1433;Initial Catalog=PetHealthManagement;Encrypt=True;",
+                ["Storage:RootPath"] = storageRoot,
+                ["DataProtection:BlobUri"] = "https://pethealthstorage.blob.core.windows.net/dataprotection/keys.xml",
+                ["DataProtection:KeyVaultKeyIdentifier"] = "https://pethealth-kv.vault.azure.net/keys/data-protection"
+            })
+            .Build();
+
+        var exception = Assert.Throws<InvalidOperationException>(() => EnvironmentConfigurationGuard.Validate(configuration, "Production"));
+
+        Assert.Contains("/home", exception.Message, StringComparison.Ordinal);
     }
 
     [Fact]
