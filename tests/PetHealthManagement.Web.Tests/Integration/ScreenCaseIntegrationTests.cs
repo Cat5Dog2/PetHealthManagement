@@ -97,6 +97,7 @@ public class ScreenCaseIntegrationTests
             Assert.Contains(expectedText, html, StringComparison.Ordinal);
             Assert.Contains("メールアドレス", html, StringComparison.Ordinal);
             Assert.Contains("パスワード", html, StringComparison.Ordinal);
+            Assert.DoesNotContain("/Identity/Account/Manage/TwoFactorAuthentication", html, StringComparison.Ordinal);
             Assert.DoesNotContain("Manage your account", html, StringComparison.Ordinal);
             Assert.DoesNotContain("Change your account settings", html, StringComparison.Ordinal);
         }
@@ -129,6 +130,7 @@ public class ScreenCaseIntegrationTests
             Assert.DoesNotContain("Use a local account", html, StringComparison.Ordinal);
             Assert.DoesNotContain("Use another service", html, StringComparison.Ordinal);
             Assert.DoesNotContain("There are no external authentication services configured", html, StringComparison.Ordinal);
+            Assert.DoesNotContain("外部サービス", html, StringComparison.Ordinal);
             Assert.DoesNotContain("Create a new account", html, StringComparison.Ordinal);
             Assert.DoesNotContain("Remember me?", html, StringComparison.Ordinal);
         }

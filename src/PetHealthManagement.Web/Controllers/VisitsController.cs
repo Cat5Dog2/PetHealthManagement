@@ -224,7 +224,17 @@ public class VisitsController(
             dbContext.Visits.Remove(visit);
             await dbContext.SaveChangesAsync(HttpContext.RequestAborted);
 
-            ModelState.AddModelError(nameof(VisitEditViewModel.NewFiles), imageUpdateResult.ErrorMessage!);
+            if (imageUpdateResult.IsConcurrencyConflict)
+            {
+                ModelState.AddModelError(string.Empty, ConcurrencyMessages.RecordModified);
+            }
+            else
+            {
+                ModelState.AddModelError(
+                    nameof(VisitEditViewModel.NewFiles),
+                    imageUpdateResult.ErrorMessage ?? ImageUploadErrorMessages.SaveFailed);
+            }
+
             return View(BuildCreateViewModel(pet, viewModel.ReturnUrl, viewModel));
         }
 

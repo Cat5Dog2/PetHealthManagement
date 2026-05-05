@@ -228,7 +228,17 @@ public class HealthLogsController(
             dbContext.HealthLogs.Remove(healthLog);
             await dbContext.SaveChangesAsync(HttpContext.RequestAborted);
 
-            ModelState.AddModelError(nameof(HealthLogEditViewModel.NewFiles), imageUpdateResult.ErrorMessage!);
+            if (imageUpdateResult.IsConcurrencyConflict)
+            {
+                ModelState.AddModelError(string.Empty, ConcurrencyMessages.RecordModified);
+            }
+            else
+            {
+                ModelState.AddModelError(
+                    nameof(HealthLogEditViewModel.NewFiles),
+                    imageUpdateResult.ErrorMessage ?? ImageUploadErrorMessages.SaveFailed);
+            }
+
             return View(BuildCreateViewModel(pet, viewModel.ReturnUrl, viewModel));
         }
 

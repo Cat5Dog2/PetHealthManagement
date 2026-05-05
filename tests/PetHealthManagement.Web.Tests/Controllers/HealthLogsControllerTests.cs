@@ -229,6 +229,39 @@ public class HealthLogsControllerTests
     }
 
     [Fact]
+    public async Task CreatePost_RollsBackAndReturnsView_WhenImageUpdateHasConcurrencyConflict()
+    {
+        await using var dbContext = CreateDbContext();
+        dbContext.Users.Add(new ApplicationUser { Id = "user-a", UserName = "userA" });
+        dbContext.Pets.Add(NewPet(1, "user-a", "Mugi"));
+        await dbContext.SaveChangesAsync();
+
+        var imageService = new FakeHealthLogImageService
+        {
+            NextResult = HealthLogImageUpdateResult.ConcurrencyConflict()
+        };
+
+        var controller = BuildController(dbContext, "user-a", imageService);
+
+        var result = await controller.Create(new HealthLogEditViewModel
+        {
+            PetId = 1,
+            RecordedAt = new DateTime(2026, 3, 22, 9, 30, 0),
+            ReturnUrl = "/HealthLogs?petId=1"
+        });
+
+        var viewResult = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<HealthLogEditViewModel>(viewResult.Model);
+
+        Assert.False(controller.ModelState.IsValid);
+        Assert.Contains(
+            controller.ModelState.SelectMany(x => x.Value!.Errors),
+            error => error.ErrorMessage == ConcurrencyMessages.RecordModified);
+        Assert.Equal(0, await dbContext.HealthLogs.CountAsync());
+        Assert.Equal("Mugi", model.PetName);
+    }
+
+    [Fact]
     public async Task EditGet_ReturnsView_ForOwner()
     {
         await using var dbContext = CreateDbContext();

@@ -205,6 +205,7 @@ public class VisitImageServiceTests
         Assert.False(result.Succeeded);
         Assert.Equal(ImageUploadErrorMessages.UnsupportedFormat, result.ErrorMessage);
         Assert.Empty(storage.MovedStorageKeys);
+        AssertNoTemporaryFiles(storage);
         var rejectionLog = Assert.Single(logger.Entries);
         Assert.Equal(LogLevel.Warning, rejectionLog.LogLevel);
         Assert.Equal(ImageOperationLogging.Reasons.UnsupportedImageData, rejectionLog.Properties["Reason"]);
@@ -330,4 +331,14 @@ public class VisitImageServiceTests
         };
     }
 
+    private static void AssertNoTemporaryFiles(TestFileBackedImageStorageService storage)
+    {
+        var tempDirectory = Path.Combine(storage.RootPath, "tmp");
+        if (!Directory.Exists(tempDirectory))
+        {
+            return;
+        }
+
+        Assert.Empty(Directory.EnumerateFiles(tempDirectory, "*", SearchOption.AllDirectories));
+    }
 }

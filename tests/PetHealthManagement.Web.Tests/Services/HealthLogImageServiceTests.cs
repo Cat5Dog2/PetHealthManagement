@@ -121,6 +121,40 @@ public class HealthLogImageServiceTests
     }
 
     [Fact]
+    public async Task ApplyImageChangesAsync_CleansTemporaryFiles_WhenUploadedFileIsNotAnImage()
+    {
+        await using var dbContext = CreateDbContext();
+        using var storage = new TestFileBackedImageStorageService("healthlog-image-tests");
+
+        dbContext.Users.Add(new ApplicationUser { Id = "user-a", UserName = "userA" });
+        dbContext.Pets.Add(NewPet(1, "user-a"));
+        dbContext.HealthLogs.Add(new HealthLog
+        {
+            Id = 10,
+            PetId = 1,
+            RecordedAt = DateTimeOffset.UtcNow,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        });
+
+        await dbContext.SaveChangesAsync();
+
+        var service = new HealthLogImageService(dbContext, storage, NullLogger<HealthLogImageService>.Instance);
+        var healthLog = await dbContext.HealthLogs.SingleAsync(x => x.Id == 10);
+
+        var result = await service.ApplyImageChangesAsync(
+            healthLog,
+            "user-a",
+            [CreateTextFormFile("fake.png", "image/png")],
+            []);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(ImageUploadErrorMessages.UnsupportedFormat, result.ErrorMessage);
+        Assert.Empty(storage.MovedStorageKeys);
+        AssertNoTemporaryFiles(storage);
+    }
+
+    [Fact]
     public async Task ApplyImageChangesAsync_Succeeds_WhenOldFileDeletionFails()
     {
         await using var dbContext = CreateDbContext();
@@ -267,4 +301,26 @@ public class HealthLogImageServiceTests
         };
     }
 
+    private static IFormFile CreateTextFormFile(string fileName, string contentType)
+    {
+        var bytes = System.Text.Encoding.UTF8.GetBytes("this is not a real image");
+        var stream = new MemoryStream(bytes);
+
+        return new FormFile(stream, 0, stream.Length, "NewFiles", fileName)
+        {
+            Headers = new HeaderDictionary(),
+            ContentType = contentType
+        };
+    }
+
+    private static void AssertNoTemporaryFiles(TestFileBackedImageStorageService storage)
+    {
+        var tempDirectory = Path.Combine(storage.RootPath, "tmp");
+        if (!Directory.Exists(tempDirectory))
+        {
+            return;
+        }
+
+        Assert.Empty(Directory.EnumerateFiles(tempDirectory, "*", SearchOption.AllDirectories));
+    }
 }
