@@ -56,7 +56,6 @@ jobs:
           [[ -n "$AZURE_SUBSCRIPTION_ID" ]] || { echo "Missing production secret AZURE_SUBSCRIPTION_ID"; exit 1; }
           [[ -n "$SMOKE_TEST_EMAIL" ]] || { echo "Missing production secret SMOKE_TEST_EMAIL"; exit 1; }
           [[ -n "$SMOKE_TEST_PASSWORD" ]] || { echo "Missing production secret SMOKE_TEST_PASSWORD"; exit 1; }
-          [[ -n "$SMOKE_TEST_IMAGE_URL" ]] || { echo "Missing production variable SMOKE_TEST_IMAGE_URL"; exit 1; }
 
       - name: Checkout target ref
         uses: actions/checkout@v6
@@ -110,10 +109,16 @@ jobs:
           SMOKE_TEST_EMAIL: ${{ secrets.SMOKE_TEST_EMAIL }}
           SMOKE_TEST_PASSWORD: ${{ secrets.SMOKE_TEST_PASSWORD }}
           SMOKE_TEST_IMAGE_URL: ${{ vars.SMOKE_TEST_IMAGE_URL }}
-        run: >
-          bash ./scripts/local-smoke.sh
-          --use-existing-app
-          --base-url "$APP_BASE_URL"
-          --email "$SMOKE_TEST_EMAIL"
-          --password "$SMOKE_TEST_PASSWORD"
-          --image-url "$SMOKE_TEST_IMAGE_URL"
+        run: |
+          SMOKE_ARGS=(
+            --use-existing-app
+            --base-url "$APP_BASE_URL"
+            --email "$SMOKE_TEST_EMAIL"
+            --password "$SMOKE_TEST_PASSWORD"
+          )
+
+          if [[ -n "${SMOKE_TEST_IMAGE_URL:-}" ]]; then
+            SMOKE_ARGS+=(--image-url "$SMOKE_TEST_IMAGE_URL")
+          fi
+
+          bash ./scripts/local-smoke.sh "${SMOKE_ARGS[@]}"

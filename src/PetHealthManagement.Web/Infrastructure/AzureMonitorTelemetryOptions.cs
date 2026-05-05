@@ -9,7 +9,7 @@ public sealed class AzureMonitorTelemetryOptions
 
     public string ServiceName { get; set; } = DefaultServiceName;
 
-    public bool EnableLiveMetrics { get; set; } = true;
+    public bool EnableLiveMetrics { get; set; }
 
     public float? SamplingRatio { get; set; }
 

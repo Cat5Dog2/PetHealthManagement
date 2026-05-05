@@ -37,23 +37,35 @@
 
 #### 1.3.1 App Service プラットフォーム決定
 - 本アプリは **Azure App Service on Linux** を正とする。
+- ポートフォリオ公開の初期構成では **Free F1** を使う。
+  - 無料枠で公開できることを優先し、SLA、スケールアウト、独自ドメインは前提にしない。
+  - 独自ドメイン、常時安定稼働、保存容量増加が必要になったら Basic 以上へ上げる。
 - 理由
   - アプリは ASP.NET Core / .NET 10 であり、ASP.NET Framework や Windows 固有 API に依存していない。
   - 画像ストレージは `Path` ベースのファイルシステム抽象化で実装されており、OS 固有のパスに依存しない。
   - CI は `ubuntu-latest` を使っており、Linux ホスト前提との整合が取りやすい。
+- デプロイ前に App Service の Linux built-in stack が `.NET 10` を選べることを確認する。未対応の場合は self-contained publish か、対応済み LTS へのターゲット変更を別タスクで判断する。
 - Windows App Service は、ASP.NET Framework や Windows 固有依存が必要になった場合の例外選択肢とする。
 - この決定は「画像保存を App Service のファイルシステムで継続するか」「Blob へ移行するか」までは確定しない。画像ストレージの長期方針は別タスクで扱う。
 
 #### 1.3.2 本番 DB プラットフォーム決定
 - 本番 DB は **Azure SQL Database の single database** を正とする。
-- 購入モデルは **vCore-based**、サービス階層は **General Purpose** を基本とする。
-- compute model は当面 **Provisioned** を正とし、serverless auto-pause は採用しない。
+- ポートフォリオ公開の初期構成では **Azure SQL Database free offer** を第一候補にする。
+  - 月 100,000 vCore 秒、32GB data、32GB backup の無料枠内に収める。
+  - 無料枠超過時の挙動は **Auto-pause the database until next month** を選び、課金継続を避ける。
+- 商用本番や常時安定稼働へ移す場合は、購入モデル **vCore-based**、サービス階層 **General Purpose**、compute model **Provisioned** を再評価する。
 - 理由
   - アプリは単一の `ApplicationDbContext` を前提にした小規模 Web アプリであり、elastic pool や Managed Instance を前提にする要件がない。
   - EF Core は `UseSqlServer` を使っており、開発の LocalDB と本番の Azure SQL Database で同じ SQL Server 系エンジンを前提にできる。
   - Azure SQL Database では single database が基本のデプロイ選択肢で、Microsoft は vCore-based の購入モデルを推奨している。
-  - serverless は自動再開時に初回接続で一時的な失敗や待ち時間が発生しうるため、ログインやリリース後 smoke の安定性を優先して Provisioned を採る。
-- 将来、コスト最適化や利用状況に応じて serverless / elastic pool / zone redundancy を再評価できる前提とする。
+  - ポートフォリオ用途では、初回接続の再開待ちよりも月額コスト抑制を優先する。
+- 将来、コスト最適化や利用状況に応じて General Purpose Provisioned / elastic pool / zone redundancy を再評価できる前提とする。
+
+#### 1.3.2.1 Azure コスト管理方針
+- Azure リソースを作る前に **Cost Management の Budget Alert** を作成する。
+  - 初期値の目安は月 500 円から 1,000 円とし、50%、80%、100% で通知する。
+- App Service Free F1 と Azure SQL Database free offer を使っても、Key Vault、Storage Account、Application Insights、通信量などは小額の従量課金が発生し得る。
+- ポートフォリオ初期公開では Application Insights の接続文字列を未設定にし、必要になった時だけ低サンプリングで有効化する。
 
 #### 1.3.3 本番機密情報の管理方式決定
 - 本番の機密情報は **Azure Key Vault を正**とする。

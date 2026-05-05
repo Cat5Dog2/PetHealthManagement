@@ -66,7 +66,11 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev-certs.ps1 -Trust
 ## Azure App Service プラットフォーム決定
 
 - 本番 Web ホストは **Azure App Service on Linux** を採用します
+- ポートフォリオ公開の初期構成では、まず **Free F1** を使います
+  - 無料枠で運用できる一方、SLA、スケールアウト、独自ドメインなどは前提にしません
+  - 独自ドメイン、常時安定稼働、より大きな保存容量が必要になったら Basic 以上へ上げます
 - 理由は、アプリが ASP.NET Core / .NET 10 で Windows 固有依存を持たず、現在の CI も Linux 系ランナーに寄っているためです
+- デプロイ前に App Service の Linux built-in stack が `.NET 10` を選べることを確認します。未対応の場合は self-contained publish か、対応済み LTS へのターゲット変更を別タスクで判断します
 - `Storage__RootPath` は Linux App Service の永続領域である `/home` 配下の絶対パスを使います
   - 例: `Storage__RootPath=/home/pethealth-storage`
 - この決定は App Service の OS を固定するもので、画像ストレージを長期的に App Service ファイルシステムで持つか Blob へ移すかは次の運用タスクで継続検討します
@@ -74,11 +78,21 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev-certs.ps1 -Trust
 ## Azure SQL Database 決定
 
 - 本番 DB は **Azure SQL Database single database** を採用します
-- 購入モデルは **vCore-based**、サービス階層は **General Purpose**、compute model は **Provisioned** を正とします
+- ポートフォリオ公開の初期構成では **Azure SQL Database free offer** を第一候補にします
+  - 月 100,000 vCore 秒、32GB data、32GB backup の無料枠内に収めます
+  - 無料枠超過時の挙動は **Auto-pause the database until next month** を選び、課金継続を避けます
+- 商用本番や常時安定稼働へ移す場合は、購入モデル **vCore-based**、サービス階層 **General Purpose**、compute model **Provisioned** を再評価します
 - このアプリは単一 DB の ASP.NET Core / EF Core アプリなので、Managed Instance や elastic pool を前提にしません
 - LocalDB と同じ SQL Server 系のため、既存の `UseSqlServer` と migration 運用をそのまま本番へ寄せやすい構成です
-- serverless auto-pause は初回接続時の再開待ちや接続失敗リトライを招きうるため、ログイン操作やリリース後 smoke を安定させる目的で当面は採用しません
-- 接続文字列の具体的な渡し方と機密情報の保管方法は次タスクで決めます
+- free offer の自動停止や再開待ちがポートフォリオ閲覧に影響する場合は、デモ公開時間帯だけ手動確認するか、有料の安定構成へ切り替えます
+
+## Azure コスト管理方針
+
+- Azure リソースを作る前に **Cost Management の Budget Alert** を必ず作ります
+  - 初期値の目安: 月 500 円から 1,000 円
+  - 50%、80%、100% で通知します
+- App Service Free F1 と Azure SQL Database free offer を使っても、Key Vault、Storage Account、Application Insights、通信量などは小額の従量課金が発生し得ます
+- ポートフォリオ目的では、初期状態で Application Insights の接続文字列を設定せず、必要になった時だけ低サンプリングで有効化します
 
 ## 機密情報の管理方式決定
 
@@ -230,7 +244,7 @@ dotnet .\PetHealthManagement.Web.dll --apply-migrations
 - 現行構成では deployment slot をまだ使っていないため、**production への戻し方は「既知の良品 ref を再デプロイする」**を正とします
 - GitHub Actions の `.github/workflows/rollback-production.yml` を `workflow_dispatch` で手動実行し、`target_ref` に戻したい commit SHA / tag / branch を指定します
 - rollback workflow は対象 ref を checkout し、**Release build → full test → publish → Azure App Service deploy → post-rollback smoke** を 1 本で実行します
-- rollback 後の smoke は `CD` と同じ `APP_BASE_URL` / `SMOKE_TEST_EMAIL` / `SMOKE_TEST_PASSWORD` / `SMOKE_TEST_IMAGE_URL` を使います
+- rollback 後の smoke は `CD` と同じ `APP_BASE_URL` / `SMOKE_TEST_EMAIL` / `SMOKE_TEST_PASSWORD` を使います。`SMOKE_TEST_IMAGE_URL` がある場合だけ認可付き画像 GET も確認します
 - schema 変更が後方互換でない場合は、アプリの rollback だけでは不整合が残るため、**migration 前バックアップから DB を復元する判断**まで含めて実施します
 - 将来 App Service の Standard 以上で slot 運用へ切り替える場合は、staging slot への deploy と swap-back を第一候補として再評価します
 
@@ -238,7 +252,7 @@ dotnet .\PetHealthManagement.Web.dll --apply-migrations
 
 - **即時 rollback**
   - post-deploy smoke が失敗した
-  - ログイン / `/Pets` / 認可付き画像 GET のどれかが壊れた
+  - ログイン / `/Pets` / 設定済みの認可付き画像 GET のどれかが壊れた
   - 本番 5xx が継続して増加し、5 分で **5% 以上** または **10 件以上** を確認した
 - **15 分以内に rollback 判断**
   - 未処理例外が 5 分で **10 件以上** 継続し、前進修正の見込みが立たない
@@ -255,33 +269,35 @@ dotnet .\PetHealthManagement.Web.dll --apply-migrations
 - deploy job は GitHub Environment `production` に紐づけています。承認を入れたい場合は environment protection rules で制御します
 - デプロイ先は Azure App Service on Linux を前提とし、Azure への認証は GitHub Actions の OIDC (`azure/login`) を使います
 - この workflow はアプリ成果物のデプロイまでを担当します。schema 変更を含むリリースでは、先に `Production Migrations` workflow を流してから deploy job を進めます
-- deploy の最後に `scripts/local-smoke.sh --use-existing-app` を実行し、**ログイン / 一覧表示 / 画像 GET** を post-deploy smoke として必須化しています
+- deploy の最後に `scripts/local-smoke.sh --use-existing-app` を実行し、**ログイン / 一覧表示** を post-deploy smoke として必須化しています。`SMOKE_TEST_IMAGE_URL` が設定されている場合は **画像 GET** も確認します
 - `production` environment に最低限必要な設定は次です
   - Variable: `APP_BASE_URL=https://<app-host>`
   - Variable: `AZURE_WEBAPP_NAME=<app-service-name>`
-  - Variable: `SMOKE_TEST_IMAGE_URL=/images/<smoke-image-id>` または `https://<app-host>/images/<smoke-image-id>`
   - Secret: `AZURE_CLIENT_ID=<federated-credential-client-id>`
   - Secret: `AZURE_TENANT_ID=<tenant-id>`
   - Secret: `AZURE_SUBSCRIPTION_ID=<subscription-id>`
   - Secret: `SMOKE_TEST_EMAIL=<smoke-user-email>`
   - Secret: `SMOKE_TEST_PASSWORD=<smoke-user-password>`
+- 任意で次を設定します
+  - Variable: `SMOKE_TEST_IMAGE_URL=/images/<smoke-image-id>` または `https://<app-host>/images/<smoke-image-id>`
 - Azure 側では、GitHub の `main` ブランチからこの workflow を信頼する federated credential を作成し、対象 App Service へデプロイ可能な権限を付与します
 - App Service のアプリ設定は workflow では変更しません。`ConnectionStrings__DefaultConnection` は Key Vault reference、`Storage__RootPath` は `/home/...` を事前に構成しておきます
 - 手動で再デプロイしたい場合は、Actions の `CD` workflow を `main` で `Run workflow` します
-- smoke 用には、MyPage / Pets / 対象画像にアクセスできる**専用の維持データ**を持ったユーザーを運用で用意しておきます
+- smoke 用には、MyPage / Pets にアクセスできる専用ユーザーを運用で用意しておきます。画像 smoke を有効化する場合は、そのユーザーが参照できる維持画像も作成します
 - rollback が必要な場合は、Actions の `Rollback Production` workflow を `main` から手動実行し、`target_ref` に既知の良品 ref を指定します
 
 ## Application Insights monitoring
 
 - アプリは `Azure.Monitor.OpenTelemetry.AspNetCore` を使って Azure Monitor Application Insights へ request / dependency / exception / `ILogger` ログを送ります
 - 接続文字列が未設定なら監視パイプラインは有効化されず、ローカル開発とテストは従来どおり動きます
+- ポートフォリオ初期公開では接続文字列を未設定にし、Azure コストとノイズを抑えることを既定運用にします
 - 有効化するには App Service 構成に次のいずれかを設定します
   - `APPLICATIONINSIGHTS_CONNECTION_STRING=<application-insights-connection-string>`
   - `AzureMonitor__ConnectionString=<application-insights-connection-string>`
-- 既定の Cloud Role Name は `PetHealthManagement.Web` です。別名にしたい場合は `OTEL_SERVICE_NAME` で上書きできます
+- 既定の Cloud Role Name は `PetHealthManagement.Web` です。別名にしたい場合は `AzureMonitor__ServiceName` で上書きできます
 - 任意で次の設定も使えます
-  - `AzureMonitor__EnableLiveMetrics=true|false`
-  - `AzureMonitor__SamplingRatio=0.0..1.0`
+  - `AzureMonitor__EnableLiveMetrics=false`（既定）
+  - `AzureMonitor__SamplingRatio=0.05..0.2`
   - `AzureMonitor__StorageDirectory=/home/pethealth-monitoring`
 - 初期リリースでは次を最低限の監視対象にします
   - 未処理例外
