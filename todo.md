@@ -337,9 +337,11 @@
 
 ### 12.1 Azure リソース
 - [x] App Service（Linux/Windowsどちらでいくか決定）
-- 決定事項：本番 Web ホストは **Azure App Service on Linux** を正とする。画像保存先は `Storage__RootPath` で `/home` 配下の絶対パスを与える。
+- 決定事項：本番 Web ホストは **Azure App Service on Linux** を正とする。ポートフォリオ公開の初期構成では **Free F1** を使い、画像保存先は `Storage__RootPath` で `/home` 配下の絶対パスを与える。独自ドメイン、SLA、スケールアウトが必要になったら Basic 以上へ上げる。
 - [x] Azure SQL Database
-- 決定事項：本番 DB は **Azure SQL Database single database** を正とする。購入モデルは **vCore-based / General Purpose / Provisioned** を基本とする。
+- 決定事項：本番 DB は **Azure SQL Database single database** を正とする。ポートフォリオ公開の初期構成では **Azure SQL Database free offer** を第一候補にし、無料枠超過時は **Auto-pause the database until next month** を選んで課金継続を避ける。商用本番や常時安定稼働へ移す場合は **vCore-based / General Purpose / Provisioned** を再評価する。
+- [x] Azure コスト管理
+- 決定事項：Azure リソース作成前に **Cost Management の Budget Alert** を作り、月 500 円から 1,000 円程度の予算で 50% / 80% / 100% 通知を設定する。App Service Free F1 と Azure SQL free offer を使っても、Key Vault、Storage、Application Insights、通信量の小額課金は監視する。
 - [x] 機密情報：App Service構成 or Key Vault
 - 決定事項：機密値は **Azure Key Vault** を正とし、App Service 構成には **Key Vault reference** と非機密設定のみを置く。App Service では system-assigned managed identity を使う。
 - [x] 画像ストレージ：当面はApp Serviceの永続性/容量/スケール課題を検討（必要ならBlobへ移行計画）
@@ -353,9 +355,9 @@
 - [x] Migration適用手順（デプロイ時の実行方式を決める）
 - 決定事項：migration は App Service 起動時に自動実行せず、GitHub Actions の `Production Migrations` workflow を **手動実行**して GitHub Actions runner から Azure SQL へ 1 回だけ適用する。接続文字列は Key Vault から取得し、成功後に `CD` workflow の deploy job を進める。
 - [x] ログ/監視（Application Insights等）
-- 決定事項：アプリ監視は **Azure Monitor Application Insights + Azure Monitor OpenTelemetry Distro** を正とし、`APPLICATIONINSIGHTS_CONNECTION_STRING`（または `AzureMonitor__ConnectionString`）がある場合のみ有効化する。Cloud Role Name は既定で `PetHealthManagement.Web`、必要に応じて `OTEL_SERVICE_NAME` で上書きする。
+- 決定事項：アプリ監視は **Azure Monitor Application Insights + Azure Monitor OpenTelemetry Distro** を正とし、`APPLICATIONINSIGHTS_CONNECTION_STRING`（または `AzureMonitor__ConnectionString`）がある場合のみ有効化する。ポートフォリオ初期公開では未設定を既定運用にし、必要になった時だけ低サンプリングで有効化する。Cloud Role Name は既定で `PetHealthManagement.Web`、必要に応じて `AzureMonitor__ServiceName` で上書きする。
 - [x] **スモークテスト**（ログイン/一覧表示/画像GET）を「リリース後の必須チェック」にする
-- 決定事項：GitHub Actions の `CD` workflow で deploy 後に `scripts/local-smoke.sh --use-existing-app` を必須実行し、`APP_BASE_URL`・`SMOKE_TEST_EMAIL`・`SMOKE_TEST_PASSWORD`・`SMOKE_TEST_IMAGE_URL` を使って **ログイン / Pets 一覧 / 認可付き画像 GET** を確認する。
+- 決定事項：GitHub Actions の `CD` workflow で deploy 後に `scripts/local-smoke.sh --use-existing-app` を必須実行し、`APP_BASE_URL`・`SMOKE_TEST_EMAIL`・`SMOKE_TEST_PASSWORD` を使って **ログイン / Pets 一覧** を確認する。`SMOKE_TEST_IMAGE_URL` が設定されている場合のみ **認可付き画像 GET** も確認する。
 
 ### 12.3 ロールバック/復旧（Runbook）
 - [x] アプリの戻し方（例：デプロイスロット/直前ビルドへ戻す）を手順化

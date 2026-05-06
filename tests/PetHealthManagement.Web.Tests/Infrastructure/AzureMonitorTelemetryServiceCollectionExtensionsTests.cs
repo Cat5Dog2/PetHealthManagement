@@ -42,6 +42,7 @@ public class AzureMonitorTelemetryServiceCollectionExtensionsTests
         var options = provider.GetRequiredService<IOptions<AzureMonitorTelemetryOptions>>().Value;
 
         Assert.Equal("Configured.Service", options.ServiceName);
+        Assert.False(options.EnableLiveMetrics);
     }
 
     [Fact]
