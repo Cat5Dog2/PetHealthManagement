@@ -90,4 +90,20 @@ jobs:
           DataProtection__ManagedIdentityClientId: ${{ vars.DATA_PROTECTION_MANAGED_IDENTITY_CLIENT_ID }}
         run: |
           export DataProtection__ApplicationName="${DataProtection__ApplicationName:-PetHealthManagement.Web}"
-          dotnet run --project "$WEB_PROJECT_PATH" -c "$CONFIGURATION" --no-build --no-launch-profile -- --apply-migrations
+
+          for attempt in 1 2 3 4 5; do
+            echo "Applying EF Core migrations... attempt ${attempt}/5"
+
+            if dotnet run --project "$WEB_PROJECT_PATH" -c "$CONFIGURATION" --no-build --no-launch-profile -- --apply-migrations; then
+              echo "Migrations applied successfully."
+              exit 0
+            fi
+
+            if [[ "$attempt" == "5" ]]; then
+              echo "Migration failed after 5 attempts."
+              exit 1
+            fi
+
+            echo "Migration attempt ${attempt} failed. Waiting 60 seconds before retry..."
+            sleep 60
+          done

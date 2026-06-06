@@ -5,6 +5,15 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      skip_smoke:
+        description: 'Skip post-deploy smoke checks for this manual run'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
 
 permissions:
   contents: read
@@ -74,6 +83,7 @@ jobs:
           AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           AZURE_WEBAPP_NAME: ${{ vars.AZURE_WEBAPP_NAME }}
+          SKIP_SMOKE: ${{ github.event_name == 'workflow_dispatch' && inputs.skip_smoke == 'true' }}
           SMOKE_TEST_EMAIL: ${{ secrets.SMOKE_TEST_EMAIL }}
           SMOKE_TEST_IMAGE_URL: ${{ vars.SMOKE_TEST_IMAGE_URL }}
           SMOKE_TEST_PASSWORD: ${{ secrets.SMOKE_TEST_PASSWORD }}
@@ -83,8 +93,13 @@ jobs:
           [[ -n "$AZURE_CLIENT_ID" ]] || { echo "Missing production secret AZURE_CLIENT_ID"; exit 1; }
           [[ -n "$AZURE_TENANT_ID" ]] || { echo "Missing production secret AZURE_TENANT_ID"; exit 1; }
           [[ -n "$AZURE_SUBSCRIPTION_ID" ]] || { echo "Missing production secret AZURE_SUBSCRIPTION_ID"; exit 1; }
-          [[ -n "$SMOKE_TEST_EMAIL" ]] || { echo "Missing production secret SMOKE_TEST_EMAIL"; exit 1; }
-          [[ -n "$SMOKE_TEST_PASSWORD" ]] || { echo "Missing production secret SMOKE_TEST_PASSWORD"; exit 1; }
+
+          if [[ "$SKIP_SMOKE" != "true" ]]; then
+            [[ -n "$SMOKE_TEST_EMAIL" ]] || { echo "Missing production secret SMOKE_TEST_EMAIL"; exit 1; }
+            [[ -n "$SMOKE_TEST_PASSWORD" ]] || { echo "Missing production secret SMOKE_TEST_PASSWORD"; exit 1; }
+          else
+            echo "Skipping smoke test configuration validation for this manual run."
+          fi
 
       - name: Download publish artifact
         uses: actions/download-artifact@v8
@@ -106,6 +121,7 @@ jobs:
           package: ${{ env.PUBLISH_DIRECTORY }}
 
       - name: Post-deploy smoke checks
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.skip_smoke == 'true') }}
         env:
           APP_BASE_URL: ${{ vars.APP_BASE_URL }}
           SMOKE_TEST_EMAIL: ${{ secrets.SMOKE_TEST_EMAIL }}
