@@ -80,23 +80,31 @@ perform_request() {
     : >"$RESPONSE_HEADERS_PATH"
     
     set +e
-    curl -sS \
+    local http_code
+    http_code="$(curl -sS \
       -o "$RESPONSE_BODY_PATH" \
       -D "$RESPONSE_HEADERS_PATH" \
       -w '%{http_code}' \
-      "$@"
+      "$@")"
     local curl_exit=$?
     set -e
 
-    if [[ $curl_exit -eq 0 ]]; then
+    # If curl succeeded AND HTTP status is not a 5xx server error, return success
+    if [[ $curl_exit -eq 0 && ! "$http_code" =~ ^5 ]]; then
+      printf '%s' "$http_code"
       return 0
     fi
 
     if (( attempt >= max_retries )); then
-      return "$curl_exit"
+      if [[ $curl_exit -eq 0 ]]; then
+        printf '%s' "$http_code"
+        return 0
+      else
+        return "$curl_exit"
+      fi
     fi
 
-    echo "curl failed with exit code $curl_exit. App Service might be restarting, retrying in 10s... ($attempt/$max_retries)" >&2
+    echo "Request failed (curl exit: $curl_exit, HTTP status: $http_code). App Service might be restarting, retrying in 10s... ($attempt/$max_retries)" >&2
     sleep 10
     attempt=$((attempt + 1))
   done
