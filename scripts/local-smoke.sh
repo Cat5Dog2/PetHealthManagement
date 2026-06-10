@@ -72,13 +72,34 @@ resolve_request_uri() {
 }
 
 perform_request() {
-  : >"$RESPONSE_BODY_PATH"
-  : >"$RESPONSE_HEADERS_PATH"
-  curl -sS \
-    -o "$RESPONSE_BODY_PATH" \
-    -D "$RESPONSE_HEADERS_PATH" \
-    -w '%{http_code}' \
-    "$@"
+  local max_retries=4
+  local attempt=1
+
+  while true; do
+    : >"$RESPONSE_BODY_PATH"
+    : >"$RESPONSE_HEADERS_PATH"
+    
+    set +e
+    curl -sS \
+      -o "$RESPONSE_BODY_PATH" \
+      -D "$RESPONSE_HEADERS_PATH" \
+      -w '%{http_code}' \
+      "$@"
+    local curl_exit=$?
+    set -e
+
+    if [[ $curl_exit -eq 0 ]]; then
+      return 0
+    fi
+
+    if (( attempt >= max_retries )); then
+      return "$curl_exit"
+    fi
+
+    echo "curl failed with exit code $curl_exit. App Service might be restarting, retrying in 10s... ($attempt/$max_retries)" >&2
+    sleep 10
+    attempt=$((attempt + 1))
+  done
 }
 
 extract_antiforgery_token() {
