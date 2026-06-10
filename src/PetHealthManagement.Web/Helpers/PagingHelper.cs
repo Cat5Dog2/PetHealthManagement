@@ -8,4 +8,14 @@ public static class PagingHelper
     {
         return page is > 0 ? page.Value : DefaultPage;
     }
+
+    public static int NormalizePage(string? page)
+    {
+        if (int.TryParse(page, out var parsedPage))
+        {
+            return NormalizePage(parsedPage);
+        }
+
+        return DefaultPage;
+    }
 }

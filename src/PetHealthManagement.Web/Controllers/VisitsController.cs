@@ -46,7 +46,7 @@ public class VisitsController(
             return NotFound();
         }
 
-        var normalizedPage = NormalizePage(page);
+        var normalizedPage = PagingHelper.NormalizePage(page);
 
         var query = dbContext.Visits
             .AsNoTracking()
@@ -84,9 +84,9 @@ public class VisitsController(
                     VisitId = x.Id,
                     VisitDate = x.VisitDate,
                     ClinicName = x.ClinicName,
-                    DiagnosisExcerpt = ToExcerpt(x.Diagnosis),
-                    PrescriptionExcerpt = ToExcerpt(x.Prescription),
-                    NoteExcerpt = ToExcerpt(x.Note),
+                    DiagnosisExcerpt = StringFormatter.ToExcerpt(x.Diagnosis),
+                    PrescriptionExcerpt = StringFormatter.ToExcerpt(x.Prescription),
+                    NoteExcerpt = StringFormatter.ToExcerpt(x.Note),
                     HasImages = x.HasImages
                 })
                 .ToList()
@@ -201,10 +201,10 @@ public class VisitsController(
         {
             PetId = pet.Id,
             VisitDate = NormalizeVisitDate(viewModel.VisitDate!.Value),
-            ClinicName = NormalizeOptionalText(viewModel.ClinicName),
-            Diagnosis = NormalizeOptionalText(viewModel.Diagnosis),
-            Prescription = NormalizeOptionalText(viewModel.Prescription),
-            Note = NormalizeOptionalText(viewModel.Note),
+            ClinicName = StringFormatter.NormalizeOptionalText(viewModel.ClinicName),
+            Diagnosis = StringFormatter.NormalizeOptionalText(viewModel.Diagnosis),
+            Prescription = StringFormatter.NormalizeOptionalText(viewModel.Prescription),
+            Note = StringFormatter.NormalizeOptionalText(viewModel.Note),
             CreatedAt = now,
             UpdatedAt = now
         };
@@ -294,7 +294,7 @@ public class VisitsController(
             return BadRequest();
         }
 
-        if (!HasExpectedRowVersion(visit.RowVersion, postedRowVersion))
+        if (!RowVersionCodec.HasExpectedRowVersion(visit.RowVersion, postedRowVersion))
         {
             return await BuildConcurrencyConflictResultAsync(visit, viewModel.ReturnUrl);
         }
@@ -429,37 +429,14 @@ public class VisitsController(
             .ToListAsync();
     }
 
-    private static int NormalizePage(string? page)
-    {
-        if (int.TryParse(page, out var parsedPage))
-        {
-            return PagingHelper.NormalizePage(parsedPage);
-        }
 
-        return PagingHelper.DefaultPage;
-    }
-
-    private static string? ToExcerpt(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return null;
-        }
-
-        var normalized = value.Trim();
-        return normalized.Length <= 60 ? normalized : $"{normalized[..60]}...";
-    }
 
     private static DateTime NormalizeVisitDate(DateTime value)
     {
         return DateTime.SpecifyKind(value.Date, DateTimeKind.Unspecified);
     }
 
-    private static string? NormalizeOptionalText(string? value)
-    {
-        var normalized = value?.Trim();
-        return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
-    }
+
 
     private async Task<ViewResult> BuildConcurrencyConflictResultAsync(Visit visit, string? returnUrl)
     {
@@ -518,16 +495,10 @@ public class VisitsController(
     private static void ApplyVisitEditValues(Visit visit, VisitEditViewModel viewModel)
     {
         visit.VisitDate = NormalizeVisitDate(viewModel.VisitDate!.Value);
-        visit.ClinicName = NormalizeOptionalText(viewModel.ClinicName);
-        visit.Diagnosis = NormalizeOptionalText(viewModel.Diagnosis);
-        visit.Prescription = NormalizeOptionalText(viewModel.Prescription);
-        visit.Note = NormalizeOptionalText(viewModel.Note);
+        visit.ClinicName = StringFormatter.NormalizeOptionalText(viewModel.ClinicName);
+        visit.Diagnosis = StringFormatter.NormalizeOptionalText(viewModel.Diagnosis);
+        visit.Prescription = StringFormatter.NormalizeOptionalText(viewModel.Prescription);
+        visit.Note = StringFormatter.NormalizeOptionalText(viewModel.Note);
         visit.UpdatedAt = DateTimeOffset.UtcNow;
-    }
-
-    private static bool HasExpectedRowVersion(byte[]? currentRowVersion, byte[] postedRowVersion)
-    {
-        return currentRowVersion is not null
-            && currentRowVersion.AsSpan().SequenceEqual(postedRowVersion);
     }
 }

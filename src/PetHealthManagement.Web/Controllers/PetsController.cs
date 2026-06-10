@@ -30,7 +30,7 @@ public class PetsController(
             return Challenge();
         }
 
-        var normalizedPage = NormalizePage(page);
+        var normalizedPage = PagingHelper.NormalizePage(page);
         var normalizedKeyword = NormalizeKeyword(nameKeyword);
         var normalizedSpeciesFilter = NormalizeSpeciesFilter(speciesFilter);
 
@@ -351,7 +351,7 @@ public class PetsController(
             return BadRequest();
         }
 
-        if (!HasExpectedRowVersion(pet.RowVersion, postedRowVersion))
+        if (!RowVersionCodec.HasExpectedRowVersion(pet.RowVersion, postedRowVersion))
         {
             return BuildConcurrencyConflictResult(pet, returnUrl);
         }
@@ -537,16 +537,6 @@ public class PetsController(
         return photoImageId is null ? DefaultPetPhotoUrl : $"/images/{photoImageId.Value:D}";
     }
 
-    private static int NormalizePage(string? page)
-    {
-        if (int.TryParse(page, out var parsedPage))
-        {
-            return PagingHelper.NormalizePage(parsedPage);
-        }
-
-        return PagingHelper.DefaultPage;
-    }
-
     private static string? NormalizeKeyword(string? nameKeyword)
     {
         var normalized = nameKeyword?.Trim();
@@ -576,12 +566,6 @@ public class PetsController(
             rowVersion: RowVersionCodec.Encode(pet.RowVersion),
             returnUrl: returnUrl,
             fallbackCancelUrl: $"/Pets/Details/{pet.Id}"));
-    }
-
-    private static bool HasExpectedRowVersion(byte[]? currentRowVersion, byte[] postedRowVersion)
-    {
-        return currentRowVersion is not null
-            && currentRowVersion.AsSpan().SequenceEqual(postedRowVersion);
     }
 
     private static bool HasPhotoChange(PetEditViewModel viewModel)

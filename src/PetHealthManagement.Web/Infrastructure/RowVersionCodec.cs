@@ -28,4 +28,10 @@ public static class RowVersionCodec
             return false;
         }
     }
+
+    public static bool HasExpectedRowVersion(byte[]? currentRowVersion, byte[] postedRowVersion)
+    {
+        return currentRowVersion is not null
+            && currentRowVersion.AsSpan().SequenceEqual(postedRowVersion);
+    }
 }

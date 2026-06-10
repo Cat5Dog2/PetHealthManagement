@@ -19,7 +19,7 @@ public class UsersController(
     [HttpGet("")]
     public async Task<IActionResult> Index(string? page)
     {
-        var normalizedPage = NormalizePage(page);
+        var normalizedPage = PagingHelper.NormalizePage(page);
 
         var query = dbContext.Users
             .AsNoTracking()
@@ -101,13 +101,4 @@ public class UsersController(
         return Redirect("/Admin/Users");
     }
 
-    private static int NormalizePage(string? page)
-    {
-        if (int.TryParse(page, out var parsedPage))
-        {
-            return PagingHelper.NormalizePage(parsedPage);
-        }
-
-        return PagingHelper.DefaultPage;
-    }
 }
