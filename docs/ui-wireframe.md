@@ -249,12 +249,13 @@ flowchart TB
   Header["Header"]
   Title["{PetName} の予定"]
   Actions["[＋予定追加]（/ScheduleItems/Create?petId={petId}）"]
+  Filters["検索/絞り込み<br/>種別（セレクトボックス）<br/>[検索]"]
   List["一覧（10件/ページ, DueDate昇順）<br/>行：期日 | 種別 | タイトル | メモ（抜粋） | 完了トグル（IsDone） | [詳細] [編集] [削除]"]
   Pager["ページャ"]
   ToggleNote["完了トグル<br/>POST /ScheduleItems/SetDone/{scheduleItemId}<br/>入力不備は 400（/Error/400 or トースト表示運用）"]:::note
   DeleteConfirm["削除確認（モーダル）<br/>[削除する]（POST /ScheduleItems/Delete/{scheduleItemId}）<br/>[キャンセル]"]:::note
 
-  Header --> Title --> Actions --> List --> Pager
+  Header --> Title --> Actions --> Filters --> List --> Pager
   List -.-> ToggleNote
   List -.-> DeleteConfirm
 
@@ -368,7 +369,7 @@ flowchart TB
 ```mermaid
 flowchart TB
   Header["Top App Bar<br/>うちの子健康カルテ | Admin | Logout"]
-  List["ユーザー一覧（Adminのみ）<br/>行：表示名 | Email | (作成日) | [削除]"]
+  List["ユーザー一覧（Adminのみ）<br/>行：表示名 | Email | [削除]"]
   DeleteConfirm["削除確認（モーダル）<br/>[削除する]（POST /Admin/Users/Delete/{userId}）<br/>[キャンセル]"]:::note
   Danger["注意：削除は関連データ（ペット/健康ログ/予定/通院/画像）を含む物理削除"]:::note
 
