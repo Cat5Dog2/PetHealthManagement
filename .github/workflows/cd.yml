@@ -133,6 +133,7 @@ jobs:
             --base-url "$APP_BASE_URL"
             --email "$SMOKE_TEST_EMAIL"
             --password "$SMOKE_TEST_PASSWORD"
+            --timeout 180
           )
 
           if [[ -n "${SMOKE_TEST_IMAGE_URL:-}" ]]; then
