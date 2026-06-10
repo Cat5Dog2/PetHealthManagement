@@ -34,12 +34,23 @@ public class MyPageController(ApplicationDbContext dbContext) : Controller
             return Challenge();
         }
 
-        var pets = await dbContext.Pets
+        var petEntities = await dbContext.Pets
             .AsNoTracking()
             .Where(x => x.OwnerId == userId)
             .OrderByDescending(x => x.UpdatedAt)
             .ThenByDescending(x => x.CreatedAt)
             .ThenByDescending(x => x.Id)
+            .Select(x => new
+            {
+                x.Id,
+                x.Name,
+                x.SpeciesCode,
+                x.PhotoImageId,
+                x.IsPublic
+            })
+            .ToListAsync();
+
+        var pets = petEntities
             .Select(x => new MyPetSummaryViewModel
             {
                 PetId = x.Id,
@@ -48,7 +59,7 @@ public class MyPageController(ApplicationDbContext dbContext) : Controller
                 PhotoUrl = ResolvePetPhotoUrl(x.PhotoImageId),
                 IsPublic = x.IsPublic
             })
-            .ToListAsync();
+            .ToList();
 
         var viewModel = new MyPageViewModel
         {
