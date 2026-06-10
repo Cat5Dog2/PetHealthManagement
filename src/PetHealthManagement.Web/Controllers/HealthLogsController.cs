@@ -46,7 +46,7 @@ public class HealthLogsController(
             return NotFound();
         }
 
-        var normalizedPage = NormalizePage(page);
+        var normalizedPage = PagingHelper.NormalizePage(page);
 
         var query = dbContext.HealthLogs
             .AsNoTracking()
@@ -88,7 +88,7 @@ public class HealthLogsController(
                     FoodAmountGram = x.FoodAmountGram,
                     WalkMinutes = x.WalkMinutes,
                     StoolCondition = x.StoolCondition,
-                    NoteExcerpt = ToExcerpt(x.Note),
+                    NoteExcerpt = StringFormatter.ToExcerpt(x.Note),
                     HasImages = x.HasImages
                 })
                 .ToList()
@@ -207,8 +207,8 @@ public class HealthLogsController(
             WeightKg = viewModel.WeightKg,
             FoodAmountGram = viewModel.FoodAmountGram,
             WalkMinutes = viewModel.WalkMinutes,
-            StoolCondition = NormalizeOptionalText(viewModel.StoolCondition),
-            Note = NormalizeOptionalText(viewModel.Note),
+            StoolCondition = StringFormatter.NormalizeOptionalText(viewModel.StoolCondition),
+            Note = StringFormatter.NormalizeOptionalText(viewModel.Note),
             CreatedAt = now,
             UpdatedAt = now
         };
@@ -298,7 +298,7 @@ public class HealthLogsController(
             return BadRequest();
         }
 
-        if (!HasExpectedRowVersion(healthLog.RowVersion, postedRowVersion))
+        if (!RowVersionCodec.HasExpectedRowVersion(healthLog.RowVersion, postedRowVersion))
         {
             return await BuildConcurrencyConflictResultAsync(healthLog, viewModel.ReturnUrl);
         }
@@ -441,33 +441,6 @@ public class HealthLogsController(
         return new DateTimeOffset(normalized, JstOffset);
     }
 
-    private static string? NormalizeOptionalText(string? value)
-    {
-        var normalized = value?.Trim();
-        return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
-    }
-
-    private static int NormalizePage(string? page)
-    {
-        if (int.TryParse(page, out var parsedPage))
-        {
-            return PagingHelper.NormalizePage(parsedPage);
-        }
-
-        return PagingHelper.DefaultPage;
-    }
-
-    private static string? ToExcerpt(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return null;
-        }
-
-        var normalized = value.Trim();
-        return normalized.Length <= 60 ? normalized : $"{normalized[..60]}...";
-    }
-
     private async Task<ViewResult> BuildConcurrencyConflictResultAsync(HealthLog healthLog, string? returnUrl)
     {
         ModelState.Clear();
@@ -528,14 +501,8 @@ public class HealthLogsController(
         healthLog.WeightKg = viewModel.WeightKg;
         healthLog.FoodAmountGram = viewModel.FoodAmountGram;
         healthLog.WalkMinutes = viewModel.WalkMinutes;
-        healthLog.StoolCondition = NormalizeOptionalText(viewModel.StoolCondition);
-        healthLog.Note = NormalizeOptionalText(viewModel.Note);
+        healthLog.StoolCondition = StringFormatter.NormalizeOptionalText(viewModel.StoolCondition);
+        healthLog.Note = StringFormatter.NormalizeOptionalText(viewModel.Note);
         healthLog.UpdatedAt = DateTimeOffset.UtcNow;
-    }
-
-    private static bool HasExpectedRowVersion(byte[]? currentRowVersion, byte[] postedRowVersion)
-    {
-        return currentRowVersion is not null
-            && currentRowVersion.AsSpan().SequenceEqual(postedRowVersion);
     }
 }

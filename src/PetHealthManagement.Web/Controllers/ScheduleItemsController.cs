@@ -44,7 +44,7 @@ public class ScheduleItemsController(ApplicationDbContext dbContext) : Controlle
             return NotFound();
         }
 
-        var normalizedPage = NormalizePage(page);
+        var normalizedPage = PagingHelper.NormalizePage(page);
         var normalizedTypeFilter = ScheduleItemTypeCatalog.NormalizeFilterCode(typeFilter);
 
         var query = dbContext.ScheduleItems
@@ -92,7 +92,7 @@ public class ScheduleItemsController(ApplicationDbContext dbContext) : Controlle
                     DueDate = x.DueDate,
                     TypeLabel = ScheduleItemTypeCatalog.ToLabel(x.Type),
                     Title = x.Title,
-                    NoteExcerpt = ToExcerpt(x.Note),
+                    NoteExcerpt = StringFormatter.ToExcerpt(x.Note),
                     IsDone = x.IsDone
                 })
                 .ToList()
@@ -186,8 +186,8 @@ public class ScheduleItemsController(ApplicationDbContext dbContext) : Controlle
             PetId = pet.Id,
             DueDate = viewModel.DueDate!.Value.Date,
             Type = ScheduleItemTypeCatalog.NormalizeKnownCode(viewModel.ItemType),
-            Title = NormalizeRequiredText(viewModel.Title),
-            Note = NormalizeOptionalText(viewModel.Note),
+            Title = StringFormatter.NormalizeRequiredText(viewModel.Title),
+            Note = StringFormatter.NormalizeOptionalText(viewModel.Note),
             IsDone = false,
             CreatedAt = now,
             UpdatedAt = now
@@ -244,7 +244,7 @@ public class ScheduleItemsController(ApplicationDbContext dbContext) : Controlle
             return BadRequest();
         }
 
-        if (!HasExpectedRowVersion(scheduleItem.RowVersion, postedRowVersion))
+        if (!RowVersionCodec.HasExpectedRowVersion(scheduleItem.RowVersion, postedRowVersion))
         {
             return BuildConcurrencyConflictResult(scheduleItem, viewModel.ReturnUrl);
         }
@@ -252,8 +252,8 @@ public class ScheduleItemsController(ApplicationDbContext dbContext) : Controlle
         dbContext.Entry(scheduleItem).Property(x => x.RowVersion).OriginalValue = postedRowVersion;
         scheduleItem.DueDate = viewModel.DueDate!.Value.Date;
         scheduleItem.Type = ScheduleItemTypeCatalog.NormalizeKnownCode(viewModel.ItemType);
-        scheduleItem.Title = NormalizeRequiredText(viewModel.Title);
-        scheduleItem.Note = NormalizeOptionalText(viewModel.Note);
+        scheduleItem.Title = StringFormatter.NormalizeRequiredText(viewModel.Title);
+        scheduleItem.Note = StringFormatter.NormalizeOptionalText(viewModel.Note);
         scheduleItem.UpdatedAt = DateTimeOffset.UtcNow;
 
         try
@@ -452,37 +452,7 @@ public class ScheduleItemsController(ApplicationDbContext dbContext) : Controlle
             .ToList();
     }
 
-    private static int NormalizePage(string? page)
-    {
-        if (int.TryParse(page, out var parsedPage))
-        {
-            return PagingHelper.NormalizePage(parsedPage);
-        }
 
-        return PagingHelper.DefaultPage;
-    }
-
-    private static string? ToExcerpt(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return null;
-        }
-
-        var normalized = value.Trim();
-        return normalized.Length <= 60 ? normalized : $"{normalized[..60]}...";
-    }
-
-    private static string NormalizeRequiredText(string value)
-    {
-        return value.Trim();
-    }
-
-    private static string? NormalizeOptionalText(string? value)
-    {
-        var normalized = value?.Trim();
-        return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
-    }
 
     private static bool TryParseIsDone(string? isDone, out bool parsedIsDone)
     {
@@ -494,11 +464,5 @@ public class ScheduleItemsController(ApplicationDbContext dbContext) : Controlle
         ModelState.Clear();
         ModelState.AddModelError(string.Empty, ConcurrencyMessages.RecordModified);
         return View("Edit", BuildEditViewModel(scheduleItem, returnUrl));
-    }
-
-    private static bool HasExpectedRowVersion(byte[]? currentRowVersion, byte[] postedRowVersion)
-    {
-        return currentRowVersion is not null
-            && currentRowVersion.AsSpan().SequenceEqual(postedRowVersion);
     }
 }
