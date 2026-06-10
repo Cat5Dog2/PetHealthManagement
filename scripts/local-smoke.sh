@@ -102,6 +102,7 @@ PASSWORD=""
 USE_EXISTING_APP=false
 IMAGE_URL=""
 EXPECT_ADMIN=false
+TIMEOUT_SECONDS=30
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -128,6 +129,10 @@ while [[ $# -gt 0 ]]; do
     --expect-admin)
       EXPECT_ADMIN=true
       shift
+      ;;
+    --timeout)
+      TIMEOUT_SECONDS="${2:-}"
+      shift 2
       ;;
     *)
       echo "Unknown argument: $1" >&2
@@ -188,7 +193,7 @@ else
   log "Using existing app at $BASE_URL ..."
 fi
 
-wait_until_available "$BASE_URL" "$([[ "$USE_EXISTING_APP" == "true" ]] && printf '' || printf '%s' "$STDOUT_PATH")"
+wait_until_available "$BASE_URL" "$([[ "$USE_EXISTING_APP" == "true" ]] && printf '' || printf '%s' "$STDOUT_PATH")" "$TIMEOUT_SECONDS"
 
 status_code="$(perform_request "$BASE_URL/")"
 if [[ "$status_code" != "200" ]]; then
