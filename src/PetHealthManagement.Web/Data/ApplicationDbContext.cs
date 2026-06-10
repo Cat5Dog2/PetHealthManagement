@@ -76,6 +76,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
             entity.HasIndex(p => p.OwnerId);
             entity.HasIndex(p => new { p.IsPublic, p.SpeciesCode });
+            entity.HasIndex(p => p.Name);
             entity.HasIndex(p => p.UpdatedAt);
         });
 
@@ -168,7 +169,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         {
             entity.ToTable("HealthLogImages");
 
-            entity.HasIndex(x => new { x.HealthLogId, x.SortOrder });
+            entity.HasIndex(x => new { x.HealthLogId, x.SortOrder })
+                .IsUnique();
 
             entity.HasIndex(x => x.ImageId)
                 .IsUnique();
@@ -188,7 +190,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         {
             entity.ToTable("VisitImages");
 
-            entity.HasIndex(x => new { x.VisitId, x.SortOrder });
+            entity.HasIndex(x => new { x.VisitId, x.SortOrder })
+                .IsUnique();
 
             entity.HasIndex(x => x.ImageId)
                 .IsUnique();
@@ -230,6 +233,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
                 .HasMaxLength(20)
                 .IsRequired();
 
+            entity.HasIndex(x => x.StorageKey).IsUnique();
             entity.HasIndex(x => new { x.OwnerId, x.Status });
             entity.HasIndex(x => x.CreatedAt);
         });
