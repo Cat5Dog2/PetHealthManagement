@@ -412,27 +412,23 @@ bash ./scripts/local-smoke.sh --use-existing-app --base-url 'https://pethealth.e
 
 ### Playwright E2E テスト
 
-初回または Playwright 更新後は、先にテストプロジェクトをビルドしてからブラウザをインストールします。
+Playwright E2E テストは、専用スクリプトでテストプロジェクトをビルドしてから `RUN_PLAYWRIGHT_E2E=1` を付けて実行します。ブラウザは既定で `chromium` です。
 
 PowerShell:
 
 ```powershell
-dotnet build tests/PetHealthManagement.Web.E2ETests/PetHealthManagement.Web.E2ETests.csproj
-powershell -NoProfile -ExecutionPolicy Bypass -File tests/PetHealthManagement.Web.E2ETests/bin/Debug/net10.0/playwright.ps1 install chromium
-$env:RUN_PLAYWRIGHT_E2E = '1'
-$env:BROWSER = 'chromium'
-dotnet test tests/PetHealthManagement.Web.E2ETests/PetHealthManagement.Web.E2ETests.csproj --no-build
-Remove-Item Env:\RUN_PLAYWRIGHT_E2E
-Remove-Item Env:\BROWSER
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-e2e.ps1 -InstallBrowsers
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-e2e.ps1
 ```
 
 Bash:
 
 ```bash
-dotnet build tests/PetHealthManagement.Web.E2ETests/PetHealthManagement.Web.E2ETests.csproj
-pwsh tests/PetHealthManagement.Web.E2ETests/bin/Debug/net10.0/playwright.ps1 install chromium
-RUN_PLAYWRIGHT_E2E=1 BROWSER=chromium dotnet test tests/PetHealthManagement.Web.E2ETests/PetHealthManagement.Web.E2ETests.csproj --no-build
+bash ./scripts/test-e2e.sh --install-browsers
+bash ./scripts/test-e2e.sh
 ```
+
+別ブラウザで実行する場合は、PowerShell では `-Browser firefox`、Bash では `--browser firefox` を指定します。`dotnet test` へ追加引数を渡す場合は、PowerShell では `-DotnetArgs '--filter','FullyQualifiedName~MyTests'`、Bash では `--` 以降に続けます。
 
 ## 参照ドキュメント
 

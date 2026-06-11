@@ -56,6 +56,8 @@ public sealed class E2EWebApplicationFactory : WebApplicationFactory<Program>
             });
             services.PostConfigure<AntiforgeryOptions>(options =>
             {
+                // The local E2E proxy uses HTTP, so browsers reject __Host- cookies.
+                options.Cookie.Name = "PetHealthManagement.E2E.AntiForgery";
                 options.Cookie.SecurePolicy = CookieSecurePolicy.None;
             });
 
