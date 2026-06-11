@@ -402,11 +402,37 @@ bash ./scripts/local-smoke.sh --use-existing-app --base-url 'https://pethealth.e
 - 単体テストと controller テストは、基本的に `TestDbContextFactory.CreateInMemoryDbContext(...)` による EF Core InMemory を使います
 - SQL 変換確認やクエリ数確認は `TestDbContextFactory.CreateSqliteInMemoryContextAsync(...)` による SQLite in-memory を使います
 - integration テストは `IntegrationTestWebApplicationFactory` を使い、アプリ DB を EF Core InMemory に差し替えつつ、テストごとの一時 `StorageRoot` を割り当てます
+- Playwright E2E テストは `PetHealthManagement.Web.E2ETests` に分離し、テスト用 Kestrel プロキシを実ポートで起動しながら、アプリ DB は EF Core InMemory、画像ストレージは一時 `StorageRoot` に差し替えます
+- Playwright E2E テストは既定ではスキップされます。実ブラウザで実行する場合だけ `RUN_PLAYWRIGHT_E2E=1` を設定します
 - ファイルベースの画像ストレージテストは `TestFileBackedImageStorageService` を使い、一時ディレクトリへ書き込んで後始末します
 - テスト用の一時ストレージは OS の temp 配下に作られ、本番や通常開発の保存先を指さない前提です
 - リレーショナル挙動、SQL 変換、クエリ数に依存するテストでは EF Core InMemory ではなく SQLite in-memory を優先します
 - GitHub Actions の `minimum-required-checks` は `CiTier=Critical` のテストだけを回し、認証 / 存在秘匿 / 画像の回帰を先に検知します
 - `full-regression` は全テストと format を回し、段階導入の間も広い回帰シグナルを維持します
+
+### Playwright E2E テスト
+
+初回または Playwright 更新後は、先にテストプロジェクトをビルドしてからブラウザをインストールします。
+
+PowerShell:
+
+```powershell
+dotnet build tests/PetHealthManagement.Web.E2ETests/PetHealthManagement.Web.E2ETests.csproj
+powershell -NoProfile -ExecutionPolicy Bypass -File tests/PetHealthManagement.Web.E2ETests/bin/Debug/net10.0/playwright.ps1 install chromium
+$env:RUN_PLAYWRIGHT_E2E = '1'
+$env:BROWSER = 'chromium'
+dotnet test tests/PetHealthManagement.Web.E2ETests/PetHealthManagement.Web.E2ETests.csproj --no-build
+Remove-Item Env:\RUN_PLAYWRIGHT_E2E
+Remove-Item Env:\BROWSER
+```
+
+Bash:
+
+```bash
+dotnet build tests/PetHealthManagement.Web.E2ETests/PetHealthManagement.Web.E2ETests.csproj
+pwsh tests/PetHealthManagement.Web.E2ETests/bin/Debug/net10.0/playwright.ps1 install chromium
+RUN_PLAYWRIGHT_E2E=1 BROWSER=chromium dotnet test tests/PetHealthManagement.Web.E2ETests/PetHealthManagement.Web.E2ETests.csproj --no-build
+```
 
 ## 参照ドキュメント
 
