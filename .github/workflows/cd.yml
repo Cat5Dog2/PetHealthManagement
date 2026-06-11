@@ -51,6 +51,9 @@ jobs:
       - name: Full test suite
         run: bash ./scripts/test.sh --configuration Release --no-build
 
+      - name: Playwright E2E tests
+        run: bash ./scripts/test-e2e.sh --configuration Release --install-browsers
+
       - name: Publish web app
         run: dotnet publish "$WEB_PROJECT_PATH" -c "$CONFIGURATION" -o "$PUBLISH_DIRECTORY" --no-build
 
