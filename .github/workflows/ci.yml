@@ -2,10 +2,9 @@ name: CI
 
 on:
   push:
-  pull_request:
 
 jobs:
-  minimum-required-checks:
+  full-regression:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -22,25 +21,11 @@ jobs:
       - name: Build
         run: bash ./scripts/build.sh
 
-      - name: Critical test subset
-        run: bash ./scripts/test-critical.sh
-
-  full-regression:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v5
-        with:
-          global-json-file: global.json
-
-      - name: Dotnet info
-        run: dotnet --info
-
       - name: Full test suite
         run: bash ./scripts/test.sh
+
+      - name: Playwright E2E tests
+        run: bash ./scripts/test-e2e.sh --install-browsers
 
       - name: Format check
         run: bash ./scripts/format.sh
