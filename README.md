@@ -136,8 +136,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev-certs.ps1 -Trust
 ## 開発環境セットアップ
 
 - `Species` は `SpeciesCatalog` の固定コードなので、DB へのマスタ seed は不要です
-- 初回のローカルセットアップは `Migration 適用 -> Admin seed -> ログイン確認` の順で進められます
-- 開発用 Admin ユーザーは `Development` 環境でのみ seed され、設定値はコミットせず `user-secrets` または環境変数で与えます
+- 初回のローカルセットアップは `Migration 適用 -> Admin seed + デモデータ seed -> ログイン確認` の順で進められます
+- 開発用 Admin ユーザーとデモデータは `Development` 環境でのみ seed され、Admin 設定値はコミットせず `user-secrets` または環境変数で与えます
+- デモデータは Admin ユーザーに紐づくペット、健康ログ、予定、通院履歴です。再実行しても同名のデモペットは重複作成しません
 
 PowerShell:
 
@@ -163,19 +164,35 @@ dotnet run --project src/PetHealthManagement.Web --launch-profile https
 
 ```bash
 dotnet run --project src/PetHealthManagement.Web --no-launch-profile -- --apply-migrations
+dotnet run --project src/PetHealthManagement.Web --no-launch-profile -- --seed-admin
+dotnet run --project src/PetHealthManagement.Web --no-launch-profile -- --seed-demo-data
 dotnet run --project src/PetHealthManagement.Web --no-launch-profile -- --seed-development
 dotnet run --project src/PetHealthManagement.Web --no-launch-profile -- --setup-development
 ```
 
-## 本番 Migration 運用手順
+## Admin seed と .env
 
-- 本番では `--apply-migrations` のみを使います。`--seed-development` と `--setup-development` は `Development` 専用です
+- `.env` はコミットしません。ローカルでは `.env.example` を参考に `.env` を作成します
+- Admin seed は `DevelopmentSetup__AdminEmail`、`DevelopmentSetup__AdminPassword`、`DevelopmentSetup__AdminDisplayName` を読みます
+- `ADMIN_EMAIL`、`ADMIN_PASSWORD`、`ADMIN_DISPLAY_NAME` も同じ値として扱えます
+- 本番の GitHub Actions では、GitHub Environment `production` の Secret `PRODUCTION_ADMIN_ENV_FILE` に `.env` 相当の内容を保存します
+
+```dotenv
+DevelopmentSetup__AdminEmail=admin@example.com
+DevelopmentSetup__AdminPassword=<strong-password>
+DevelopmentSetup__AdminDisplayName=Production Admin
+```
+
+## 本番 Migration / Admin seed 運用手順
+
+- 本番では `--apply-migrations`、`--seed-admin`、明示デモ投入用の `--seed-demo-data` のみを使います。`--seed-development` と `--setup-development` は `Development` 専用です
 - 実行前に、対象 DB のバックアップ取得、`ConnectionStrings__DefaultConnection` と `Storage__RootPath` の確認、適用対象の migration 差分レビューを済ませます
 - migration 実行は 1 回だけにします。App Service の複数インスタンスを同時に立ち上げたまま自動実行するのではなく、デプロイジョブやメンテナンス手順の中で明示的に 1 回だけ流します
 
 ### GitHub Actions での実行方式
 
 - `.github/workflows/production-migrate.yml` を `workflow_dispatch` で手動実行し、**GitHub Actions runner から Azure SQL に対して 1 回だけ migration を適用**します
+- `.github/workflows/production-admin-seed.yml` を `workflow_dispatch` で手動実行し、**Production DB に Admin ロールと Admin ユーザーを seed**します。`seed_demo_data=true` と確認語 `seed-production-admin-with-demo-data` を指定した場合だけ、デモデータも投入します
 - workflow は `main` 専用で、GitHub Environment `production` の値を使って Azure へ OIDC ログインします
 - 接続文字列は App Service から逆読みせず、`AZURE_KEY_VAULT_NAME` と `AZURE_SQL_CONNECTION_SECRET_NAME` を使って Key Vault から直接取得します
 - migration 実行時はアプリ本体を `Production` 環境で起動し、`ConnectionStrings__DefaultConnection`、`Storage__RootPath`、DataProtection の本番設定をそのまま注入します
@@ -194,6 +211,7 @@ dotnet run --project src/PetHealthManagement.Web --no-launch-profile -- --setup-
   - Secret: `AZURE_CLIENT_ID=<federated-credential-client-id>`
   - Secret: `AZURE_TENANT_ID=<tenant-id>`
   - Secret: `AZURE_SUBSCRIPTION_ID=<subscription-id>`
+  - Secret: `PRODUCTION_ADMIN_ENV_FILE=<.env content>`（Production Admin Seed workflow を使う場合）
 - この workflow を実行する Azure principal には、少なくとも次の権限が必要です
   - Key Vault の接続文字列 secret を読む権限
   - DataProtection 用 blob への読み書き権限
@@ -283,6 +301,7 @@ dotnet .\PetHealthManagement.Web.dll --apply-migrations
 - Azure 側では、GitHub の `main` ブランチからこの workflow を信頼する federated credential を作成し、対象 App Service へデプロイ可能な権限を付与します
 - App Service のアプリ設定は workflow では変更しません。`ConnectionStrings__DefaultConnection` は Key Vault reference、`Storage__RootPath` は `/home/...` を事前に構成しておきます
 - 手動で再デプロイしたい場合は、Actions の `CD` workflow を `main` で `Run workflow` します
+- Production の Admin アカウントを作成・更新したい場合は、Actions の `Production Admin Seed` workflow を `main` で `Run workflow` し、confirm に `seed-production-admin` を入力します。デモデータも投入する場合だけ `seed_demo_data=true` にして、confirm に `seed-production-admin-with-demo-data` を入力します
 - smoke 用には、MyPage / Pets にアクセスできる専用ユーザーを運用で用意しておきます。画像 smoke を有効化する場合は、そのユーザーが参照できる維持画像も作成します
 - rollback が必要な場合は、Actions の `Rollback Production` workflow を `main` から手動実行し、`target_ref` に既知の良品 ref を指定します
 

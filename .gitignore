@@ -39,6 +39,9 @@ ScaffoldingReadMe.txt
 # Others
 ~$*
 *~
+.env
+.env.*
+!.env.example
 CodeCoverage/
 *.db
 *.db-shm

@@ -107,6 +107,160 @@ public class DevelopmentSetupServiceTests
         Assert.Contains("Development environment", exception.Message, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task SeedAdminIdentityAsync_CreatesAdminRoleAndUser_OutsideDevelopment()
+    {
+        await using var dbContext = TestDbContextFactory.CreateInMemoryDbContext(nameof(SeedAdminIdentityAsync_CreatesAdminRoleAndUser_OutsideDevelopment));
+        using var userManager = CreateUserManager(dbContext);
+        using var roleManager = CreateRoleManager(dbContext);
+
+        var service = CreateService(
+            dbContext,
+            userManager,
+            roleManager,
+            new TestHostEnvironment(Environments.Production),
+            Options.Create(new DevelopmentSetupOptions
+            {
+                AdminEmail = "prod-admin@example.com",
+                AdminPassword = "Admin123!",
+                AdminDisplayName = "Production Admin"
+            }));
+
+        await service.SeedAdminIdentityAsync();
+
+        var adminUser = await userManager.FindByEmailAsync("prod-admin@example.com");
+
+        Assert.NotNull(adminUser);
+        Assert.True(adminUser.EmailConfirmed);
+        Assert.Equal("Production Admin", adminUser.DisplayName);
+        Assert.True(await userManager.CheckPasswordAsync(adminUser, "Admin123!"));
+        Assert.True(await userManager.IsInRoleAsync(adminUser, DevelopmentSetupService.AdminRoleName));
+        Assert.True(await roleManager.RoleExistsAsync(DevelopmentSetupService.AdminRoleName));
+        Assert.Empty(dbContext.Pets);
+        Assert.Empty(dbContext.HealthLogs);
+        Assert.Empty(dbContext.ScheduleItems);
+        Assert.Empty(dbContext.Visits);
+    }
+
+    [Fact]
+    public async Task SeedDemoDataAsync_CreatesAdminAndDemoRecords_OutsideDevelopment()
+    {
+        await using var dbContext = TestDbContextFactory.CreateInMemoryDbContext(nameof(SeedDemoDataAsync_CreatesAdminAndDemoRecords_OutsideDevelopment));
+        using var userManager = CreateUserManager(dbContext);
+        using var roleManager = CreateRoleManager(dbContext);
+
+        var service = CreateService(
+            dbContext,
+            userManager,
+            roleManager,
+            new TestHostEnvironment(Environments.Production),
+            Options.Create(new DevelopmentSetupOptions
+            {
+                AdminEmail = "prod-admin@example.com",
+                AdminPassword = "Admin123!",
+                AdminDisplayName = "Production Admin"
+            }));
+
+        await service.SeedDemoDataAsync();
+
+        var adminUser = await userManager.FindByEmailAsync("prod-admin@example.com");
+
+        Assert.NotNull(adminUser);
+        Assert.True(await userManager.IsInRoleAsync(adminUser, DevelopmentSetupService.AdminRoleName));
+        Assert.Equal(3, dbContext.Pets.Count(x => x.OwnerId == adminUser.Id));
+        Assert.Equal(7, dbContext.HealthLogs.Count());
+        Assert.Equal(7, dbContext.ScheduleItems.Count());
+        Assert.Equal(4, dbContext.Visits.Count());
+        Assert.All(dbContext.HealthLogs, x => Assert.Equal(TimeSpan.FromHours(9), x.RecordedAt.Offset));
+    }
+
+    [Fact]
+    public async Task SeedDevelopmentDemoDataAsync_CreatesAdminAndDemoRecords_WhenMissing()
+    {
+        await using var dbContext = TestDbContextFactory.CreateInMemoryDbContext(nameof(SeedDevelopmentDemoDataAsync_CreatesAdminAndDemoRecords_WhenMissing));
+        using var userManager = CreateUserManager(dbContext);
+        using var roleManager = CreateRoleManager(dbContext);
+
+        var service = CreateService(
+            dbContext,
+            userManager,
+            roleManager,
+            new TestHostEnvironment(Environments.Development),
+            Options.Create(new DevelopmentSetupOptions
+            {
+                AdminEmail = "admin@example.com",
+                AdminPassword = "Admin123!",
+                AdminDisplayName = "Development Admin"
+            }));
+
+        await service.SeedDevelopmentDemoDataAsync();
+
+        var adminUser = await userManager.FindByEmailAsync("admin@example.com");
+
+        Assert.NotNull(adminUser);
+        Assert.True(await userManager.IsInRoleAsync(adminUser, DevelopmentSetupService.AdminRoleName));
+        Assert.Equal(3, dbContext.Pets.Count(x => x.OwnerId == adminUser.Id));
+        Assert.Equal(7, dbContext.HealthLogs.Count());
+        Assert.Equal(7, dbContext.ScheduleItems.Count());
+        Assert.Equal(4, dbContext.Visits.Count());
+        Assert.Contains(dbContext.Pets, x => x.OwnerId == adminUser.Id && x.Name == "まめ" && !x.IsPublic);
+        Assert.All(dbContext.HealthLogs, x => Assert.Equal(TimeSpan.FromHours(9), x.RecordedAt.Offset));
+    }
+
+    [Fact]
+    public async Task SeedDevelopmentDemoDataAsync_IsIdempotent()
+    {
+        await using var dbContext = TestDbContextFactory.CreateInMemoryDbContext(nameof(SeedDevelopmentDemoDataAsync_IsIdempotent));
+        using var userManager = CreateUserManager(dbContext);
+        using var roleManager = CreateRoleManager(dbContext);
+
+        var service = CreateService(
+            dbContext,
+            userManager,
+            roleManager,
+            new TestHostEnvironment(Environments.Development),
+            Options.Create(new DevelopmentSetupOptions
+            {
+                AdminEmail = "admin@example.com",
+                AdminPassword = "Admin123!",
+                AdminDisplayName = "Development Admin"
+            }));
+
+        await service.SeedDevelopmentDemoDataAsync();
+        await service.SeedDevelopmentDemoDataAsync();
+
+        var adminUser = await userManager.FindByEmailAsync("admin@example.com");
+
+        Assert.NotNull(adminUser);
+        Assert.Equal(3, dbContext.Pets.Count(x => x.OwnerId == adminUser.Id));
+        Assert.Equal(7, dbContext.HealthLogs.Count());
+        Assert.Equal(7, dbContext.ScheduleItems.Count());
+        Assert.Equal(4, dbContext.Visits.Count());
+    }
+
+    [Fact]
+    public async Task SeedDevelopmentDemoDataAsync_ThrowsOutsideDevelopment()
+    {
+        await using var dbContext = TestDbContextFactory.CreateInMemoryDbContext(nameof(SeedDevelopmentDemoDataAsync_ThrowsOutsideDevelopment));
+        using var userManager = CreateUserManager(dbContext);
+        using var roleManager = CreateRoleManager(dbContext);
+
+        var service = CreateService(
+            dbContext,
+            userManager,
+            roleManager,
+            new TestHostEnvironment("Staging"),
+            Options.Create(new DevelopmentSetupOptions
+            {
+                AdminEmail = "admin@example.com",
+                AdminPassword = "Admin123!"
+            }));
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.SeedDevelopmentDemoDataAsync());
+
+        Assert.Contains("Development environment", exception.Message, StringComparison.Ordinal);
+    }
+
     private static DevelopmentSetupService CreateService(
         ApplicationDbContext dbContext,
         UserManager<ApplicationUser> userManager,

@@ -1,10 +1,11 @@
 <#
 .SYNOPSIS
-  Applies local migrations and seeds a Development admin account.
+  Applies local migrations and seeds a Development admin account with demo data.
 
 .DESCRIPTION
   - Stores development admin settings in user-secrets for the web project.
   - Runs the web project with `--setup-development` under the Development environment.
+  - Seeds demo pets, health logs, schedules, and visits for the development admin user.
 
 .PARAMETER AdminEmail
   Development admin email address. Defaults to "admin@example.com".
