@@ -134,10 +134,29 @@ jobs:
           export DataProtection__ApplicationName="${DataProtection__ApplicationName:-PetHealthManagement.Web}"
 
           if [[ "$SEED_DEMO_DATA" == "true" ]]; then
-            dotnet run --project "$WEB_PROJECT_PATH" -c "$CONFIGURATION" --no-build --no-launch-profile -- --seed-demo-data
+            SETUP_ARGUMENT="--seed-demo-data"
+            SETUP_DESCRIPTION="production account and demo data"
           else
-            dotnet run --project "$WEB_PROJECT_PATH" -c "$CONFIGURATION" --no-build --no-launch-profile -- --seed-admin
+            SETUP_ARGUMENT="--seed-admin"
+            SETUP_DESCRIPTION="production account"
           fi
+
+          for attempt in 1 2 3 4 5; do
+            echo "Seeding ${SETUP_DESCRIPTION}... attempt ${attempt}/5"
+
+            if dotnet run --project "$WEB_PROJECT_PATH" -c "$CONFIGURATION" --no-build --no-launch-profile -- "$SETUP_ARGUMENT"; then
+              echo "Seed completed successfully."
+              exit 0
+            fi
+
+            if [[ "$attempt" == "5" ]]; then
+              echo "Seed failed after 5 attempts."
+              exit 1
+            fi
+
+            echo "Seed attempt ${attempt} failed. Waiting 60 seconds before retry..."
+            sleep 60
+          done
 
       - name: Remove production admin .env
         if: always()
