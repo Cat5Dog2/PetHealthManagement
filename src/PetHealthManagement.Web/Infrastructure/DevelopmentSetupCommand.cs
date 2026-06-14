@@ -5,6 +5,8 @@ namespace PetHealthManagement.Web.Infrastructure;
 public static class DevelopmentSetupCommand
 {
     private const string ApplyMigrationsArgument = "--apply-migrations";
+    private const string SeedAdminArgument = "--seed-admin";
+    private const string SeedDemoDataArgument = "--seed-demo-data";
     private const string SeedDevelopmentArgument = "--seed-development";
     private const string SetupDevelopmentArgument = "--setup-development";
 
@@ -17,10 +19,12 @@ public static class DevelopmentSetupCommand
         ArgumentNullException.ThrowIfNull(args);
 
         var applyMigrations = ContainsArgument(args, ApplyMigrationsArgument);
+        var seedAdmin = ContainsArgument(args, SeedAdminArgument);
+        var seedDemoData = ContainsArgument(args, SeedDemoDataArgument);
         var seedDevelopment = ContainsArgument(args, SeedDevelopmentArgument);
         var setupDevelopment = ContainsArgument(args, SetupDevelopmentArgument);
 
-        if (!applyMigrations && !seedDevelopment && !setupDevelopment)
+        if (!applyMigrations && !seedAdmin && !seedDemoData && !seedDevelopment && !setupDevelopment)
         {
             return false;
         }
@@ -35,15 +39,28 @@ public static class DevelopmentSetupCommand
             await developmentSetupService.ApplyMigrationsAsync(cancellationToken);
         }
 
-        if (setupDevelopment || seedDevelopment)
+        var seedDevelopmentData = setupDevelopment || seedDevelopment;
+        if (seedDevelopmentData)
         {
             await developmentSetupService.SeedDevelopmentIdentityAsync(cancellationToken);
+            await developmentSetupService.SeedDevelopmentDemoDataAsync(cancellationToken);
+        }
+        else if (seedAdmin)
+        {
+            await developmentSetupService.SeedAdminIdentityAsync(cancellationToken);
+        }
+
+        if (seedDemoData && !seedDevelopmentData)
+        {
+            await developmentSetupService.SeedDemoDataAsync(cancellationToken);
         }
 
         logger.LogInformation(
-            "Completed setup command execution. applyMigrations={ApplyMigrations} seedDevelopment={SeedDevelopment}",
+            "Completed setup command execution. applyMigrations={ApplyMigrations} seedAdmin={SeedAdmin} seedDemoData={SeedDemoData} seedDevelopment={SeedDevelopment}",
             setupDevelopment || applyMigrations,
-            setupDevelopment || seedDevelopment);
+            seedAdmin && !seedDevelopmentData,
+            seedDemoData && !seedDevelopmentData,
+            seedDevelopmentData);
 
         return true;
     }

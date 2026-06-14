@@ -12,6 +12,7 @@ using PetHealthManagement.Web.Models;
 using PetHealthManagement.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+DotEnvConfiguration.Add(builder.Configuration, builder.Environment.ContentRootPath);
 EnvironmentConfigurationGuard.Validate(builder.Configuration, builder.Environment.EnvironmentName);
 
 // Add services to the container.
