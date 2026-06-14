@@ -101,6 +101,7 @@ public static class DotEnvConfiguration
             "ADMIN_EMAIL" or "PRODUCTION_ADMIN_EMAIL" => "DevelopmentSetup:AdminEmail",
             "ADMIN_PASSWORD" or "PRODUCTION_ADMIN_PASSWORD" => "DevelopmentSetup:AdminPassword",
             "ADMIN_DISPLAY_NAME" or "PRODUCTION_ADMIN_DISPLAY_NAME" => "DevelopmentSetup:AdminDisplayName",
+            "DEMO_USER_PASSWORD" or "PRODUCTION_DEMO_USER_PASSWORD" => "DevelopmentSetup:DemoUserPassword",
             _ => normalized
         };
     }

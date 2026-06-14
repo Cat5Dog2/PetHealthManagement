@@ -13,7 +13,8 @@ public class DotEnvConfigurationTests
         [
             "DevelopmentSetup__AdminEmail=admin@example.com",
             "DevelopmentSetup__AdminPassword='Admin123!'",
-            "DevelopmentSetup__AdminDisplayName=\"Production Admin\""
+            "DevelopmentSetup__AdminDisplayName=\"Production Admin\"",
+            "DevelopmentSetup__DemoUserPassword='Demo123!'"
         ]);
         using var envFileVariable = TemporaryEnvironmentVariable.Set(DotEnvConfiguration.EnvFilePathVariableName, envFilePath);
         var configuration = new ConfigurationManager();
@@ -23,6 +24,7 @@ public class DotEnvConfigurationTests
         Assert.Equal("admin@example.com", configuration["DevelopmentSetup:AdminEmail"]);
         Assert.Equal("Admin123!", configuration["DevelopmentSetup:AdminPassword"]);
         Assert.Equal("Production Admin", configuration["DevelopmentSetup:AdminDisplayName"]);
+        Assert.Equal("Demo123!", configuration["DevelopmentSetup:DemoUserPassword"]);
     }
 
     [Fact]
@@ -33,7 +35,8 @@ public class DotEnvConfigurationTests
         [
             "ADMIN_EMAIL=admin@example.com",
             "PRODUCTION_ADMIN_PASSWORD=Admin123!",
-            "ADMIN_DISPLAY_NAME=Production Admin"
+            "ADMIN_DISPLAY_NAME=Production Admin",
+            "PRODUCTION_DEMO_USER_PASSWORD=Demo123!"
         ]);
         using var envFileVariable = TemporaryEnvironmentVariable.Set(DotEnvConfiguration.EnvFilePathVariableName, envFilePath);
         var configuration = new ConfigurationManager();
@@ -43,6 +46,7 @@ public class DotEnvConfigurationTests
         Assert.Equal("admin@example.com", configuration["DevelopmentSetup:AdminEmail"]);
         Assert.Equal("Admin123!", configuration["DevelopmentSetup:AdminPassword"]);
         Assert.Equal("Production Admin", configuration["DevelopmentSetup:AdminDisplayName"]);
+        Assert.Equal("Demo123!", configuration["DevelopmentSetup:DemoUserPassword"]);
     }
 
     [Fact]

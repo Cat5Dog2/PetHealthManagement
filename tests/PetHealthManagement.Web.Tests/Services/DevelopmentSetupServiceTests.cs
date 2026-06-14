@@ -13,6 +13,12 @@ namespace PetHealthManagement.Web.Tests.Services;
 
 public class DevelopmentSetupServiceTests
 {
+    private const int AdminDemoPetCount = 3;
+    private const int TotalDemoPetCount = 7;
+    private const int TotalDemoHealthLogCount = 14;
+    private const int TotalDemoScheduleItemCount = 14;
+    private const int TotalDemoVisitCount = 8;
+
     [Fact]
     public async Task SeedDevelopmentIdentityAsync_CreatesAdminRoleAndUser_WhenMissing()
     {
@@ -158,20 +164,56 @@ public class DevelopmentSetupServiceTests
             {
                 AdminEmail = "prod-admin@example.com",
                 AdminPassword = "Admin123!",
-                AdminDisplayName = "Production Admin"
+                AdminDisplayName = "Production Admin",
+                DemoUserPassword = "Demo123!"
             }));
 
         await service.SeedDemoDataAsync();
 
         var adminUser = await userManager.FindByEmailAsync("prod-admin@example.com");
+        var satoUser = await userManager.FindByEmailAsync("demo.sato@example.com");
+        var tanakaUser = await userManager.FindByEmailAsync("demo.tanaka@example.com");
 
         Assert.NotNull(adminUser);
+        Assert.NotNull(satoUser);
+        Assert.NotNull(tanakaUser);
         Assert.True(await userManager.IsInRoleAsync(adminUser, DevelopmentSetupService.AdminRoleName));
-        Assert.Equal(3, dbContext.Pets.Count(x => x.OwnerId == adminUser.Id));
-        Assert.Equal(7, dbContext.HealthLogs.Count());
-        Assert.Equal(7, dbContext.ScheduleItems.Count());
-        Assert.Equal(4, dbContext.Visits.Count());
+        Assert.False(await userManager.IsInRoleAsync(satoUser, DevelopmentSetupService.AdminRoleName));
+        Assert.False(await userManager.IsInRoleAsync(tanakaUser, DevelopmentSetupService.AdminRoleName));
+        Assert.True(await userManager.CheckPasswordAsync(satoUser, "Demo123!"));
+        Assert.True(await userManager.CheckPasswordAsync(tanakaUser, "Demo123!"));
+        Assert.Equal(AdminDemoPetCount, dbContext.Pets.Count(x => x.OwnerId == adminUser.Id));
+        Assert.Equal(2, dbContext.Pets.Count(x => x.OwnerId == satoUser.Id));
+        Assert.Equal(2, dbContext.Pets.Count(x => x.OwnerId == tanakaUser.Id));
+        Assert.Equal(TotalDemoPetCount, dbContext.Pets.Count());
+        Assert.Equal(TotalDemoHealthLogCount, dbContext.HealthLogs.Count());
+        Assert.Equal(TotalDemoScheduleItemCount, dbContext.ScheduleItems.Count());
+        Assert.Equal(TotalDemoVisitCount, dbContext.Visits.Count());
         Assert.All(dbContext.HealthLogs, x => Assert.Equal(TimeSpan.FromHours(9), x.RecordedAt.Offset));
+    }
+
+    [Fact]
+    public async Task SeedDemoDataAsync_ThrowsOutsideDevelopment_WhenDemoUserPasswordMissing()
+    {
+        await using var dbContext = TestDbContextFactory.CreateInMemoryDbContext(nameof(SeedDemoDataAsync_ThrowsOutsideDevelopment_WhenDemoUserPasswordMissing));
+        using var userManager = CreateUserManager(dbContext);
+        using var roleManager = CreateRoleManager(dbContext);
+
+        var service = CreateService(
+            dbContext,
+            userManager,
+            roleManager,
+            new TestHostEnvironment(Environments.Production),
+            Options.Create(new DevelopmentSetupOptions
+            {
+                AdminEmail = "prod-admin@example.com",
+                AdminPassword = "Admin123!",
+                AdminDisplayName = "Production Admin"
+            }));
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.SeedDemoDataAsync());
+
+        Assert.Contains("DemoUserPassword", exception.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -199,11 +241,13 @@ public class DevelopmentSetupServiceTests
 
         Assert.NotNull(adminUser);
         Assert.True(await userManager.IsInRoleAsync(adminUser, DevelopmentSetupService.AdminRoleName));
-        Assert.Equal(3, dbContext.Pets.Count(x => x.OwnerId == adminUser.Id));
-        Assert.Equal(7, dbContext.HealthLogs.Count());
-        Assert.Equal(7, dbContext.ScheduleItems.Count());
-        Assert.Equal(4, dbContext.Visits.Count());
+        Assert.Equal(AdminDemoPetCount, dbContext.Pets.Count(x => x.OwnerId == adminUser.Id));
+        Assert.Equal(TotalDemoPetCount, dbContext.Pets.Count());
+        Assert.Equal(TotalDemoHealthLogCount, dbContext.HealthLogs.Count());
+        Assert.Equal(TotalDemoScheduleItemCount, dbContext.ScheduleItems.Count());
+        Assert.Equal(TotalDemoVisitCount, dbContext.Visits.Count());
         Assert.Contains(dbContext.Pets, x => x.OwnerId == adminUser.Id && x.Name == "まめ" && !x.IsPublic);
+        Assert.Contains(dbContext.Pets, x => x.Name == "レオ" && !x.IsPublic);
         Assert.All(dbContext.HealthLogs, x => Assert.Equal(TimeSpan.FromHours(9), x.RecordedAt.Offset));
     }
 
@@ -232,10 +276,12 @@ public class DevelopmentSetupServiceTests
         var adminUser = await userManager.FindByEmailAsync("admin@example.com");
 
         Assert.NotNull(adminUser);
-        Assert.Equal(3, dbContext.Pets.Count(x => x.OwnerId == adminUser.Id));
-        Assert.Equal(7, dbContext.HealthLogs.Count());
-        Assert.Equal(7, dbContext.ScheduleItems.Count());
-        Assert.Equal(4, dbContext.Visits.Count());
+        Assert.Equal(AdminDemoPetCount, dbContext.Pets.Count(x => x.OwnerId == adminUser.Id));
+        Assert.Equal(TotalDemoPetCount, dbContext.Pets.Count());
+        Assert.Equal(TotalDemoHealthLogCount, dbContext.HealthLogs.Count());
+        Assert.Equal(TotalDemoScheduleItemCount, dbContext.ScheduleItems.Count());
+        Assert.Equal(TotalDemoVisitCount, dbContext.Visits.Count());
+        Assert.Equal(3, userManager.Users.Count());
     }
 
     [Fact]

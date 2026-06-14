@@ -9,4 +9,6 @@ public class DevelopmentSetupOptions
     public string AdminPassword { get; set; } = string.Empty;
 
     public string AdminDisplayName { get; set; } = "Development Admin";
+
+    public string DemoUserPassword { get; set; } = string.Empty;
 }

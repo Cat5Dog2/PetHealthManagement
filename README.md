@@ -137,8 +137,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev-certs.ps1 -Trust
 
 - `Species` は `SpeciesCatalog` の固定コードなので、DB へのマスタ seed は不要です
 - 初回のローカルセットアップは `Migration 適用 -> Admin seed + デモデータ seed -> ログイン確認` の順で進められます
-- 開発用 Admin ユーザーとデモデータは `Development` 環境でのみ seed され、Admin 設定値はコミットせず `user-secrets` または環境変数で与えます
-- デモデータは Admin ユーザーに紐づくペット、健康ログ、予定、通院履歴です。再実行しても同名のデモペットは重複作成しません
+- 開発用 Admin ユーザーとデモデータは `Development` 環境で seed され、Admin 設定値はコミットせず `user-secrets` または環境変数で与えます
+- デモデータは Admin ユーザーと通常デモユーザー（`demo.sato@example.com` / `demo.tanaka@example.com`）それぞれに紐づくペット、健康ログ、予定、通院履歴です。再実行しても同じユーザー・同名のデモペットは重複作成しません
 
 PowerShell:
 
@@ -174,13 +174,15 @@ dotnet run --project src/PetHealthManagement.Web --no-launch-profile -- --setup-
 
 - `.env` はコミットしません。ローカルでは `.env.example` を参考に `.env` を作成します
 - Admin seed は `DevelopmentSetup__AdminEmail`、`DevelopmentSetup__AdminPassword`、`DevelopmentSetup__AdminDisplayName` を読みます
-- `ADMIN_EMAIL`、`ADMIN_PASSWORD`、`ADMIN_DISPLAY_NAME` も同じ値として扱えます
+- デモユーザーを作成する場合は `DevelopmentSetup__DemoUserPassword` も読みます。Development では未設定時に Admin パスワードを代用しますが、Production の `--seed-demo-data` では明示設定が必須です
+- `ADMIN_EMAIL`、`ADMIN_PASSWORD`、`ADMIN_DISPLAY_NAME`、`DEMO_USER_PASSWORD` も同じ値として扱えます
 - 本番の GitHub Actions では、GitHub Environment `production` の Secret `PRODUCTION_ADMIN_ENV_FILE` に `.env` 相当の内容を保存します
 
 ```dotenv
 DevelopmentSetup__AdminEmail=admin@example.com
 DevelopmentSetup__AdminPassword=<strong-password>
 DevelopmentSetup__AdminDisplayName=Production Admin
+DevelopmentSetup__DemoUserPassword=<strong-demo-user-password>
 ```
 
 ## 本番 Migration / Admin seed 運用手順
@@ -192,7 +194,7 @@ DevelopmentSetup__AdminDisplayName=Production Admin
 ### GitHub Actions での実行方式
 
 - `.github/workflows/production-migrate.yml` を `workflow_dispatch` で手動実行し、**GitHub Actions runner から Azure SQL に対して 1 回だけ migration を適用**します
-- `.github/workflows/production-admin-seed.yml` を `workflow_dispatch` で手動実行し、**Production DB に Admin ロールと Admin ユーザーを seed**します。`seed_demo_data=true` と確認語 `seed-production-admin-with-demo-data` を指定した場合だけ、デモデータも投入します
+- `.github/workflows/production-admin-seed.yml` を `workflow_dispatch` で手動実行し、**Production DB に Admin ロールと Admin ユーザーを seed**します。`seed_demo_data=true` と確認語 `seed-production-admin-with-demo-data` を指定した場合だけ、通常デモユーザーと各ユーザーのデモデータも投入します
 - workflow は `main` 専用で、GitHub Environment `production` の値を使って Azure へ OIDC ログインします
 - 接続文字列は App Service から逆読みせず、`AZURE_KEY_VAULT_NAME` と `AZURE_SQL_CONNECTION_SECRET_NAME` を使って Key Vault から直接取得します
 - migration 実行時はアプリ本体を `Production` 環境で起動し、`ConnectionStrings__DefaultConnection`、`Storage__RootPath`、DataProtection の本番設定をそのまま注入します
@@ -211,7 +213,7 @@ DevelopmentSetup__AdminDisplayName=Production Admin
   - Secret: `AZURE_CLIENT_ID=<federated-credential-client-id>`
   - Secret: `AZURE_TENANT_ID=<tenant-id>`
   - Secret: `AZURE_SUBSCRIPTION_ID=<subscription-id>`
-  - Secret: `PRODUCTION_ADMIN_ENV_FILE=<.env content>`（Production Admin Seed workflow を使う場合）
+  - Secret: `PRODUCTION_ADMIN_ENV_FILE=<.env content>`（Production Admin Seed workflow を使う場合。`seed_demo_data=true` では `DevelopmentSetup__DemoUserPassword` も含める）
 - この workflow を実行する Azure principal には、少なくとも次の権限が必要です
   - Key Vault の接続文字列 secret を読む権限
   - DataProtection 用 blob への読み書き権限
@@ -301,7 +303,7 @@ dotnet .\PetHealthManagement.Web.dll --apply-migrations
 - Azure 側では、GitHub の `main` ブランチからこの workflow を信頼する federated credential を作成し、対象 App Service へデプロイ可能な権限を付与します
 - App Service のアプリ設定は workflow では変更しません。`ConnectionStrings__DefaultConnection` は Key Vault reference、`Storage__RootPath` は `/home/...` を事前に構成しておきます
 - 手動で再デプロイしたい場合は、Actions の `CD` workflow を `main` で `Run workflow` します
-- Production の Admin アカウントを作成・更新したい場合は、Actions の `Production Admin Seed` workflow を `main` で `Run workflow` し、confirm に `seed-production-admin` を入力します。デモデータも投入する場合だけ `seed_demo_data=true` にして、confirm に `seed-production-admin-with-demo-data` を入力します
+- Production の Admin アカウントを作成・更新したい場合は、Actions の `Production Admin Seed` workflow を `main` で `Run workflow` し、confirm に `seed-production-admin` を入力します。デモデータも投入する場合だけ `PRODUCTION_ADMIN_ENV_FILE` に `DevelopmentSetup__DemoUserPassword` を含め、`seed_demo_data=true` にして、confirm に `seed-production-admin-with-demo-data` を入力します
 - smoke 用には、MyPage / Pets にアクセスできる専用ユーザーを運用で用意しておきます。画像 smoke を有効化する場合は、そのユーザーが参照できる維持画像も作成します
 - rollback が必要な場合は、Actions の `Rollback Production` workflow を `main` から手動実行し、`target_ref` に既知の良品 ref を指定します
 
