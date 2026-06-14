@@ -354,7 +354,7 @@
 - 決定事項：GitHub Actions の `CD` workflow を追加し、`main` への push または `workflow_dispatch` を契機に **Release build → full test → publish artifact → Azure App Service deploy** を実行する。deploy job は GitHub Environment `production` を使い、Azure 認証は OIDC（`azure/login`）で行う。
 - [x] Migration適用手順（デプロイ時の実行方式を決める）
 - 決定事項：migration は App Service 起動時に自動実行せず、GitHub Actions の `Production Migrations` workflow を **手動実行**して GitHub Actions runner から Azure SQL へ 1 回だけ適用する。接続文字列は Key Vault から取得し、成功後に `CD` workflow の deploy job を進める。
-- 決定事項：Production の Admin ロール/ユーザー seed は GitHub Actions の `Production Admin Seed` workflow を **手動実行**して行う。Admin アカウント値はコミットせず、GitHub Environment `production` の Secret `PRODUCTION_ADMIN_ENV_FILE` に `.env` 形式で保存する。Production のデモデータ seed は `seed_demo_data=true` と確認語 `seed-production-admin-with-demo-data` を明示した場合だけ実行する。
+- 決定事項：Production の Admin ロール/ユーザー seed は GitHub Actions の `Production Admin Seed` workflow を **手動実行**して行う。Admin アカウント値はコミットせず、GitHub Environment `production` の Secret `PRODUCTION_ADMIN_ENV_FILE` に `.env` 形式で保存する。Production のデモデータ seed は `seed_demo_data=true` と確認語 `seed-production-admin-with-demo-data` を明示した場合だけ実行し、通常デモユーザーと各ユーザーのデモデータも作成する。Production でデモユーザーを作る場合は `DevelopmentSetup__DemoUserPassword` も必須にする。
 - [x] ログ/監視（Application Insights等）
 - 決定事項：アプリ監視は **Azure Monitor Application Insights + Azure Monitor OpenTelemetry Distro** を正とし、`APPLICATIONINSIGHTS_CONNECTION_STRING`（または `AzureMonitor__ConnectionString`）がある場合のみ有効化する。ポートフォリオ初期公開では未設定を既定運用にし、必要になった時だけ低サンプリングで有効化する。Cloud Role Name は既定で `PetHealthManagement.Web`、必要に応じて `AzureMonitor__ServiceName` で上書きする。
 - [x] **スモークテスト**（ログイン/一覧表示/画像GET）を「リリース後の必須チェック」にする

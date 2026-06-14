@@ -5,7 +5,7 @@
 .DESCRIPTION
   - Stores development admin settings in user-secrets for the web project.
   - Runs the web project with `--setup-development` under the Development environment.
-  - Seeds demo pets, health logs, schedules, and visits for the development admin user.
+  - Seeds demo pets, health logs, schedules, and visits for the development admin and demo users.
 
 .PARAMETER AdminEmail
   Development admin email address. Defaults to "admin@example.com".

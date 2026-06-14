@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       seed_demo_data:
-        description: "Also seed demo pets, health logs, schedules, and visits"
+        description: "Also seed demo users, pets, health logs, schedules, and visits"
         required: true
         default: "false"
         type: choice
@@ -101,6 +101,7 @@ jobs:
         shell: bash
         env:
           PRODUCTION_ADMIN_ENV_FILE: ${{ secrets.PRODUCTION_ADMIN_ENV_FILE }}
+          SEED_DEMO_DATA: ${{ inputs.seed_demo_data }}
         run: |
           umask 077
           printf '%s\n' "$PRODUCTION_ADMIN_ENV_FILE" > "$GITHUB_WORKSPACE/.env"
@@ -109,6 +110,10 @@ jobs:
             || { echo "PRODUCTION_ADMIN_ENV_FILE must define the Admin email."; exit 1; }
           grep -Eq '^(export[[:space:]]+)?(DevelopmentSetup__AdminPassword|DevelopmentSetup:AdminPassword|ADMIN_PASSWORD|PRODUCTION_ADMIN_PASSWORD)=' "$GITHUB_WORKSPACE/.env" \
             || { echo "PRODUCTION_ADMIN_ENV_FILE must define the Admin password."; exit 1; }
+          if [[ "$SEED_DEMO_DATA" == "true" ]]; then
+            grep -Eq '^(export[[:space:]]+)?(DevelopmentSetup__DemoUserPassword|DevelopmentSetup:DemoUserPassword|DEMO_USER_PASSWORD|PRODUCTION_DEMO_USER_PASSWORD)=' "$GITHUB_WORKSPACE/.env" \
+              || { echo "PRODUCTION_ADMIN_ENV_FILE must define the demo user password when seed_demo_data is true."; exit 1; }
+          fi
 
       - name: Build
         run: bash ./scripts/build.sh --configuration Release
