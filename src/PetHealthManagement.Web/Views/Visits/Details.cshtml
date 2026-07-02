@@ -11,7 +11,7 @@
             <p class="text-muted mb-0">@Model.PetName の通院履歴です。</p>
         </div>
         <div class="d-flex gap-2">
-            <a class="btn btn-outline-secondary"
+            <a class="btn btn-outline-primary"
                asp-action="Edit"
                asp-route-visitId="@Model.VisitId"
                asp-route-returnUrl="@currentUrl">
@@ -66,7 +66,10 @@
                         <a href="@image.Url" target="_blank" rel="noopener noreferrer">
                             <img src="@image.Url"
                                  alt="@image.AltText"
-                                 style="width: 144px; height: 144px; object-fit: cover;" />
+                                 width="144"
+                                 height="144"
+                                 loading="lazy"
+                                 style="object-fit: cover;" />
                         </a>
                     }
                 </div>
@@ -75,6 +78,6 @@
     </section>
 
     <div>
-        <a class="btn btn-primary" href="@Model.ReturnUrl">一覧へ戻る</a>
+        <a class="btn btn-outline-secondary" href="@Model.ReturnUrl">一覧へ戻る</a>
     </div>
 </div>

@@ -70,7 +70,7 @@ public sealed class ActivityFlowE2ETests(E2EWebApplicationFactory factory)
         await Page.GetByLabel("体重(kg)").FillAsync("5.4");
         await Page.GetByLabel("食事量(g)").FillAsync("120");
         await Page.GetByLabel("散歩時間(分)").FillAsync("35");
-        await Page.GetByLabel("便の様子").FillAsync("良好");
+        await Page.GetByLabel("便の様子").SelectOptionAsync("良好");
         await Page.GetByLabel("メモ").FillAsync("朝から元気");
         await Page.GetByRole(AriaRole.Button, new() { Name = "保存" }).ClickAsync();
 

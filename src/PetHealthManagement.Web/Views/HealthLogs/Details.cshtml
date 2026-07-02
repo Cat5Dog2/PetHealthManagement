@@ -11,7 +11,7 @@
             <p class="text-muted mb-0">@Model.PetName の記録です。</p>
         </div>
         <div class="d-flex gap-2">
-            <a class="btn btn-outline-secondary"
+            <a class="btn btn-outline-primary"
                asp-action="Edit"
                asp-route-healthLogId="@Model.HealthLogId"
                asp-route-returnUrl="@currentUrl">
@@ -20,7 +20,8 @@
             <form asp-action="Delete"
                   asp-route-healthLogId="@Model.HealthLogId"
                   method="post"
-                  class="d-inline">
+                  class="d-inline"
+                  onsubmit="return confirm('この健康ログを削除しますか？');">
                 <input type="hidden" name="petId" value="@Model.PetId" />
                 <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
                 <button type="submit" class="btn btn-outline-danger">削除</button>
@@ -68,7 +69,10 @@
                         <a href="@image.Url" target="_blank" rel="noopener noreferrer">
                             <img src="@image.Url"
                                  alt="@image.AltText"
-                                 style="width: 144px; height: 144px; object-fit: cover;" />
+                                 width="144"
+                                 height="144"
+                                 loading="lazy"
+                                 style="object-fit: cover;" />
                         </a>
                     }
                 </div>
@@ -77,6 +81,6 @@
     </section>
 
     <div>
-        <a class="btn btn-primary" href="@Model.ReturnUrl">一覧へ戻る</a>
+        <a class="btn btn-outline-secondary" href="@Model.ReturnUrl">一覧へ戻る</a>
     </div>
 </div>

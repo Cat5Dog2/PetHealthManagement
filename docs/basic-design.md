@@ -158,7 +158,7 @@
 ### 3.1 主な URL 一覧
 | 機能 | HTTP | URL | Controller / Action | 認可 |
 |---|---:|---|---|---|
-| トップ | GET | `/` | `HomeController.Index` | 匿名可 |
+| トップ | GET | `/` | `HomeController.Index` | 匿名可（ログイン済みは `/MyPage` へ 302） |
 | 共通エラー | GET | `/Error/{statusCode}` | `ErrorController.Index` | 匿名可 |
 | MyPage | GET | `/MyPage` | `MyPageController.Index` | 認証必須 |
 | プロフィール編集 | GET/POST | `/Account/EditProfile` | `AccountController.EditProfile` | 認証必須 |
@@ -171,6 +171,7 @@
 | ペット編集 | GET/POST | `/Pets/Edit/{petId}` | `PetsController.Edit` | 認証必須（所有者のみ） |
 | ペット削除 | POST | `/Pets/Delete/{petId}` | `PetsController.Delete` | 認証必須（所有者のみ） |
 | 健康ログ一覧 | GET | `/HealthLogs?petId={petId}&page={page}` | `HealthLogsController.Index` | 認証必須（所有者のみ） |
+| 記録ペット選択 | GET | `/HealthLogs/Record` | `HealthLogsController.Record` | 認証必須（自分のペットのみ。0匹→ペット登録へ、1匹→作成へ302） |
 | 健康ログ詳細 | GET | `/HealthLogs/Details/{healthLogId}` | `HealthLogsController.Details` | 認証必須（所有者のみ） |
 | 健康ログ作成 | GET/POST | `/HealthLogs/Create?petId={petId}` | `HealthLogsController.Create` | 認証必須（所有者のみ） |
 | 健康ログ編集 | GET/POST | `/HealthLogs/Edit/{healthLogId}` | `HealthLogsController.Edit` | 認証必須（所有者のみ） |
@@ -215,8 +216,13 @@
 ### 4.0 共通UI方針（第1段階）
 - ユーザー向けアプリ名は **「うちの子健康カルテ」** を表示する。
 - スマホ幅を主対象にしたモバイルファーストUIとし、PC幅では読みやすい最大幅を持つレスポンシブ表示にする。
-- 認証済みユーザーの主要導線は、既存URLを壊さずに上部ヘッダまたは下部ナビで提供してよい。
-- 第1段階のナビゲーションは既存機能への導線に限定し、健康分析、月間カレンダー、通知設定、データバックアップ、利用規約、アプリについて等の未実装画面は追加しない。
+- 認証済みユーザーの主要導線は、モバイル幅（768px未満）では下部ナビ（ホーム/ペット/記録/設定。アイコン+ラベル、現在地表示付き）、768px以上では上部ヘッダで提供する。
+- ログイン済みユーザーが `/` にアクセスした場合は `/MyPage` へリダイレクトし、入口を一本化する。
+- POST 成功後は TempData（`StatusMessage`）による共通ステータスアラートで結果をフィードバックする。
+- 削除系の操作は必ず確認ダイアログを挟む。アカウント削除の導線はプロフィール編集画面内の危険領域に置く。
+- ページャは「前へ / 現在ページ・総ページ / 次へ」形式とする。一覧カードでは値が空の項目は表示しない。
+- PWA 対応として `manifest.webmanifest`、`theme-color`、各種アイコン（192/512/maskable/apple-touch-icon）を配信し、ホーム画面追加に対応する。
+- 第1段階のナビゲーションは既存機能への導線に限定し、健康分析、月間カレンダー、通知設定、データバックアップ、利用規約、アプリについて等の未実装画面は追加しない（体重推移の簡易グラフは健康ログ一覧内の表示として提供する）。
 - MyPage は内部URLとして `/MyPage` を維持し、ユーザー向けには「ホーム」または「設定」相当の画面として表現してよい。
 
 ### 4.1 MyPage（/MyPage）
@@ -241,8 +247,11 @@
 ### 4.4 健康ログ（/HealthLogs）
 - 所有者のみアクセス可（非所有者は 404：存在秘匿）
 - 一覧：`RecordedAt` 降順、10件/ページ（クエリ `page`、1 始まり。未指定／非数／0 以下は 1）
+- 一覧上部に体重推移グラフ（インラインSVG）を表示：体重（`WeightKg`）2件以上で表示、直近最大20件
+- **記録ペット選択：`/HealthLogs/Record`**。下部ナビ「記録」の遷移先。自分のペットが0匹ならペット登録へ、1匹なら作成画面へ302、2匹以上で選択画面を表示
 - **詳細：`/HealthLogs/Details/{healthLogId}`（表示専用）**。一覧から遷移し、編集・削除へ導線を提供
 - 登録・編集：`RecordedAt` 必須（`DateTimeOffset +09:00`）
+- 便の様子（`StoolCondition`）はセレクト入力（未選択/良好/普通/軟便/下痢/血便/便秘。選択肢外の既存値は編集時に保持）
 - 画像：最大10枚（既存＋追加の合算）、ユーザー合計100MB制限、EXIF除去+向き正規化
   - 詳細画面では画像サムネ一覧→クリックで拡大表示（`GET /images/{imageId}`）
 

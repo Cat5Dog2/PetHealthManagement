@@ -222,7 +222,7 @@
 ### 2.1 一般（Main）
 | 機能 | HTTP | URL | 認可 |
 |---|---:|---|---|
-| トップ | GET | `/` | 匿名可 |
+| トップ | GET | `/` | 匿名可（ログイン済みは `/MyPage` へ 302） |
 | エラーページ | GET | `/Error/{statusCode}` | 匿名可 |
 | MyPage | GET | `/MyPage` | 認証必須 |
 | プロフィール編集 | GET/POST | `/Account/EditProfile` | 認証必須 |
@@ -235,6 +235,7 @@
 | ペット編集 | GET/POST | `/Pets/Edit/{petId}` | 認証必須（所有者のみ） |
 | ペット削除 | POST | `/Pets/Delete/{petId}` | 認証必須（所有者のみ） |
 | 健康ログ一覧 | GET | `/HealthLogs?petId={petId}` | 認証必須（所有者のみ） |
+| 記録ペット選択 | GET | `/HealthLogs/Record` | 認証必須（自分のペットのみ表示） |
 | 健康ログ詳細 | GET | `/HealthLogs/Details/{healthLogId}` | 認証必須（所有者のみ） |
 | 健康ログ作成 | GET/POST | `/HealthLogs/Create?petId={petId}` | 認証必須（所有者のみ） |
 | 健康ログ編集 | GET/POST | `/HealthLogs/Edit/{healthLogId}` | 認証必須（所有者のみ） |
@@ -444,6 +445,15 @@
   - `petId`：必須（対象ペット）
   - `page`：任意（1始まり。省略時1）
 - ソート：RecordedAt 降順、10件/ページ
+- 補足：体重（WeightKg）が2件以上ある場合、直近最大20件の**体重推移グラフ**（インラインSVG）を一覧上部に表示する
+
+#### GET `/HealthLogs/Record`
+- 概要：ボトムナビ「記録」の遷移先。健康ログを記録するペットを選ぶ
+- 認可：認証必須（自分のペットのみ表示）
+- 挙動：
+  - 自分のペットが **0匹**：302 → `/Pets/Create?returnUrl=/MyPage`
+  - 自分のペットが **1匹**：302 → `/HealthLogs/Create?petId={petId}`
+  - 自分のペットが **2匹以上**：200（ペット選択画面のHTML）
 
 #### GET `/HealthLogs/Details/{healthLogId}`
 - 概要：健康ログ詳細（表示専用）

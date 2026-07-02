@@ -238,6 +238,7 @@ public class VisitsController(
             return View(BuildCreateViewModel(pet, viewModel.ReturnUrl, viewModel));
         }
 
+        TempData[StatusMessages.TempDataKey] = StatusMessages.VisitCreated;
         var redirectUrl = ReturnUrlHelper.ResolveLocalReturnUrl(viewModel.ReturnUrl, PetActivityUrlHelper.VisitList(pet.Id));
         return Redirect(redirectUrl);
     }
@@ -328,6 +329,7 @@ public class VisitsController(
             return await BuildConcurrencyConflictResultAsync(currentVisit, viewModel.ReturnUrl);
         }
 
+        TempData[StatusMessages.TempDataKey] = StatusMessages.VisitUpdated;
         var redirectUrl = ReturnUrlHelper.ResolveLocalReturnUrl(viewModel.ReturnUrl, $"/Visits/Details/{visitId}");
         return Redirect(redirectUrl);
     }
@@ -364,6 +366,7 @@ public class VisitsController(
 
         await visitDeletionService.DeleteAsync(visit, userId, HttpContext.RequestAborted);
 
+        TempData[StatusMessages.TempDataKey] = StatusMessages.VisitDeleted;
         return Redirect(redirectUrl);
     }
 

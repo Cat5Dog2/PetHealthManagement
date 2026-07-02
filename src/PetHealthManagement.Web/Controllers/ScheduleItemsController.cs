@@ -196,6 +196,7 @@ public class ScheduleItemsController(ApplicationDbContext dbContext) : Controlle
         dbContext.ScheduleItems.Add(scheduleItem);
         await dbContext.SaveChangesAsync(HttpContext.RequestAborted);
 
+        TempData[StatusMessages.TempDataKey] = StatusMessages.ScheduleItemCreated;
         var redirectUrl = ReturnUrlHelper.ResolveLocalReturnUrl(viewModel.ReturnUrl, PetActivityUrlHelper.ScheduleItemList(pet.Id));
         return Redirect(redirectUrl);
     }
@@ -271,6 +272,7 @@ public class ScheduleItemsController(ApplicationDbContext dbContext) : Controlle
             return BuildConcurrencyConflictResult(currentScheduleItem, viewModel.ReturnUrl);
         }
 
+        TempData[StatusMessages.TempDataKey] = StatusMessages.ScheduleItemUpdated;
         var redirectUrl = ReturnUrlHelper.ResolveLocalReturnUrl(viewModel.ReturnUrl, $"/ScheduleItems/Details/{scheduleItemId}");
         return Redirect(redirectUrl);
     }
@@ -302,6 +304,9 @@ public class ScheduleItemsController(ApplicationDbContext dbContext) : Controlle
 
         await dbContext.SaveChangesAsync(HttpContext.RequestAborted);
 
+        TempData[StatusMessages.TempDataKey] = parsedIsDone
+            ? StatusMessages.ScheduleItemMarkedDone
+            : StatusMessages.ScheduleItemMarkedNotDone;
         var redirectUrl = ReturnUrlHelper.ResolveLocalReturnUrl(
             returnUrl,
             PetActivityUrlHelper.ScheduleItemList(scheduleItem.PetId, page));
@@ -338,6 +343,7 @@ public class ScheduleItemsController(ApplicationDbContext dbContext) : Controlle
         dbContext.ScheduleItems.Remove(scheduleItem);
         await dbContext.SaveChangesAsync(HttpContext.RequestAborted);
 
+        TempData[StatusMessages.TempDataKey] = StatusMessages.ScheduleItemDeleted;
         return Redirect(redirectUrl);
     }
 

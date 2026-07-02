@@ -53,7 +53,7 @@ else
         @foreach (var pet in Model.Pets)
         {
             <article class="pet-card">
-                <img src="@pet.PhotoUrl" alt="@pet.Name の写真" class="pet-photo pet-card__photo" />
+                <img src="@pet.PhotoUrl" alt="@pet.Name の写真" class="pet-photo pet-card__photo" loading="lazy" />
                 <div class="pet-card__body">
                     <div class="pet-card__title">
                         <h2>@pet.Name</h2>
@@ -71,10 +71,13 @@ else
                             <dt>種別</dt>
                             <dd>@pet.SpeciesLabel</dd>
                         </div>
-                        <div>
-                            <dt>品種</dt>
-                            <dd>@(string.IsNullOrWhiteSpace(pet.Breed) ? "-" : pet.Breed)</dd>
-                        </div>
+                        @if (!string.IsNullOrWhiteSpace(pet.Breed))
+                        {
+                            <div>
+                                <dt>品種</dt>
+                                <dd>@pet.Breed</dd>
+                            </div>
+                        }
                         <div>
                             <dt>オーナー</dt>
                             <dd>@pet.OwnerDisplayName</dd>
@@ -100,27 +103,37 @@ else
 
 @if (Model.TotalPages > 1)
 {
-    <nav aria-label="ペット一覧ページャー" class="mt-4">
-        <ul class="pagination mb-0">
-            @for (var pageNumber = 1; pageNumber <= Model.TotalPages; pageNumber++)
-            {
-                if (pageNumber == Model.Page)
-                {
-                    <li class="page-item active"><span class="page-link">@pageNumber</span></li>
-                }
-                else
-                {
-                    <li class="page-item">
-                        <a class="page-link"
-                           asp-action="Index"
-                           asp-route-nameKeyword="@Model.NameKeyword"
-                           asp-route-speciesFilter="@Model.SpeciesFilter"
-                           asp-route-page="@pageNumber">
-                            @pageNumber
-                        </a>
-                    </li>
-                }
-            }
-        </ul>
+    <nav aria-label="ペット一覧ページャー" class="list-pager mt-4">
+        @if (Model.Page > 1)
+        {
+            <a class="btn btn-outline-secondary"
+               asp-action="Index"
+               asp-route-nameKeyword="@Model.NameKeyword"
+               asp-route-speciesFilter="@Model.SpeciesFilter"
+               asp-route-page="@(Model.Page - 1)"
+               rel="prev">
+                前へ
+            </a>
+        }
+        else
+        {
+            <span class="btn btn-outline-secondary disabled" aria-disabled="true">前へ</span>
+        }
+        <span class="list-pager__status">@Model.Page / @Model.TotalPages ページ</span>
+        @if (Model.Page < Model.TotalPages)
+        {
+            <a class="btn btn-outline-secondary"
+               asp-action="Index"
+               asp-route-nameKeyword="@Model.NameKeyword"
+               asp-route-speciesFilter="@Model.SpeciesFilter"
+               asp-route-page="@(Model.Page + 1)"
+               rel="next">
+                次へ
+            </a>
+        }
+        else
+        {
+            <span class="btn btn-outline-secondary disabled" aria-disabled="true">次へ</span>
+        }
     </nav>
 }

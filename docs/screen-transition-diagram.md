@@ -2,18 +2,26 @@
 
 ```mermaid
 flowchart LR
-  Home["Home<br/>(/)<br/>匿名可"] --> Login["Login / Register<br/>(Identity UI)"]
+  Home["Home<br/>(/)<br/>匿名可<br/>※ログイン済みは /MyPage へ302"] --> Login["Login / Register<br/>(Identity UI)"]
+  Home -->|ログイン済み| MyPage
 
-  Login --> MyPage["MyPage（ホーム/設定相当）<br/>(/MyPage)"]
+  Login --> MyPage["MyPage（ホーム相当）<br/>(/MyPage)"]
+
+  BottomNav["ボトムナビ（ログイン・モバイル）<br/>ホーム(/MyPage) | ペット(/Pets) | 記録(/HealthLogs/Record) | 設定(/Account/EditProfile)"]:::note
+  BottomNav -.-> MyPage
 
   MyPage --> EditProfile["プロフィール編集<br/>(/Account/EditProfile)"]
   MyPage --> ChangePassword["パスワード変更<br/>(/Identity/Account/Manage/ChangePassword)"]
-  MyPage --> AccountDelete["アカウント削除（確認）<br/>(/Account/Delete)"]
+  EditProfile --> AccountDelete["アカウント削除（確認）<br/>(/Account/Delete)"]
   AccountDelete --> AccountDeleteConfirmed["アカウント削除（実行）<br/>(POST /Account/DeleteConfirmed)"]
 
   MyPage --> PetsIndex["ペット一覧<br/>(/Pets)"]
   MyPage --> PetCreate["ペット登録<br/>(/Pets/Create)"]
   MyPage --> PetDetails["ペット詳細<br/>(/Pets/Details/{petId})"]
+
+  HealthLogRecord["記録するペットを選ぶ<br/>(/HealthLogs/Record)<br/>0匹→/Pets/Create、1匹→作成へ直行、2匹以上→選択表示"]
+  BottomNav -.-> HealthLogRecord
+  HealthLogRecord --> HealthLogCreate
 
   PetsIndex --> PetDetails
   PetsIndex --> PetCreate

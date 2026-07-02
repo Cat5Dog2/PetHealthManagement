@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.EntityFrameworkCore;
 using PetHealthManagement.Web.Controllers;
 using PetHealthManagement.Web.Data;
@@ -320,15 +321,30 @@ public class PetsControllerTests
                 [new Claim(ClaimTypes.NameIdentifier, userId)],
                 "TestAuth"));
 
-        controller.ControllerContext = new ControllerContext
+        var httpContext = new DefaultHttpContext
         {
-            HttpContext = new DefaultHttpContext
-            {
-                User = claimsPrincipal
-            }
+            User = claimsPrincipal
         };
 
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = httpContext
+        };
+        controller.TempData = new TempDataDictionary(httpContext, new TestTempDataProvider());
+
         return controller;
+    }
+
+    private sealed class TestTempDataProvider : ITempDataProvider
+    {
+        public IDictionary<string, object> LoadTempData(HttpContext context)
+        {
+            return new Dictionary<string, object>();
+        }
+
+        public void SaveTempData(HttpContext context, IDictionary<string, object> values)
+        {
+        }
     }
 
     private static ApplicationDbContext CreateDbContext()

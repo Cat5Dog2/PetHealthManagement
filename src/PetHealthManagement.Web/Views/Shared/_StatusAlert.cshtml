@@ -1,0 +1,7 @@
+@if (TempData[PetHealthManagement.Web.Infrastructure.StatusMessages.TempDataKey] is string statusMessage && !string.IsNullOrWhiteSpace(statusMessage))
+{
+    <div class="alert alert-success alert-dismissible fade show app-status-alert" role="status">
+        @statusMessage
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="閉じる"></button>
+    </div>
+}
