@@ -58,7 +58,7 @@ jobs:
           [[ -n "$SMOKE_TEST_PASSWORD" ]] || { echo "Missing production secret SMOKE_TEST_PASSWORD"; exit 1; }
 
       - name: Checkout target ref
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ inputs.target_ref }}
 
