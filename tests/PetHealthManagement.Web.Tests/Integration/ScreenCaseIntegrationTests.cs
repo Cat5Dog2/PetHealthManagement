@@ -68,6 +68,28 @@ public class ScreenCaseIntegrationTests
     }
 
     [Fact]
+    public async Task AdminUsers_RendersDeleteFormWithResolvedActionAndAntiforgeryToken()
+    {
+        await using var factory = new IntegrationTestWebApplicationFactory();
+        await factory.ResetDatabaseAsync(dbContext =>
+        {
+            SeedUsers(dbContext);
+            return Task.CompletedTask;
+        });
+
+        using var client = factory.CreateAuthenticatedClient("owner-user", roles: ["Admin"]);
+        using var response = await client.GetAsync("/Admin/Users");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        // Admin エリアで tag helper が有効であること（_ViewImports 欠落の回帰防止）
+        var html = await ReadDecodedHtmlAsync(response);
+        Assert.Contains("action=\"/Admin/Users/Delete/", html, StringComparison.Ordinal);
+        Assert.Contains("__RequestVerificationToken", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("asp-action", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task IdentityManagePages_RenderJapaneseText()
     {
         await using var factory = new IntegrationTestWebApplicationFactory();

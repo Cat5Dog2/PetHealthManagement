@@ -58,13 +58,12 @@
         <div>
             <label asp-for="StoolCondition" class="form-label">便の様子</label>
             @{
-                var stoolOptions = new[] { "良好", "普通", "軟便", "下痢", "血便", "便秘" };
                 var hasCustomStoolValue = !string.IsNullOrWhiteSpace(Model.StoolCondition)
-                    && !stoolOptions.Contains(Model.StoolCondition);
+                    && !StoolConditionCatalog.IsKnownOption(Model.StoolCondition);
             }
             <select asp-for="StoolCondition" class="form-select">
                 <option value="">未選択</option>
-                @foreach (var stoolOption in stoolOptions)
+                @foreach (var stoolOption in StoolConditionCatalog.Options)
                 {
                     <option value="@stoolOption">@stoolOption</option>
                 }

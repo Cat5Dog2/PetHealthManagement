@@ -12,6 +12,10 @@ body {
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   margin: 0;
   min-height: 100vh;
+}
+
+/* ボトムナビはログイン時のみ表示されるため、余白もその場合だけ確保する */
+body.has-bottom-nav {
   padding-bottom: 84px;
 }
 
@@ -48,8 +52,12 @@ a:hover {
 .app-footer {
   color: #667a78;
   font-size: 0.875rem;
-  padding: 20px 16px 96px;
+  padding: 20px 16px 28px;
   text-align: center;
+}
+
+.has-bottom-nav .app-footer {
+  padding-bottom: 96px;
 }
 
 .app-bottom-nav {
@@ -276,17 +284,17 @@ a:hover {
 
 .record-pick__item {
   align-items: center;
-  color: inherit;
   display: flex;
   gap: 14px;
   padding: 12px 16px;
-  text-decoration: none;
 }
 
-.record-pick__item:hover,
-.record-pick__item:focus {
-  border-color: #2f9e9b;
-  color: inherit;
+.record-pick__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
 }
 
 .record-pick__photo {
@@ -509,7 +517,7 @@ a:hover {
 }
 
 @media (min-width: 768px) {
-  body {
+  body.has-bottom-nav {
     padding-bottom: 0;
   }
 
@@ -521,7 +529,7 @@ a:hover {
     display: none;
   }
 
-  .app-footer {
+  .has-bottom-nav .app-footer {
     padding-bottom: 28px;
   }
 
@@ -551,5 +559,206 @@ a:hover {
 
   .home-intro h1 {
     font-size: 2.4rem;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background:
+      linear-gradient(180deg, #143430 0, #0f1c1a 240px),
+      #0f1c1a;
+    color: #d7e6e3;
+  }
+
+  a {
+    color: #6cc7c2;
+  }
+
+  a:hover {
+    color: #8fd9d4;
+  }
+
+  .app-topbar {
+    background: rgba(18, 32, 31, 0.92);
+    border-bottom-color: rgba(108, 199, 194, 0.22);
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4);
+  }
+
+  .app-brand,
+  .navbar-light .navbar-brand {
+    color: #cfe8e4;
+  }
+
+  .navbar-light .navbar-nav .nav-link,
+  .navbar-light .btn-link.nav-link {
+    color: #a8beba;
+  }
+
+  .navbar-light .navbar-nav .nav-link:hover,
+  .navbar-light .navbar-nav .nav-link:focus,
+  .navbar-light .btn-link.nav-link:hover,
+  .navbar-light .btn-link.nav-link:focus {
+    color: #6cc7c2;
+  }
+
+  .navbar-light .navbar-toggler {
+    border-color: rgba(108, 199, 194, 0.4);
+  }
+
+  .navbar-light .navbar-toggler-icon {
+    filter: invert(1) hue-rotate(180deg);
+  }
+
+  .app-footer {
+    color: #7d918e;
+  }
+
+  .app-bottom-nav {
+    background: rgba(18, 32, 31, 0.96);
+    border-top-color: rgba(108, 199, 194, 0.28);
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.45);
+  }
+
+  .app-bottom-nav a {
+    color: #a8beba;
+  }
+
+  .app-bottom-nav a:hover,
+  .app-bottom-nav a:focus,
+  .app-bottom-nav a.is-active {
+    background: #14403c;
+    color: #7fd4cd;
+  }
+
+  .surface,
+  .profile-panel,
+  .form-panel,
+  .pet-card,
+  .record-card,
+  .card {
+    background: #172b29;
+    border-color: rgba(108, 199, 194, 0.2);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+    color: inherit;
+  }
+
+  .page-heading h1,
+  .page-heading h2,
+  .home-intro h1 {
+    color: #e3f0ee;
+  }
+
+  .home-intro p {
+    color: #a8beba;
+  }
+
+  .text-muted,
+  .list-pager__status {
+    color: #93a8a4 !important;
+  }
+
+  .form-text {
+    color: #8ba09c;
+  }
+
+  .form-control,
+  .form-select {
+    background-color: #12211f;
+    border-color: #3a5652;
+    color: #d7e6e3;
+  }
+
+  .form-control:focus,
+  .form-select:focus {
+    background-color: #12211f;
+    color: #d7e6e3;
+  }
+
+  .form-control::placeholder {
+    color: #748985;
+  }
+
+  .form-check-input {
+    background-color: #12211f;
+    border-color: #55706c;
+  }
+
+  .form-check-input:checked {
+    background-color: #2f9e9b;
+    border-color: #2f9e9b;
+  }
+
+  .btn-outline-secondary {
+    border-color: #55706c;
+    color: #b6c9c5;
+  }
+
+  .btn-outline-primary {
+    border-color: #4fb8b3;
+    color: #7fd4cd;
+  }
+
+  .btn-outline-danger {
+    border-color: #b96666;
+    color: #e79a9a;
+  }
+
+  .detail-grid div {
+    border-bottom-color: rgba(108, 199, 194, 0.16);
+  }
+
+  .detail-grid dt {
+    color: #93a8a4;
+  }
+
+  .chip {
+    background: #1d4642;
+    color: #9fe0da;
+  }
+
+  .chip-muted {
+    background: #24312f;
+    color: #a9bcb8;
+  }
+
+  .chip-warm {
+    background: #4a3316;
+    color: #f2c48c;
+  }
+
+  .mypage-avatar,
+  .pet-photo,
+  .mypage-pet-photo,
+  .record-pick__photo {
+    background: #12211f;
+    border-color: #3a5652;
+  }
+
+  .home-visual img {
+    background: #172b29;
+  }
+
+  .alert-success {
+    background-color: #143a2c;
+    border-color: #1d5440;
+    color: #a7e3c3;
+  }
+
+  .alert-danger {
+    background-color: #45201f;
+    border-color: #6b3230;
+    color: #f0aead;
+  }
+
+  .alert .btn-close {
+    filter: invert(1) grayscale(100%);
+  }
+
+  .weight-chart__label {
+    fill: #93a8a4;
+  }
+
+  .weight-chart__grid {
+    stroke: rgba(108, 199, 194, 0.3);
   }
 }

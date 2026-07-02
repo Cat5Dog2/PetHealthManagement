@@ -101,39 +101,14 @@ else
     </div>
 }
 
-@if (Model.TotalPages > 1)
-{
-    <nav aria-label="ペット一覧ページャー" class="list-pager mt-4">
-        @if (Model.Page > 1)
-        {
-            <a class="btn btn-outline-secondary"
-               asp-action="Index"
-               asp-route-nameKeyword="@Model.NameKeyword"
-               asp-route-speciesFilter="@Model.SpeciesFilter"
-               asp-route-page="@(Model.Page - 1)"
-               rel="prev">
-                前へ
-            </a>
-        }
-        else
-        {
-            <span class="btn btn-outline-secondary disabled" aria-disabled="true">前へ</span>
-        }
-        <span class="list-pager__status">@Model.Page / @Model.TotalPages ページ</span>
-        @if (Model.Page < Model.TotalPages)
-        {
-            <a class="btn btn-outline-secondary"
-               asp-action="Index"
-               asp-route-nameKeyword="@Model.NameKeyword"
-               asp-route-speciesFilter="@Model.SpeciesFilter"
-               asp-route-page="@(Model.Page + 1)"
-               rel="next">
-                次へ
-            </a>
-        }
-        else
-        {
-            <span class="btn btn-outline-secondary disabled" aria-disabled="true">次へ</span>
-        }
-    </nav>
+@{
+    var pagerModel = new ListPagerViewModel
+    {
+        AriaLabel = "ペット一覧ページャー",
+        Page = Model.Page,
+        TotalPages = Model.TotalPages,
+        PreviousUrl = Model.Page > 1 ? Url.Action("Index", new { nameKeyword = Model.NameKeyword, speciesFilter = Model.SpeciesFilter, page = Model.Page - 1 }) : null,
+        NextUrl = Model.Page < Model.TotalPages ? Url.Action("Index", new { nameKeyword = Model.NameKeyword, speciesFilter = Model.SpeciesFilter, page = Model.Page + 1 }) : null
+    };
 }
+<partial name="_ListPager" model="pagerModel" />

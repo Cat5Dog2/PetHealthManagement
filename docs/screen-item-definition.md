@@ -179,7 +179,7 @@
 |---|---|---:|---|---|---|
 | 009-01 | タイトル（{PetName}の健康ログ） | D | テキスト | Pet.Name | |
 | 009-A01 | ＋記録する | A | リンク |  | `/HealthLogs/Create?petId={id}&returnUrl={現在URL}` |
-| 009-C01 | 体重推移グラフ | D | インラインSVG | HealthLog.WeightKg | 体重2件以上で表示。直近最大20件、最新/最小/最大/期間ラベル付き |
+| 009-C01 | 体重推移グラフ | D | インラインSVG | HealthLog.WeightKg | 1ページ目のみ。体重2件以上で表示。直近最大20件、最新/最小/最大/期間ラベル付き。体重2件未満でログがある場合は案内文を表示 |
 | 009-L01 | 記録日時 | D | 日時 | HealthLog.RecordedAt | 降順 |
 | 009-L02 | 体重(kg) | D | 数値 | HealthLog.WeightKg | |
 | 009-L03 | 食事量(g) | D | 数値 | HealthLog.FoodAmountGram | |

@@ -19,7 +19,6 @@ public class PetsController(
     IPetPhotoService petPhotoService,
     IPetDeletionService petDeletionService) : Controller
 {
-    private const string DefaultPetPhotoUrl = "/images/default/pet-placeholder.webp";
 
     [HttpGet("")]
     public async Task<IActionResult> Index(string? nameKeyword, string? speciesFilter, string? page)
@@ -99,7 +98,7 @@ public class PetsController(
                 .Select(p => new PetListItemViewModel
                 {
                     PetId = p.Id,
-                    PhotoUrl = ResolvePetPhotoUrl(p.PhotoImageId),
+                    PhotoUrl = ImageUrlHelper.ResolvePetPhotoUrl(p.PhotoImageId),
                     Name = p.Name,
                     SpeciesLabel = SpeciesCatalog.ToLabel(p.SpeciesCode),
                     Breed = p.Breed,
@@ -153,7 +152,7 @@ public class PetsController(
         var viewModel = new PetDetailsViewModel
         {
             PetId = pet.Id,
-            PhotoUrl = ResolvePetPhotoUrl(pet.PhotoImageId),
+            PhotoUrl = ImageUrlHelper.ResolvePetPhotoUrl(pet.PhotoImageId),
             Name = pet.Name,
             SpeciesLabel = SpeciesCatalog.ToLabel(pet.SpeciesCode),
             Breed = pet.Breed,
@@ -301,7 +300,7 @@ public class PetsController(
             birthDate: pet.BirthDate,
             adoptedDate: pet.AdoptedDate,
             isPublic: pet.IsPublic,
-            currentPhotoUrl: ResolvePetPhotoUrl(pet.PhotoImageId),
+            currentPhotoUrl: ImageUrlHelper.ResolvePetPhotoUrl(pet.PhotoImageId),
             rowVersion: RowVersionCodec.Encode(pet.RowVersion),
             returnUrl: returnUrl,
             fallbackCancelUrl: $"/Pets/Details/{petId}");
@@ -339,7 +338,7 @@ public class PetsController(
                 birthDate: viewModel.BirthDate,
                 adoptedDate: viewModel.AdoptedDate,
                 isPublic: viewModel.IsPublic,
-                currentPhotoUrl: ResolvePetPhotoUrl(pet.PhotoImageId),
+                currentPhotoUrl: ImageUrlHelper.ResolvePetPhotoUrl(pet.PhotoImageId),
                 rowVersion: viewModel.RowVersion,
                 returnUrl: returnUrl,
                 fallbackCancelUrl: $"/Pets/Details/{petId}");
@@ -416,7 +415,7 @@ public class PetsController(
                     birthDate: viewModel.BirthDate,
                     adoptedDate: viewModel.AdoptedDate,
                     isPublic: viewModel.IsPublic,
-                    currentPhotoUrl: ResolvePetPhotoUrl(pet.PhotoImageId),
+                    currentPhotoUrl: ImageUrlHelper.ResolvePetPhotoUrl(pet.PhotoImageId),
                     rowVersion: RowVersionCodec.Encode(pet.RowVersion),
                     returnUrl: returnUrl,
                     fallbackCancelUrl: $"/Pets/Details/{petId}");
@@ -536,10 +535,6 @@ public class PetsController(
         return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
     }
 
-    private static string ResolvePetPhotoUrl(Guid? photoImageId)
-    {
-        return photoImageId is null ? DefaultPetPhotoUrl : $"/images/{photoImageId.Value:D}";
-    }
 
     private static string? NormalizeKeyword(string? nameKeyword)
     {
@@ -566,7 +561,7 @@ public class PetsController(
             birthDate: pet.BirthDate,
             adoptedDate: pet.AdoptedDate,
             isPublic: pet.IsPublic,
-            currentPhotoUrl: ResolvePetPhotoUrl(pet.PhotoImageId),
+            currentPhotoUrl: ImageUrlHelper.ResolvePetPhotoUrl(pet.PhotoImageId),
             rowVersion: RowVersionCodec.Encode(pet.RowVersion),
             returnUrl: returnUrl,
             fallbackCancelUrl: $"/Pets/Details/{pet.Id}"));

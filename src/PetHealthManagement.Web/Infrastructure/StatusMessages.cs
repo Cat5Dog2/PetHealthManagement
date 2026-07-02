@@ -2,7 +2,8 @@ namespace PetHealthManagement.Web.Infrastructure;
 
 public static class StatusMessages
 {
-    public const string TempDataKey = "StatusMessage";
+    // Identity の管理画面が "StatusMessage" キーを使うため、衝突しない専用キーにする
+    public const string TempDataKey = "AppStatusMessage";
 
     public const string PetCreated = "ペットを登録しました。";
     public const string PetUpdated = "ペット情報を更新しました。";

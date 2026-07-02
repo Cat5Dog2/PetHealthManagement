@@ -395,6 +395,16 @@
 - 決定事項：健康ログの `StoolCondition` はセレクト入力（未選択/良好/普通/軟便/下痢/血便/便秘。選択肢外の既存値は編集時に保持）とする。DB スキーマと最大長制約は変更しない。
 - 決定事項：健康ログ一覧に体重推移のインライン SVG グラフ（体重2件以上で表示、直近最大20件）を表示する。外部チャートライブラリは導入しない。
 - 決定事項：PWA 対応として `manifest.webmanifest` とアイコン（192/512/maskable/apple-touch-icon）、`theme-color` を配信する。Service Worker は導入しない。
+- [x] **モバイルUI/UXフォローアップ（2026-07 実施・レビュー指摘対応）**
+- 決定事項：アプリ共通のステータスアラートの TempData キーは **`AppStatusMessage`**（`Infrastructure/StatusMessages.cs`）とする。Identity 管理画面の `StatusMessage` キーとは共存させ、二重表示・スタイル誤適用を避ける。
+- 決定事項：CSP の `script-src` は **`'self'` のみ**とする。確認ダイアログは `data-confirm`、変更時自動送信は `data-autosubmit` 属性 + `site.js` のイベントデリゲーションで実装し、inline handler は追加しない。`style-src` の `'unsafe-inline'` は style 属性が残る間のみ許可。
+- 決定事項：OS のダークモード（`prefers-color-scheme: dark`）に追従した配色を `site.css` で提供する（JSやテーマ切替UIは持たない）。`theme-color` メタはライト/ダーク2値を配信する。
+- 決定事項：`/HealthLogs/Record` は**記録ハブ**とし、ペット2匹以上の選択画面ではペットごとに健康ログ/予定/通院の作成リンクを出す。1匹なら健康ログ作成へ直行（最短動線を維持）。
+- 決定事項：体重推移グラフは**一覧の1ページ目のみ**表示・クエリ実行する。ログはあるが体重2件未満の場合は案内文を表示する。
+- 決定事項：一覧ページャは共有パーシャル **`Views/Shared/_ListPager.cshtml`**（`ListPagerViewModel`）に統一する（Admin 含む全5画面）。
+- 決定事項：画像URLの組み立て・デフォルト画像は **`Helpers/ImageUrlHelper`**、便の様子の選択肢は **`Models/StoolConditionCatalog`** に集約する。
+- 決定事項：`Areas/Admin/Views/_ViewImports.cshtml` を追加し、Admin エリアでも tag helper（フォームURL生成・antiforgery 注入）を有効化する（欠落による潜在バグの修正）。
+- 決定事項：ボトムナビの余白（`padding-bottom`）はログイン時のみ `body.has-bottom-nav` で確保し、未ログインページに無駄な余白を残さない。apple-touch-icon は iOS が角丸マスクを適用するため**全面塗りの正方形**で生成する。
 - [ ] **第2段階以降の候補**：健康ログを使った分析画面、予定を使った月間カレンダー画面、設定画面の拡張（通知/バックアップ/規約/アプリ情報）
 - [ ] 監査ログ（Admin削除など）
 - [ ] UI改善（入力補助のさらなる拡充、削除確認のモーダル化、一覧の検索条件保持）

@@ -407,7 +407,8 @@ bash ./scripts/local-smoke.sh --use-existing-app --base-url 'https://pethealth.e
 - Anti-forgery Cookie は `__Host-PetHealthManagement.AntiForgery`、`Secure`、`HttpOnly`、`SameSite=Strict` です
 - HSTS は Development 以外で有効、`Max-Age` は 180 日です
 - セキュリティヘッダとして `Content-Security-Policy`、`Referrer-Policy`、`Permissions-Policy`、`X-Content-Type-Options`、`X-Frame-Options` を付与します
-- 現在の CSP は、既存 Razor に inline handler が残っているため、最小構成として `'unsafe-inline'` を許可しています
+- CSP の `script-src` は `'self'` のみです。確認ダイアログや自動送信は inline handler ではなく、`data-confirm` / `data-autosubmit` 属性 + `site.js` のイベントデリゲーションで実装しています
+- CSP の `style-src` は、既存 Razor に style 属性が残っているため `'unsafe-inline'` を許可しています
 
 ## ログ既定値
 

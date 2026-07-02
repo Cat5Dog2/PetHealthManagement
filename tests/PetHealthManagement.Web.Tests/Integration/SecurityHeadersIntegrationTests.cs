@@ -31,6 +31,13 @@ public class SecurityHeadersIntegrationTests
     }
 
     [Fact]
+    public void ContentSecurityPolicy_DoesNotAllowInlineScripts()
+    {
+        Assert.Contains("script-src 'self';", SecurityHeaders.ContentSecurityPolicy, StringComparison.Ordinal);
+        Assert.DoesNotContain("script-src 'self' 'unsafe-inline'", SecurityHeaders.ContentSecurityPolicy, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task VisitsCreate_SetsAntiforgeryCookie_WithSecureAttributes()
     {
         await using var factory = new IntegrationTestWebApplicationFactory();

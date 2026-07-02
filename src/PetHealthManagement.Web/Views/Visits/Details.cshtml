@@ -21,7 +21,7 @@
                   asp-route-visitId="@Model.VisitId"
                   method="post"
                   class="d-inline"
-                  onsubmit="return confirm('この通院履歴を削除しますか？');">
+                  data-confirm="この通院履歴を削除しますか？">
                 <input type="hidden" name="petId" value="@Model.PetId" />
                 <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
                 <button type="submit" class="btn btn-outline-danger">削除</button>

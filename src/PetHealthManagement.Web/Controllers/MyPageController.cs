@@ -13,9 +13,6 @@ namespace PetHealthManagement.Web.Controllers;
 [Route("MyPage")]
 public class MyPageController(ApplicationDbContext dbContext) : Controller
 {
-    private const string DefaultAvatarUrl = "/images/default/avatar-placeholder.webp";
-    private const string DefaultPetPhotoUrl = "/images/default/pet-placeholder.webp";
-
     [HttpGet("")]
     public async Task<IActionResult> Index()
     {
@@ -56,7 +53,7 @@ public class MyPageController(ApplicationDbContext dbContext) : Controller
                 PetId = x.Id,
                 Name = x.Name,
                 SpeciesLabel = SpeciesCatalog.ToLabel(x.SpeciesCode),
-                PhotoUrl = ResolvePetPhotoUrl(x.PhotoImageId),
+                PhotoUrl = ImageUrlHelper.ResolvePetPhotoUrl(x.PhotoImageId),
                 IsPublic = x.IsPublic
             })
             .ToList();
@@ -65,20 +62,10 @@ public class MyPageController(ApplicationDbContext dbContext) : Controller
         {
             DisplayName = UserDisplayNameHelper.ResolveForDisplay(user),
             Email = string.IsNullOrWhiteSpace(user.Email) ? "未設定" : user.Email,
-            AvatarUrl = ResolveAvatarUrl(user.AvatarImageId),
+            AvatarUrl = ImageUrlHelper.ResolveAvatarUrl(user.AvatarImageId),
             Pets = pets
         };
 
         return View(viewModel);
-    }
-
-    private static string ResolveAvatarUrl(Guid? avatarImageId)
-    {
-        return avatarImageId is null ? DefaultAvatarUrl : $"/images/{avatarImageId.Value:D}";
-    }
-
-    private static string ResolvePetPhotoUrl(Guid? photoImageId)
-    {
-        return photoImageId is null ? DefaultPetPhotoUrl : $"/images/{photoImageId.Value:D}";
     }
 }

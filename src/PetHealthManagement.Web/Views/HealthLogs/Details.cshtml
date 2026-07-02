@@ -21,7 +21,7 @@
                   asp-route-healthLogId="@Model.HealthLogId"
                   method="post"
                   class="d-inline"
-                  onsubmit="return confirm('この健康ログを削除しますか？');">
+                  data-confirm="この健康ログを削除しますか？">
                 <input type="hidden" name="petId" value="@Model.PetId" />
                 <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
                 <button type="submit" class="btn btn-outline-danger">削除</button>
