@@ -14,16 +14,8 @@
         <p>体調、予定、通院の記録をひとつに。</p>
 
         <div class="action-row justify-content-center">
-            @if (User.Identity?.IsAuthenticated == true)
-            {
-                <a class="btn btn-primary" asp-controller="MyPage" asp-action="Index">ホームへ</a>
-                <a class="btn btn-outline-primary" asp-controller="Pets" asp-action="Index">ペットを見る</a>
-            }
-            else
-            {
-                <a class="btn btn-primary" asp-area="Identity" asp-page="/Account/Login">ログイン</a>
-                <a class="btn btn-outline-primary" asp-area="Identity" asp-page="/Account/Register">新規登録</a>
-            }
+            <a class="btn btn-primary" asp-area="Identity" asp-page="/Account/Login">ログイン</a>
+            <a class="btn btn-outline-primary" asp-area="Identity" asp-page="/Account/Register">新規登録</a>
         </div>
     </div>
 </section>

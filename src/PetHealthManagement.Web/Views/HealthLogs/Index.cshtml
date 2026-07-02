@@ -1,3 +1,4 @@
+@using System.Globalization
 @model PetHealthManagement.Web.ViewModels.HealthLogs.HealthLogIndexViewModel
 @{
     ViewData["Title"] = "健康ログ";
@@ -26,6 +27,54 @@
     </div>
 </div>
 
+@if (Model.WeightPoints.Count >= 2)
+{
+    var minWeight = Model.WeightPoints.Min(x => x.WeightKg);
+    var maxWeight = Model.WeightPoints.Max(x => x.WeightKg);
+    var range = Math.Max(maxWeight - minWeight, 0.2);
+    const double chartWidth = 640;
+    const double chartHeight = 200;
+    const double left = 52;
+    const double right = 16;
+    const double top = 16;
+    const double bottom = 32;
+    var plotWidth = chartWidth - left - right;
+    var plotHeight = chartHeight - top - bottom;
+    var step = plotWidth / (Model.WeightPoints.Count - 1);
+    var points = Model.WeightPoints
+        .Select((p, i) => new
+        {
+            X = left + step * i,
+            Y = top + plotHeight * (1 - (p.WeightKg - minWeight) / range)
+        })
+        .ToList();
+    var polylinePoints = string.Join(" ", points.Select(p => $"{Svg(p.X)},{Svg(p.Y)}"));
+    var latest = Model.WeightPoints[^1];
+
+    <section class="surface weight-chart mb-4" aria-label="体重推移グラフ">
+        <h2 class="weight-chart__title">体重の推移</h2>
+        <p class="text-muted mb-2">直近 @Model.WeightPoints.Count 回 / 最新 @latest.WeightKg.ToString("0.0") kg（@latest.RecordedAt.ToString("yyyy/MM/dd")）</p>
+        <svg viewBox="0 0 640 200" role="img"
+             aria-label="@Model.PetName の体重推移。最新は @latest.WeightKg.ToString("0.0") kg。">
+            <line class="weight-chart__grid" x1="@Svg(left)" y1="@Svg(top)" x2="@Svg(chartWidth - right)" y2="@Svg(top)" />
+            <line class="weight-chart__grid" x1="@Svg(left)" y1="@Svg(top + plotHeight)" x2="@Svg(chartWidth - right)" y2="@Svg(top + plotHeight)" />
+            <text class="weight-chart__label" x="@Svg(left - 8)" y="@Svg(top + 4)" text-anchor="end">@maxWeight.ToString("0.0")</text>
+            <text class="weight-chart__label" x="@Svg(left - 8)" y="@Svg(top + plotHeight + 4)" text-anchor="end">@minWeight.ToString("0.0")</text>
+            <text class="weight-chart__label" x="@Svg(left)" y="@Svg(chartHeight - 8)" text-anchor="start">@Model.WeightPoints[0].RecordedAt.ToString("M/d")</text>
+            <text class="weight-chart__label" x="@Svg(chartWidth - right)" y="@Svg(chartHeight - 8)" text-anchor="end">@latest.RecordedAt.ToString("M/d")</text>
+            <polyline class="weight-chart__line" points="@polylinePoints" />
+            @for (var i = 0; i < points.Count; i++)
+            {
+                var isLatest = i == points.Count - 1;
+                <circle class="weight-chart__dot @(isLatest ? "weight-chart__dot--latest" : null)"
+                        cx="@Svg(points[i].X)"
+                        cy="@Svg(points[i].Y)"
+                        r="@(isLatest ? "5" : "3.5")" />
+            }
+        </svg>
+    </section>
+}
+
 <p class="text-muted">全 @Model.TotalCount 件 / @Model.Page ページ目</p>
 
 @if (Model.HealthLogs.Count == 0)
@@ -37,6 +86,12 @@ else
     <div class="record-list">
         @foreach (var healthLog in Model.HealthLogs)
         {
+            var hasDetails = healthLog.WeightKg.HasValue
+                || healthLog.FoodAmountGram.HasValue
+                || healthLog.WalkMinutes.HasValue
+                || !string.IsNullOrWhiteSpace(healthLog.StoolCondition)
+                || !string.IsNullOrWhiteSpace(healthLog.NoteExcerpt);
+
             <article class="record-card">
                 <div>
                     <p class="record-card__title">@healthLog.RecordedAt.ToString("yyyy/MM/dd HH:mm")</p>
@@ -46,28 +101,46 @@ else
                     }
                 </div>
 
-                <dl class="detail-grid record-grid">
-                    <div>
-                        <dt>体重</dt>
-                        <dd>@(healthLog.WeightKg.HasValue ? $"{healthLog.WeightKg.Value:0.0} kg" : "-")</dd>
-                    </div>
-                    <div>
-                        <dt>食事量</dt>
-                        <dd>@(healthLog.FoodAmountGram.HasValue ? $"{healthLog.FoodAmountGram.Value} g" : "-")</dd>
-                    </div>
-                    <div>
-                        <dt>散歩時間</dt>
-                        <dd>@(healthLog.WalkMinutes.HasValue ? $"{healthLog.WalkMinutes.Value} 分" : "-")</dd>
-                    </div>
-                    <div>
-                        <dt>便の様子</dt>
-                        <dd>@(string.IsNullOrWhiteSpace(healthLog.StoolCondition) ? "-" : healthLog.StoolCondition)</dd>
-                    </div>
-                    <div>
-                        <dt>メモ</dt>
-                        <dd>@(string.IsNullOrWhiteSpace(healthLog.NoteExcerpt) ? "-" : healthLog.NoteExcerpt)</dd>
-                    </div>
-                </dl>
+                @if (hasDetails)
+                {
+                    <dl class="detail-grid record-grid">
+                        @if (healthLog.WeightKg.HasValue)
+                        {
+                            <div>
+                                <dt>体重</dt>
+                                <dd>@($"{healthLog.WeightKg.Value:0.0} kg")</dd>
+                            </div>
+                        }
+                        @if (healthLog.FoodAmountGram.HasValue)
+                        {
+                            <div>
+                                <dt>食事量</dt>
+                                <dd>@healthLog.FoodAmountGram.Value g</dd>
+                            </div>
+                        }
+                        @if (healthLog.WalkMinutes.HasValue)
+                        {
+                            <div>
+                                <dt>散歩時間</dt>
+                                <dd>@healthLog.WalkMinutes.Value 分</dd>
+                            </div>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(healthLog.StoolCondition))
+                        {
+                            <div>
+                                <dt>便の様子</dt>
+                                <dd>@healthLog.StoolCondition</dd>
+                            </div>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(healthLog.NoteExcerpt))
+                        {
+                            <div>
+                                <dt>メモ</dt>
+                                <dd>@healthLog.NoteExcerpt</dd>
+                            </div>
+                        }
+                    </dl>
+                }
 
                 <div class="action-row">
                     <a asp-action="Details"
@@ -84,7 +157,8 @@ else
                     </a>
                     <form asp-action="Delete"
                           asp-route-healthLogId="@healthLog.HealthLogId"
-                          method="post">
+                          method="post"
+                          onsubmit="return confirm('この健康ログを削除しますか？');">
                         <input type="hidden" name="petId" value="@Model.PetId" />
                         <input type="hidden" name="page" value="@Model.Page" />
                         <input type="hidden" name="returnUrl" value="@currentUrl" />
@@ -98,26 +172,42 @@ else
 
 @if (Model.TotalPages > 1)
 {
-    <nav aria-label="健康ログ一覧ページャー" class="mt-4">
-        <ul class="pagination mb-0">
-            @for (var pageNumber = 1; pageNumber <= Model.TotalPages; pageNumber++)
-            {
-                if (pageNumber == Model.Page)
-                {
-                    <li class="page-item active"><span class="page-link">@pageNumber</span></li>
-                }
-                else
-                {
-                    <li class="page-item">
-                        <a class="page-link"
-                           asp-action="Index"
-                           asp-route-petId="@Model.PetId"
-                           asp-route-page="@pageNumber">
-                            @pageNumber
-                        </a>
-                    </li>
-                }
-            }
-        </ul>
+    <nav aria-label="健康ログ一覧ページャー" class="list-pager mt-4">
+        @if (Model.Page > 1)
+        {
+            <a class="btn btn-outline-secondary"
+               asp-action="Index"
+               asp-route-petId="@Model.PetId"
+               asp-route-page="@(Model.Page - 1)"
+               rel="prev">
+                前へ
+            </a>
+        }
+        else
+        {
+            <span class="btn btn-outline-secondary disabled" aria-disabled="true">前へ</span>
+        }
+        <span class="list-pager__status">@Model.Page / @Model.TotalPages ページ</span>
+        @if (Model.Page < Model.TotalPages)
+        {
+            <a class="btn btn-outline-secondary"
+               asp-action="Index"
+               asp-route-petId="@Model.PetId"
+               asp-route-page="@(Model.Page + 1)"
+               rel="next">
+                次へ
+            </a>
+        }
+        else
+        {
+            <span class="btn btn-outline-secondary disabled" aria-disabled="true">次へ</span>
+        }
     </nav>
+}
+
+@functions {
+    private static string Svg(double value)
+    {
+        return value.ToString("0.##", CultureInfo.InvariantCulture);
+    }
 }

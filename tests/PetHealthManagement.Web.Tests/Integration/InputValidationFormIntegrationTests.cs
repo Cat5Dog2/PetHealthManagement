@@ -113,11 +113,7 @@ public class InputValidationFormIntegrationTests
             "WalkMinutes",
             "max",
             InputValidationLimits.HealthLogs.WalkMinutesMax.ToString());
-        AssertElementHasAttribute(
-            html,
-            "StoolCondition",
-            "maxlength",
-            InputValidationLimits.HealthLogs.StoolConditionMaxLength.ToString());
+        AssertElementIsTag(html, "StoolCondition", "select");
         AssertElementHasAttribute(
             html,
             "Note",
@@ -215,5 +211,14 @@ public class InputValidationFormIntegrationTests
             $"{attributeName}=\"{expectedAttributeValue}\"",
             match.Value,
             StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static void AssertElementIsTag(string html, string fieldName, string expectedTagName)
+    {
+        var pattern = $@"<(input|textarea|select)\b[^>]*\bname=""{Regex.Escape(fieldName)}""[^>]*>";
+        var match = Regex.Match(html, pattern, RegexOptions.IgnoreCase);
+
+        Assert.True(match.Success, $"Could not find an element for field '{fieldName}'.");
+        Assert.Equal(expectedTagName, match.Groups[1].Value, ignoreCase: true);
     }
 }

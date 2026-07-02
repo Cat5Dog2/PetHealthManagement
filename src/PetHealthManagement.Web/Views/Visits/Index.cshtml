@@ -46,24 +46,45 @@ else
                     }
                 </div>
 
-                <dl class="detail-grid record-grid">
-                    <div>
-                        <dt>病院名</dt>
-                        <dd>@(string.IsNullOrWhiteSpace(visit.ClinicName) ? "-" : visit.ClinicName)</dd>
-                    </div>
-                    <div>
-                        <dt>診断</dt>
-                        <dd>@(string.IsNullOrWhiteSpace(visit.DiagnosisExcerpt) ? "-" : visit.DiagnosisExcerpt)</dd>
-                    </div>
-                    <div>
-                        <dt>処方</dt>
-                        <dd>@(string.IsNullOrWhiteSpace(visit.PrescriptionExcerpt) ? "-" : visit.PrescriptionExcerpt)</dd>
-                    </div>
-                    <div>
-                        <dt>メモ</dt>
-                        <dd>@(string.IsNullOrWhiteSpace(visit.NoteExcerpt) ? "-" : visit.NoteExcerpt)</dd>
-                    </div>
-                </dl>
+                @{
+                    var hasDetails = !string.IsNullOrWhiteSpace(visit.ClinicName)
+                        || !string.IsNullOrWhiteSpace(visit.DiagnosisExcerpt)
+                        || !string.IsNullOrWhiteSpace(visit.PrescriptionExcerpt)
+                        || !string.IsNullOrWhiteSpace(visit.NoteExcerpt);
+                }
+                @if (hasDetails)
+                {
+                    <dl class="detail-grid record-grid">
+                        @if (!string.IsNullOrWhiteSpace(visit.ClinicName))
+                        {
+                            <div>
+                                <dt>病院名</dt>
+                                <dd>@visit.ClinicName</dd>
+                            </div>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(visit.DiagnosisExcerpt))
+                        {
+                            <div>
+                                <dt>診断</dt>
+                                <dd>@visit.DiagnosisExcerpt</dd>
+                            </div>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(visit.PrescriptionExcerpt))
+                        {
+                            <div>
+                                <dt>処方</dt>
+                                <dd>@visit.PrescriptionExcerpt</dd>
+                            </div>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(visit.NoteExcerpt))
+                        {
+                            <div>
+                                <dt>メモ</dt>
+                                <dd>@visit.NoteExcerpt</dd>
+                            </div>
+                        }
+                    </dl>
+                }
 
                 <div class="action-row">
                     <a asp-action="Details"
@@ -95,26 +116,35 @@ else
 
 @if (Model.TotalPages > 1)
 {
-    <nav aria-label="通院履歴一覧ページャー" class="mt-4">
-        <ul class="pagination mb-0">
-            @for (var pageNumber = 1; pageNumber <= Model.TotalPages; pageNumber++)
-            {
-                if (pageNumber == Model.Page)
-                {
-                    <li class="page-item active"><span class="page-link">@pageNumber</span></li>
-                }
-                else
-                {
-                    <li class="page-item">
-                        <a class="page-link"
-                           asp-action="Index"
-                           asp-route-petId="@Model.PetId"
-                           asp-route-page="@pageNumber">
-                            @pageNumber
-                        </a>
-                    </li>
-                }
-            }
-        </ul>
+    <nav aria-label="通院履歴一覧ページャー" class="list-pager mt-4">
+        @if (Model.Page > 1)
+        {
+            <a class="btn btn-outline-secondary"
+               asp-action="Index"
+               asp-route-petId="@Model.PetId"
+               asp-route-page="@(Model.Page - 1)"
+               rel="prev">
+                前へ
+            </a>
+        }
+        else
+        {
+            <span class="btn btn-outline-secondary disabled" aria-disabled="true">前へ</span>
+        }
+        <span class="list-pager__status">@Model.Page / @Model.TotalPages ページ</span>
+        @if (Model.Page < Model.TotalPages)
+        {
+            <a class="btn btn-outline-secondary"
+               asp-action="Index"
+               asp-route-petId="@Model.PetId"
+               asp-route-page="@(Model.Page + 1)"
+               rel="next">
+                次へ
+            </a>
+        }
+        else
+        {
+            <span class="btn btn-outline-secondary disabled" aria-disabled="true">次へ</span>
+        }
     </nav>
 }

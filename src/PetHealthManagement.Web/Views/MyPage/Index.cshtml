@@ -26,19 +26,13 @@
                class="btn btn-outline-primary">
                 パスワード変更
             </a>
-            <a asp-controller="Account"
-               asp-action="Delete"
-               asp-route-returnUrl="@currentUrl"
-               class="btn btn-outline-danger">
-                アカウント削除
-            </a>
         </div>
     </section>
 
     <section>
         <div class="page-heading">
             <div>
-                <h1>うちの子</h1>
+                <h2>うちの子</h2>
                 <p class="text-muted">登録したペットの記録へ進めます。</p>
             </div>
             <a asp-controller="Pets"
@@ -67,10 +61,10 @@
                 @foreach (var pet in Model.Pets)
                 {
                     <article class="pet-card">
-                        <img src="@pet.PhotoUrl" alt="@pet.Name の写真" class="pet-photo pet-card__photo" />
+                        <img src="@pet.PhotoUrl" alt="@pet.Name の写真" class="pet-photo pet-card__photo" loading="lazy" />
                         <div class="pet-card__body">
                             <div class="pet-card__title">
-                                <h2>@pet.Name</h2>
+                                <h3>@pet.Name</h3>
                                 @if (pet.IsPublic)
                                 {
                                     <span class="chip">公開</span>

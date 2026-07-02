@@ -269,6 +269,7 @@ public class PetsController(
 
         await dbContext.SaveChangesAsync(HttpContext.RequestAborted);
 
+        TempData[StatusMessages.TempDataKey] = StatusMessages.PetCreated;
         var redirectUrl = ReturnUrlHelper.ResolveLocalReturnUrl(returnUrl, "/MyPage");
         return Redirect(redirectUrl);
     }
@@ -423,6 +424,7 @@ public class PetsController(
                 return View(invalidPhotoViewModel);
             }
 
+            TempData[StatusMessages.TempDataKey] = StatusMessages.PetUpdated;
             var photoRedirectUrl = ReturnUrlHelper.ResolveLocalReturnUrl(returnUrl, $"/Pets/Details/{petId}");
             return Redirect(photoRedirectUrl);
         }
@@ -444,6 +446,7 @@ public class PetsController(
             return BuildConcurrencyConflictResult(currentPet, returnUrl);
         }
 
+        TempData[StatusMessages.TempDataKey] = StatusMessages.PetUpdated;
         var redirectUrl = ReturnUrlHelper.ResolveLocalReturnUrl(returnUrl, $"/Pets/Details/{petId}");
         return Redirect(redirectUrl);
     }
@@ -467,6 +470,7 @@ public class PetsController(
 
         await petDeletionService.DeleteAsync(pet, userId, HttpContext.RequestAborted);
 
+        TempData[StatusMessages.TempDataKey] = StatusMessages.PetDeleted;
         var redirectUrl = ReturnUrlHelper.ResolveLocalReturnUrl(returnUrl, "/MyPage");
         return Redirect(redirectUrl);
     }

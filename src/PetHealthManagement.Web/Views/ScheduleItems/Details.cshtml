@@ -28,7 +28,7 @@
                 <input type="hidden" name="petId" value="@Model.PetId" />
                 <input type="hidden" name="returnUrl" value="@currentUrl" />
             </form>
-            <a class="btn btn-outline-secondary"
+            <a class="btn btn-outline-primary"
                asp-action="Edit"
                asp-route-scheduleItemId="@Model.ScheduleItemId"
                asp-route-returnUrl="@currentUrl">
@@ -68,6 +68,6 @@
     </div>
 
     <div>
-        <a class="btn btn-primary" href="@Model.ReturnUrl">一覧へ戻る</a>
+        <a class="btn btn-outline-secondary" href="@Model.ReturnUrl">一覧へ戻る</a>
     </div>
 </div>

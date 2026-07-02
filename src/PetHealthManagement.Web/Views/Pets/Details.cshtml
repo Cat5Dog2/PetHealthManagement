@@ -46,7 +46,7 @@
             <div>
                 <p class="fw-bold mb-2">記録</p>
                 <div class="action-row mb-3">
-                    <a class="btn btn-outline-secondary" href="/HealthLogs?petId=@Model.PetId">健康ログ</a>
+                    <a class="btn btn-primary" href="/HealthLogs?petId=@Model.PetId">健康ログ</a>
                     <a class="btn btn-outline-secondary" href="/ScheduleItems?petId=@Model.PetId">予定</a>
                     <a class="btn btn-outline-secondary" href="/Visits?petId=@Model.PetId">通院</a>
                 </div>
@@ -69,6 +69,6 @@
             </div>
         }
 
-        <a class="btn btn-primary" href="@Model.ReturnUrl">一覧へ戻る</a>
+        <a class="btn btn-outline-secondary" href="@Model.ReturnUrl">一覧へ戻る</a>
     </div>
 </article>

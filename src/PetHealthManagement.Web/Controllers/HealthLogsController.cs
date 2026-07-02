@@ -72,10 +72,26 @@ public class HealthLogsController(
             })
             .ToListAsync();
 
+        var weightPoints = await dbContext.HealthLogs
+            .AsNoTracking()
+            .Where(x => x.PetId == pet.Id && x.WeightKg != null)
+            .OrderByDescending(x => x.RecordedAt)
+            .ThenByDescending(x => x.Id)
+            .Take(HealthLogIndexViewModel.WeightChartMaxPoints)
+            .Select(x => new HealthLogWeightPointViewModel
+            {
+                RecordedAt = x.RecordedAt,
+                WeightKg = x.WeightKg!.Value
+            })
+            .ToListAsync();
+
+        weightPoints.Reverse();
+
         var viewModel = new HealthLogIndexViewModel
         {
             PetId = pet.Id,
             PetName = pet.Name,
+            WeightPoints = weightPoints,
             Page = normalizedPage,
             PageSize = HealthLogIndexViewModel.DefaultPageSize,
             TotalCount = totalCount,
@@ -90,6 +106,58 @@ public class HealthLogsController(
                     StoolCondition = x.StoolCondition,
                     NoteExcerpt = StringFormatter.ToExcerpt(x.Note),
                     HasImages = x.HasImages
+                })
+                .ToList()
+        };
+
+        return View(viewModel);
+    }
+
+    [HttpGet("Record")]
+    public async Task<IActionResult> Record()
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Challenge();
+        }
+
+        var pets = await dbContext.Pets
+            .AsNoTracking()
+            .Where(x => x.OwnerId == userId)
+            .OrderByDescending(x => x.UpdatedAt)
+            .ThenByDescending(x => x.CreatedAt)
+            .ThenByDescending(x => x.Id)
+            .Select(x => new
+            {
+                x.Id,
+                x.Name,
+                x.SpeciesCode,
+                x.PhotoImageId
+            })
+            .ToListAsync(HttpContext.RequestAborted);
+
+        if (pets.Count == 0)
+        {
+            return RedirectToAction("Create", "Pets", new { returnUrl = "/MyPage" });
+        }
+
+        if (pets.Count == 1)
+        {
+            return RedirectToAction(nameof(Create), new { petId = pets[0].Id });
+        }
+
+        var viewModel = new HealthLogRecordViewModel
+        {
+            Pets = pets
+                .Select(x => new HealthLogRecordPetViewModel
+                {
+                    PetId = x.Id,
+                    Name = x.Name,
+                    SpeciesLabel = SpeciesCatalog.ToLabel(x.SpeciesCode),
+                    PhotoUrl = x.PhotoImageId is null
+                        ? "/images/default/pet-placeholder.webp"
+                        : $"/images/{x.PhotoImageId.Value:D}"
                 })
                 .ToList()
         };
@@ -242,6 +310,7 @@ public class HealthLogsController(
             return View(BuildCreateViewModel(pet, viewModel.ReturnUrl, viewModel));
         }
 
+        TempData[StatusMessages.TempDataKey] = StatusMessages.HealthLogCreated;
         var redirectUrl = ReturnUrlHelper.ResolveLocalReturnUrl(viewModel.ReturnUrl, PetActivityUrlHelper.HealthLogList(pet.Id));
         return Redirect(redirectUrl);
     }
@@ -332,6 +401,7 @@ public class HealthLogsController(
             return await BuildConcurrencyConflictResultAsync(currentHealthLog, viewModel.ReturnUrl);
         }
 
+        TempData[StatusMessages.TempDataKey] = StatusMessages.HealthLogUpdated;
         var redirectUrl = ReturnUrlHelper.ResolveLocalReturnUrl(viewModel.ReturnUrl, $"/HealthLogs/Details/{healthLogId}");
         return Redirect(redirectUrl);
     }
@@ -368,6 +438,7 @@ public class HealthLogsController(
 
         await healthLogDeletionService.DeleteAsync(healthLog, userId, HttpContext.RequestAborted);
 
+        TempData[StatusMessages.TempDataKey] = StatusMessages.HealthLogDeleted;
         return Redirect(redirectUrl);
     }
 

@@ -4,6 +4,8 @@ public class HealthLogIndexViewModel
 {
     public const int DefaultPageSize = 10;
 
+    public const int WeightChartMaxPoints = 20;
+
     public int PetId { get; set; }
 
     public string PetName { get; set; } = string.Empty;
@@ -16,7 +18,16 @@ public class HealthLogIndexViewModel
 
     public List<HealthLogListItemViewModel> HealthLogs { get; set; } = [];
 
+    public List<HealthLogWeightPointViewModel> WeightPoints { get; set; } = [];
+
     public int TotalPages => Math.Max(1, (int)Math.Ceiling((double)TotalCount / PageSize));
+}
+
+public class HealthLogWeightPointViewModel
+{
+    public DateTimeOffset RecordedAt { get; set; }
+
+    public double WeightKg { get; set; }
 }
 
 public class HealthLogListItemViewModel

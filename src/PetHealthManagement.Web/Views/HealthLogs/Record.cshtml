@@ -1,0 +1,26 @@
+@model PetHealthManagement.Web.ViewModels.HealthLogs.HealthLogRecordViewModel
+@{
+    ViewData["Title"] = "記録するペットを選ぶ";
+}
+
+<div class="page-heading">
+    <div>
+        <h1>どの子の記録をつけますか？</h1>
+        <p class="text-muted">ペットを選ぶと健康ログの記録画面へ進みます。</p>
+    </div>
+</div>
+
+<div class="record-pick">
+    @foreach (var pet in Model.Pets)
+    {
+        <a class="record-pick__item surface"
+           asp-action="Create"
+           asp-route-petId="@pet.PetId">
+            <img src="@pet.PhotoUrl" alt="" class="record-pick__photo" loading="lazy" />
+            <span class="d-flex flex-column">
+                <span class="record-pick__name">@pet.Name</span>
+                <span class="text-muted">@pet.SpeciesLabel</span>
+            </span>
+        </a>
+    }
+</div>

@@ -61,6 +61,7 @@ public class AccountController(
         user.DisplayName = UserDisplayNameHelper.ResolveForStorage(user, viewModel.DisplayName);
         await dbContext.SaveChangesAsync(HttpContext.RequestAborted);
 
+        TempData[StatusMessages.TempDataKey] = StatusMessages.ProfileUpdated;
         var redirectUrl = ReturnUrlHelper.ResolveLocalReturnUrl(returnUrl, "/MyPage");
         return Redirect(redirectUrl);
     }
