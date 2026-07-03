@@ -75,6 +75,7 @@ public sealed class ActivityFlowE2ETests(E2EWebApplicationFactory factory)
         await Page.GetByRole(AriaRole.Button, new() { Name = "保存" }).ClickAsync();
 
         await Expect(Page).ToHaveURLAsync(new Regex(@"/HealthLogs\?petId=1$"));
+        await Expect(Page.GetByText("健康ログを保存しました。")).ToBeVisibleAsync();
         await Expect(Page.GetByText("2026/04/01 08:30")).ToBeVisibleAsync();
         await Expect(Page.GetByText("5.4 kg")).ToBeVisibleAsync();
         await Expect(Page.GetByText("120 g")).ToBeVisibleAsync();
@@ -125,6 +126,45 @@ public sealed class ActivityFlowE2ETests(E2EWebApplicationFactory factory)
         await Expect(Page.GetByText("中央どうぶつ病院")).ToBeVisibleAsync();
         await Expect(Page.GetByText("軽い皮膚炎")).ToBeVisibleAsync();
         await Expect(Page.GetByText("塗り薬")).ToBeVisibleAsync();
+    }
+
+    [E2EFact]
+    public async Task BottomNavRecord_ShowsPetPicker_WhenUserHasMultiplePets()
+    {
+        await factory.ResetDatabaseAsync(dbContext =>
+        {
+            SeedUsers(dbContext);
+            SeedOwnedPet(dbContext);
+            dbContext.Pets.Add(new Pet
+            {
+                Id = 2,
+                OwnerId = "owner-user",
+                Name = "Sora",
+                SpeciesCode = "CAT",
+                IsPublic = false,
+                CreatedAt = SeedTimestamp.AddMinutes(-1),
+                UpdatedAt = SeedTimestamp.AddMinutes(-1)
+            });
+            return Task.CompletedTask;
+        });
+        await AuthenticateOwnerAsync();
+
+        // ボトムナビはモバイル幅のみ表示される
+        await Page.SetViewportSizeAsync(390, 844);
+        await Page.GotoAsync(await AbsoluteUrlAsync("/MyPage"));
+
+        await Page.GetByRole(AriaRole.Link, new() { Name = "記録", Exact = true }).ClickAsync();
+
+        await Expect(Page).ToHaveURLAsync(new Regex(@"/HealthLogs/Record$"));
+        await Expect(Page.GetByRole(AriaRole.Heading, new() { Name = "どの子の記録をつけますか？" })).ToBeVisibleAsync();
+
+        var mugiCard = Page.Locator("section.record-pick__item", new() { HasText = "Mugi" });
+        await Expect(mugiCard.GetByRole(AriaRole.Link, new() { Name = "予定" })).ToBeVisibleAsync();
+        await Expect(mugiCard.GetByRole(AriaRole.Link, new() { Name = "通院" })).ToBeVisibleAsync();
+        await mugiCard.GetByRole(AriaRole.Link, new() { Name = "健康ログ" }).ClickAsync();
+
+        await Expect(Page).ToHaveURLAsync(new Regex(@"/HealthLogs/Create\?petId=1$"));
+        await Expect(Page.GetByRole(AriaRole.Heading, new() { Name = "健康ログ作成" })).ToBeVisibleAsync();
     }
 
     private async Task AuthenticateOwnerAsync()

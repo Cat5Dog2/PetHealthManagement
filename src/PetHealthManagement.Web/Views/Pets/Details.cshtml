@@ -61,7 +61,7 @@
                     <form asp-action="Delete"
                           asp-route-petId="@Model.PetId"
                           method="post"
-                          onsubmit="return confirm('このペットを削除します。よろしいですか？');">
+                          data-confirm="このペットを削除します。よろしいですか？">
                         <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
                         <button type="submit" class="btn btn-outline-danger">削除</button>
                     </form>

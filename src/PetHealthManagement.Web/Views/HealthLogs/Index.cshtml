@@ -74,6 +74,12 @@
         </svg>
     </section>
 }
+else if (Model.Page == 1 && Model.TotalCount > 0)
+{
+    <section class="surface mb-4">
+        <p class="text-muted mb-0">体重を2回以上記録すると、ここに体重の推移グラフが表示されます。</p>
+    </section>
+}
 
 <p class="text-muted">全 @Model.TotalCount 件 / @Model.Page ページ目</p>
 
@@ -158,7 +164,7 @@ else
                     <form asp-action="Delete"
                           asp-route-healthLogId="@healthLog.HealthLogId"
                           method="post"
-                          onsubmit="return confirm('この健康ログを削除しますか？');">
+                          data-confirm="この健康ログを削除しますか？">
                         <input type="hidden" name="petId" value="@Model.PetId" />
                         <input type="hidden" name="page" value="@Model.Page" />
                         <input type="hidden" name="returnUrl" value="@currentUrl" />
@@ -170,40 +176,17 @@ else
     </div>
 }
 
-@if (Model.TotalPages > 1)
-{
-    <nav aria-label="健康ログ一覧ページャー" class="list-pager mt-4">
-        @if (Model.Page > 1)
-        {
-            <a class="btn btn-outline-secondary"
-               asp-action="Index"
-               asp-route-petId="@Model.PetId"
-               asp-route-page="@(Model.Page - 1)"
-               rel="prev">
-                前へ
-            </a>
-        }
-        else
-        {
-            <span class="btn btn-outline-secondary disabled" aria-disabled="true">前へ</span>
-        }
-        <span class="list-pager__status">@Model.Page / @Model.TotalPages ページ</span>
-        @if (Model.Page < Model.TotalPages)
-        {
-            <a class="btn btn-outline-secondary"
-               asp-action="Index"
-               asp-route-petId="@Model.PetId"
-               asp-route-page="@(Model.Page + 1)"
-               rel="next">
-                次へ
-            </a>
-        }
-        else
-        {
-            <span class="btn btn-outline-secondary disabled" aria-disabled="true">次へ</span>
-        }
-    </nav>
+@{
+    var pagerModel = new ListPagerViewModel
+    {
+        AriaLabel = "健康ログ一覧ページャー",
+        Page = Model.Page,
+        TotalPages = Model.TotalPages,
+        PreviousUrl = Model.Page > 1 ? Url.Action("Index", new { petId = Model.PetId, page = Model.Page - 1 }) : null,
+        NextUrl = Model.Page < Model.TotalPages ? Url.Action("Index", new { petId = Model.PetId, page = Model.Page + 1 }) : null
+    };
 }
+<partial name="_ListPager" model="pagerModel" />
 
 @functions {
     private static string Svg(double value)

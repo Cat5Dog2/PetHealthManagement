@@ -6,21 +6,38 @@
 <div class="page-heading">
     <div>
         <h1>どの子の記録をつけますか？</h1>
-        <p class="text-muted">ペットを選ぶと健康ログの記録画面へ進みます。</p>
+        <p class="text-muted">健康ログのほか、予定や通院もここから記録できます。</p>
     </div>
 </div>
 
 <div class="record-pick">
     @foreach (var pet in Model.Pets)
     {
-        <a class="record-pick__item surface"
-           asp-action="Create"
-           asp-route-petId="@pet.PetId">
+        <section class="record-pick__item surface">
             <img src="@pet.PhotoUrl" alt="" class="record-pick__photo" loading="lazy" />
-            <span class="d-flex flex-column">
+            <div class="record-pick__body">
                 <span class="record-pick__name">@pet.Name</span>
                 <span class="text-muted">@pet.SpeciesLabel</span>
-            </span>
-        </a>
+                <div class="action-row">
+                    <a class="btn btn-primary"
+                       asp-action="Create"
+                       asp-route-petId="@pet.PetId">
+                        健康ログ
+                    </a>
+                    <a class="btn btn-outline-secondary"
+                       asp-controller="ScheduleItems"
+                       asp-action="Create"
+                       asp-route-petId="@pet.PetId">
+                        予定
+                    </a>
+                    <a class="btn btn-outline-secondary"
+                       asp-controller="Visits"
+                       asp-action="Create"
+                       asp-route-petId="@pet.PetId">
+                        通院
+                    </a>
+                </div>
+            </div>
+        </section>
     }
 </div>

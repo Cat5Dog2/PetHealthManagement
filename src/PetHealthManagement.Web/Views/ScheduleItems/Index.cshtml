@@ -30,7 +30,7 @@
     <input type="hidden" name="petId" value="@Model.PetId" />
     <div>
         <label for="typeFilter" class="form-label">種別で絞り込み</label>
-        <select id="typeFilter" name="typeFilter" class="form-select" onchange="this.form.submit()">
+        <select id="typeFilter" name="typeFilter" class="form-select" data-autosubmit>
             <option value="">すべて</option>
             @foreach (var option in Model.TypeOptions)
             {
@@ -94,7 +94,7 @@ else
                                name="isDone"
                                value="true"
                                @(scheduleItem.IsDone ? "checked" : null)
-                               onchange="this.form.submit()" />
+                               data-autosubmit />
                         <span class="form-check-label">完了にする</span>
                     </label>
                     <input type="hidden" name="isDone" value="false" />
@@ -119,7 +119,7 @@ else
                     <form asp-action="Delete"
                           asp-route-scheduleItemId="@scheduleItem.ScheduleItemId"
                           method="post"
-                          onsubmit="return confirm('この予定を削除しますか？');">
+                          data-confirm="この予定を削除しますか？">
                         <input type="hidden" name="petId" value="@Model.PetId" />
                         <input type="hidden" name="page" value="@Model.Page" />
                         <input type="hidden" name="returnUrl" value="@currentUrl" />
@@ -131,39 +131,14 @@ else
     </div>
 }
 
-@if (Model.TotalPages > 1)
-{
-    <nav aria-label="予定一覧ページャー" class="list-pager mt-4">
-        @if (Model.Page > 1)
-        {
-            <a class="btn btn-outline-secondary"
-               asp-action="Index"
-               asp-route-petId="@Model.PetId"
-               asp-route-typeFilter="@Model.TypeFilter"
-               asp-route-page="@(Model.Page - 1)"
-               rel="prev">
-                前へ
-            </a>
-        }
-        else
-        {
-            <span class="btn btn-outline-secondary disabled" aria-disabled="true">前へ</span>
-        }
-        <span class="list-pager__status">@Model.Page / @Model.TotalPages ページ</span>
-        @if (Model.Page < Model.TotalPages)
-        {
-            <a class="btn btn-outline-secondary"
-               asp-action="Index"
-               asp-route-petId="@Model.PetId"
-               asp-route-typeFilter="@Model.TypeFilter"
-               asp-route-page="@(Model.Page + 1)"
-               rel="next">
-                次へ
-            </a>
-        }
-        else
-        {
-            <span class="btn btn-outline-secondary disabled" aria-disabled="true">次へ</span>
-        }
-    </nav>
+@{
+    var pagerModel = new ListPagerViewModel
+    {
+        AriaLabel = "予定一覧ページャー",
+        Page = Model.Page,
+        TotalPages = Model.TotalPages,
+        PreviousUrl = Model.Page > 1 ? Url.Action("Index", new { petId = Model.PetId, typeFilter = Model.TypeFilter, page = Model.Page - 1 }) : null,
+        NextUrl = Model.Page < Model.TotalPages ? Url.Action("Index", new { petId = Model.PetId, typeFilter = Model.TypeFilter, page = Model.Page + 1 }) : null
+    };
 }
+<partial name="_ListPager" model="pagerModel" />

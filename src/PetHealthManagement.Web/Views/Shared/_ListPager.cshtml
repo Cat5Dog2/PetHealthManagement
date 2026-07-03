@@ -1,0 +1,24 @@
+@model PetHealthManagement.Web.ViewModels.Shared.ListPagerViewModel
+
+@if (Model.TotalPages > 1)
+{
+    <nav aria-label="@Model.AriaLabel" class="list-pager mt-4">
+        @if (Model.PreviousUrl is not null)
+        {
+            <a class="btn btn-outline-secondary" href="@Model.PreviousUrl" rel="prev">前へ</a>
+        }
+        else
+        {
+            <span class="btn btn-outline-secondary disabled" aria-disabled="true">前へ</span>
+        }
+        <span class="list-pager__status">@Model.Page / @Model.TotalPages ページ</span>
+        @if (Model.NextUrl is not null)
+        {
+            <a class="btn btn-outline-secondary" href="@Model.NextUrl" rel="next">次へ</a>
+        }
+        else
+        {
+            <span class="btn btn-outline-secondary disabled" aria-disabled="true">次へ</span>
+        }
+    </nav>
+}

@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
+using PetHealthManagement.Web.Helpers;
 using PetHealthManagement.Web.Models;
 using PetHealthManagement.Web.ViewModels.Home;
 
@@ -7,9 +8,6 @@ namespace PetHealthManagement.Web.Controllers;
 
 public class HomeController : Controller
 {
-    private const string DefaultAvatarUrl = "/images/default/avatar-placeholder.webp";
-    private const string DefaultPetPhotoUrl = "/images/default/pet-placeholder.webp";
-
     public IActionResult Index()
     {
         // ログイン済みユーザーの入口はマイページに一本化する（トップは未ログイン向け）
@@ -20,8 +18,8 @@ public class HomeController : Controller
 
         var viewModel = new HomeIndexViewModel
         {
-            AvatarUrl = DefaultAvatarUrl,
-            PetPhotoUrl = DefaultPetPhotoUrl
+            AvatarUrl = ImageUrlHelper.DefaultAvatarUrl,
+            PetPhotoUrl = ImageUrlHelper.DefaultPetPhotoUrl
         };
 
         return View(viewModel);

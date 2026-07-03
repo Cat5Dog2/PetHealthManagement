@@ -122,7 +122,7 @@ public class VisitsController(
             .Select(x => new VisitImageItemViewModel
             {
                 ImageId = x.ImageId,
-                Url = $"/images/{x.ImageId:D}",
+                Url = ImageUrlHelper.ImageUrl(x.ImageId),
                 AltText = $"{visit.Pet.Name} visit image"
             })
             .ToListAsync();
@@ -426,7 +426,7 @@ public class VisitsController(
             .Select(x => new VisitExistingImageViewModel
             {
                 ImageId = x.ImageId,
-                Url = $"/images/{x.ImageId:D}",
+                Url = ImageUrlHelper.ImageUrl(x.ImageId),
                 AltText = $"{petName} visit image"
             })
             .ToListAsync();

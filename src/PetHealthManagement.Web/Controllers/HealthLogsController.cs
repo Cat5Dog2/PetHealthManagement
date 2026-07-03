@@ -72,20 +72,25 @@ public class HealthLogsController(
             })
             .ToListAsync();
 
-        var weightPoints = await dbContext.HealthLogs
-            .AsNoTracking()
-            .Where(x => x.PetId == pet.Id && x.WeightKg != null)
-            .OrderByDescending(x => x.RecordedAt)
-            .ThenByDescending(x => x.Id)
-            .Take(HealthLogIndexViewModel.WeightChartMaxPoints)
-            .Select(x => new HealthLogWeightPointViewModel
-            {
-                RecordedAt = x.RecordedAt,
-                WeightKg = x.WeightKg!.Value
-            })
-            .ToListAsync();
+        // 体重推移グラフは1ページ目にだけ表示するため、2ページ目以降はクエリを省略する
+        var weightPoints = new List<HealthLogWeightPointViewModel>();
+        if (normalizedPage == 1)
+        {
+            weightPoints = await dbContext.HealthLogs
+                .AsNoTracking()
+                .Where(x => x.PetId == pet.Id && x.WeightKg != null)
+                .OrderByDescending(x => x.RecordedAt)
+                .ThenByDescending(x => x.Id)
+                .Take(HealthLogIndexViewModel.WeightChartMaxPoints)
+                .Select(x => new HealthLogWeightPointViewModel
+                {
+                    RecordedAt = x.RecordedAt,
+                    WeightKg = x.WeightKg!.Value
+                })
+                .ToListAsync();
 
-        weightPoints.Reverse();
+            weightPoints.Reverse();
+        }
 
         var viewModel = new HealthLogIndexViewModel
         {
@@ -155,9 +160,7 @@ public class HealthLogsController(
                     PetId = x.Id,
                     Name = x.Name,
                     SpeciesLabel = SpeciesCatalog.ToLabel(x.SpeciesCode),
-                    PhotoUrl = x.PhotoImageId is null
-                        ? "/images/default/pet-placeholder.webp"
-                        : $"/images/{x.PhotoImageId.Value:D}"
+                    PhotoUrl = ImageUrlHelper.ResolvePetPhotoUrl(x.PhotoImageId)
                 })
                 .ToList()
         };
@@ -192,7 +195,7 @@ public class HealthLogsController(
             .Select(x => new HealthLogImageItemViewModel
             {
                 ImageId = x.ImageId,
-                Url = $"/images/{x.ImageId:D}",
+                Url = ImageUrlHelper.ImageUrl(x.ImageId),
                 AltText = $"{healthLog.Pet.Name} の健康ログ画像"
             })
             .ToListAsync();
@@ -500,7 +503,7 @@ public class HealthLogsController(
             .Select(x => new HealthLogExistingImageViewModel
             {
                 ImageId = x.ImageId,
-                Url = $"/images/{x.ImageId:D}",
+                Url = ImageUrlHelper.ImageUrl(x.ImageId),
                 AltText = $"{petName} の健康ログ画像"
             })
             .ToListAsync();

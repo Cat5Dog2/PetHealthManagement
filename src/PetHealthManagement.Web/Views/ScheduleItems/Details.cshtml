@@ -21,7 +21,7 @@
                            name="isDone"
                            value="true"
                            @(Model.IsDone ? "checked" : null)
-                           onchange="this.form.submit()" />
+                           data-autosubmit />
                     <span class="form-check-label">完了</span>
                 </label>
                 <input type="hidden" name="isDone" value="false" />
@@ -38,7 +38,7 @@
                   asp-route-scheduleItemId="@Model.ScheduleItemId"
                   method="post"
                   class="d-inline"
-                  onsubmit="return confirm('この予定を削除しますか？');">
+                  data-confirm="この予定を削除しますか？">
                 <input type="hidden" name="petId" value="@Model.PetId" />
                 <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
                 <button type="submit" class="btn btn-outline-danger">削除</button>

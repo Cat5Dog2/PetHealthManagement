@@ -526,6 +526,92 @@ public class HealthLogsControllerTests
         Assert.Equal(1, deletionService.CallCount);
     }
 
+    [Fact]
+    public async Task Index_PopulatesWeightPoints_OnFirstPageOnly()
+    {
+        await using var dbContext = CreateDbContext();
+        dbContext.Pets.Add(NewPet(1, "user-a", "Mugi"));
+
+        var baseTime = new DateTimeOffset(2026, 3, 21, 9, 0, 0, TimeSpan.FromHours(9));
+        for (var index = 1; index <= 12; index++)
+        {
+            dbContext.HealthLogs.Add(new HealthLog
+            {
+                Id = index,
+                PetId = 1,
+                RecordedAt = baseTime.AddDays(index),
+                WeightKg = index <= 3 ? 5.0 + index : null,
+                CreatedAt = baseTime,
+                UpdatedAt = baseTime
+            });
+        }
+
+        await dbContext.SaveChangesAsync();
+
+        var controller = BuildController(dbContext, "user-a");
+
+        var firstPageResult = await controller.Index(petId: 1, page: "1");
+        var firstPageModel = Assert.IsType<HealthLogIndexViewModel>(Assert.IsType<ViewResult>(firstPageResult).Model);
+        Assert.Equal(3, firstPageModel.WeightPoints.Count);
+        Assert.Equal([6.0, 7.0, 8.0], firstPageModel.WeightPoints.Select(x => x.WeightKg));
+
+        var secondPageResult = await controller.Index(petId: 1, page: "2");
+        var secondPageModel = Assert.IsType<HealthLogIndexViewModel>(Assert.IsType<ViewResult>(secondPageResult).Model);
+        Assert.Empty(secondPageModel.WeightPoints);
+    }
+
+    [Fact]
+    public async Task Record_RedirectsToPetCreate_WhenUserHasNoPets()
+    {
+        await using var dbContext = CreateDbContext();
+        var controller = BuildController(dbContext, "user-a");
+
+        var result = await controller.Record();
+
+        var redirect = Assert.IsType<RedirectToActionResult>(result);
+        Assert.Equal("Create", redirect.ActionName);
+        Assert.Equal("Pets", redirect.ControllerName);
+        Assert.Equal("/MyPage", redirect.RouteValues?["returnUrl"]);
+    }
+
+    [Fact]
+    public async Task Record_RedirectsToHealthLogCreate_WhenUserHasSinglePet()
+    {
+        await using var dbContext = CreateDbContext();
+        dbContext.Pets.Add(NewPet(1, "user-a", "Mugi"));
+        await dbContext.SaveChangesAsync();
+
+        var controller = BuildController(dbContext, "user-a");
+
+        var result = await controller.Record();
+
+        var redirect = Assert.IsType<RedirectToActionResult>(result);
+        Assert.Equal("Create", redirect.ActionName);
+        Assert.Null(redirect.ControllerName);
+        Assert.Equal(1, redirect.RouteValues?["petId"]);
+    }
+
+    [Fact]
+    public async Task Record_ShowsPetPicker_WithOwnPetsOnly_WhenUserHasMultiplePets()
+    {
+        await using var dbContext = CreateDbContext();
+        dbContext.Pets.AddRange(
+            NewPet(1, "user-a", "Mugi"),
+            NewPet(2, "user-a", "Sora"),
+            NewPet(3, "user-b", "Other"));
+        await dbContext.SaveChangesAsync();
+
+        var controller = BuildController(dbContext, "user-a");
+
+        var result = await controller.Record();
+
+        var viewResult = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<HealthLogRecordViewModel>(viewResult.Model);
+        Assert.Equal(2, model.Pets.Count);
+        Assert.All(model.Pets, x => Assert.NotEqual(3, x.PetId));
+        Assert.All(model.Pets, x => Assert.False(string.IsNullOrEmpty(x.PhotoUrl)));
+    }
+
     private static HealthLogsController BuildController(
         ApplicationDbContext dbContext,
         string userId,

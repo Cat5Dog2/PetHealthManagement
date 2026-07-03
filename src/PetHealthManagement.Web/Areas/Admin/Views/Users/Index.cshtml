@@ -45,7 +45,7 @@
                                       asp-route-userId="@user.UserId"
                                       method="post"
                                       class="d-inline"
-                                      onsubmit="return confirm('Delete this user and all related data?');">
+                                      data-confirm="Delete this user and all related data?">
                                     <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
                                 </form>
                             </td>
@@ -56,30 +56,15 @@
         </div>
     }
 
-    @if (Model.TotalPages > 1)
-    {
-        <nav aria-label="Admin user pagination">
-            <ul class="pagination mb-0">
-                @for (var pageNumber = 1; pageNumber <= Model.TotalPages; pageNumber++)
-                {
-                    if (pageNumber == Model.Page)
-                    {
-                        <li class="page-item active"><span class="page-link">@pageNumber</span></li>
-                    }
-                    else
-                    {
-                        <li class="page-item">
-                            <a class="page-link"
-                               asp-area="Admin"
-                               asp-controller="Users"
-                               asp-action="Index"
-                               asp-route-page="@pageNumber">
-                                @pageNumber
-                            </a>
-                        </li>
-                    }
-                }
-            </ul>
-        </nav>
+    @{
+        var pagerModel = new ListPagerViewModel
+        {
+            AriaLabel = "Admin user pagination",
+            Page = Model.Page,
+            TotalPages = Model.TotalPages,
+            PreviousUrl = Model.Page > 1 ? Url.Action("Index", "Users", new { area = "Admin", page = Model.Page - 1 }) : null,
+            NextUrl = Model.Page < Model.TotalPages ? Url.Action("Index", "Users", new { area = "Admin", page = Model.Page + 1 }) : null
+        };
     }
+    <partial name="_ListPager" model="pagerModel" />
 </div>

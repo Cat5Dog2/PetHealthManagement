@@ -22,7 +22,9 @@ flowchart TB
 - 下部ナビを使う場合、未実装機能へのリンクやダミー画面は置かず、既存URLへの導線だけを出す
 - 一覧は原則 **10件/ページ**、ページ番号はクエリ `page`（1始まり）
 - ページャは全ページ番号の列挙ではなく **「前へ / 現在ページ・総ページ / 次へ」** 形式とする
-- POST成功後は共通レイアウトの **ステータスアラート**（TempData `StatusMessage`）で結果をフィードバックする
+- POST成功後は共通レイアウトの **ステータスアラート**（TempData `AppStatusMessage`）で結果をフィードバックする。アラートは数秒後に自動で閉じる（×ボタンでも閉じられる）
+- OSのダークモード（`prefers-color-scheme: dark`）に追従した配色を持つ
+- 確認ダイアログ・自動送信は inline handler ではなく `data-confirm` / `data-autosubmit` 属性 + `site.js` で実装する（CSP: `script-src 'self'`）
 - 削除ボタンは必ず **確認ダイアログ**を挟む
 - 一覧カードでは **値が空の項目は行ごと非表示**にする（「-」は表示しない）
 - 画像表示は原則 **`GET /images/{imageId}`（認可付き）**。未設定時はデフォルト画像。一覧のサムネイルは `loading="lazy"` を付ける
@@ -199,7 +201,7 @@ flowchart TB
   Header["Header"]
   Title["{PetName} の健康ログ"]
   Actions["[＋記録する]（/HealthLogs/Create?petId={petId}）"]
-  Chart["体重の推移（インラインSVG）<br/>体重が2件以上ある場合に表示<br/>直近最大20件・最新値/最小/最大/期間ラベル付き"]:::note
+  Chart["体重の推移（インラインSVG・1ページ目のみ）<br/>体重が2件以上ある場合に表示<br/>直近最大20件・最新値/最小/最大/期間ラベル付き<br/>体重2件未満でログがある場合は案内文を表示"]:::note
   List["一覧（10件/ページ, RecordedAt降順）<br/>行：RecordedAt | 体重 | 食事量 | 活動 | 排せつ | メモ（抜粋） | 画像あり | [詳細] [編集] [削除]<br/>※空の項目は行ごと非表示"]
   Pager["ページャ（前へ/次へ）"]
   DeleteConfirm["削除確認（confirmダイアログ）<br/>[削除する]（POST /HealthLogs/Delete/{healthLogId}）<br/>[キャンセル]"]:::note
@@ -214,20 +216,20 @@ flowchart TB
 
 ---
 
-## 13.5) 記録するペットを選ぶ（/HealthLogs/Record）※ボトムナビ「記録」の遷移先
+## 13.5) 記録ハブ：記録するペットを選ぶ（/HealthLogs/Record）※ボトムナビ「記録」の遷移先
 
 ```mermaid
 flowchart TB
   Header["Header"]
   Title["どの子の記録をつけますか？"]
-  List["ペット選択カード×N<br/>サムネ | 名前 | 種別<br/>タップで /HealthLogs/Create?petId={petId} へ"]
+  List["ペット選択カード×N<br/>サムネ | 名前 | 種別<br/>[健康ログ]（primary） [予定] [通院]"]
 
   Header --> Title --> List
 ```
 
 - ペットが **0匹**：`/Pets/Create?returnUrl=/MyPage` へリダイレクト
 - ペットが **1匹**：そのまま `/HealthLogs/Create?petId={petId}` へリダイレクト（選択画面を挟まない）
-- ペットが **2匹以上**：この選択画面を表示
+- ペットが **2匹以上**：この選択画面を表示。ペットごとに **健康ログ / 予定 / 通院** の作成へ進める
 
 ---
 
@@ -399,7 +401,7 @@ flowchart TB
 ```mermaid
 flowchart TB
   Header["Top App Bar<br/>うちの子健康カルテ | Admin | Logout"]
-  List["ユーザー一覧（Adminのみ）<br/>行：表示名 | Email | [削除]"]
+  List["ユーザー一覧（Adminのみ）<br/>行：表示名 | Email | [削除]<br/>ページャ：前へ / 現在・総ページ / 次へ（一般画面と共通の _ListPager）"]
   DeleteConfirm["削除確認（モーダル）<br/>[削除する]（POST /Admin/Users/Delete/{userId}）<br/>[キャンセル]"]:::note
   Danger["注意：削除は関連データ（ペット/健康ログ/予定/通院/画像）を含む物理削除"]:::note
 

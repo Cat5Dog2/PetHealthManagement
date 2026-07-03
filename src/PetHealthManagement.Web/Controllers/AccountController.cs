@@ -22,8 +22,6 @@ public class AccountController(
     IUserDataDeletionService userDataDeletionService,
     ILogger<AccountController> logger) : Controller
 {
-    private const string DefaultAvatarUrl = "/images/default/avatar-placeholder.webp";
-
     [HttpGet("EditProfile")]
     public async Task<IActionResult> EditProfile(string? returnUrl)
     {
@@ -146,7 +144,7 @@ public class AccountController(
         return new EditProfileViewModel
         {
             DisplayName = displayName,
-            CurrentAvatarUrl = user.AvatarImageId is null ? DefaultAvatarUrl : $"/images/{user.AvatarImageId.Value:D}",
+            CurrentAvatarUrl = ImageUrlHelper.ResolveAvatarUrl(user.AvatarImageId),
             ReturnUrl = safeReturnUrl,
             CancelUrl = ReturnUrlHelper.ResolveLocalReturnUrl(safeReturnUrl, "/MyPage")
         };

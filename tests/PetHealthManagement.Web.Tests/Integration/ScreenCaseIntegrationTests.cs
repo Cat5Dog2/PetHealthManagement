@@ -68,6 +68,31 @@ public class ScreenCaseIntegrationTests
     }
 
     [Fact]
+    public async Task AdminUsers_RendersDeleteFormWithLayoutAndTagHelpers()
+    {
+        await using var factory = new IntegrationTestWebApplicationFactory();
+        await factory.ResetDatabaseAsync(dbContext =>
+        {
+            SeedUsers(dbContext);
+            return Task.CompletedTask;
+        });
+
+        using var client = factory.CreateAuthenticatedClient("owner-user", roles: ["Admin"]);
+        using var response = await client.GetAsync("/Admin/Users");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        // Admin エリアで共通レイアウトと tag helper が有効であること
+        var html = await ReadDecodedHtmlAsync(response);
+        Assert.Contains("class=\"app-topbar\"", html, StringComparison.Ordinal);
+        Assert.Contains("src=\"/js/site.js", html, StringComparison.Ordinal);
+        Assert.Contains("action=\"/Admin/Users/Delete/", html, StringComparison.Ordinal);
+        Assert.Contains("data-confirm=\"Delete this user and all related data?\"", html, StringComparison.Ordinal);
+        Assert.Contains("__RequestVerificationToken", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("asp-action", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task IdentityManagePages_RenderJapaneseText()
     {
         await using var factory = new IntegrationTestWebApplicationFactory();
