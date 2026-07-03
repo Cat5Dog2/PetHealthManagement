@@ -68,7 +68,7 @@ public class ScreenCaseIntegrationTests
     }
 
     [Fact]
-    public async Task AdminUsers_RendersDeleteFormWithResolvedActionAndAntiforgeryToken()
+    public async Task AdminUsers_RendersDeleteFormWithLayoutAndTagHelpers()
     {
         await using var factory = new IntegrationTestWebApplicationFactory();
         await factory.ResetDatabaseAsync(dbContext =>
@@ -82,9 +82,12 @@ public class ScreenCaseIntegrationTests
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-        // Admin エリアで tag helper が有効であること（_ViewImports 欠落の回帰防止）
+        // Admin エリアで共通レイアウトと tag helper が有効であること
         var html = await ReadDecodedHtmlAsync(response);
+        Assert.Contains("class=\"app-topbar\"", html, StringComparison.Ordinal);
+        Assert.Contains("src=\"/js/site.js", html, StringComparison.Ordinal);
         Assert.Contains("action=\"/Admin/Users/Delete/", html, StringComparison.Ordinal);
+        Assert.Contains("data-confirm=\"Delete this user and all related data?\"", html, StringComparison.Ordinal);
         Assert.Contains("__RequestVerificationToken", html, StringComparison.Ordinal);
         Assert.DoesNotContain("asp-action", html, StringComparison.Ordinal);
     }
