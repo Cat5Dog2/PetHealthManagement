@@ -11,7 +11,6 @@
     <link rel="apple-touch-icon" href="~/icons/apple-touch-icon.png" />
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/PetHealthManagement.Web.styles.css" asp-append-version="true" />
 </head>
 <body class="@(User.Identity?.IsAuthenticated == true ? "has-bottom-nav" : null)">
     @{
@@ -24,7 +23,7 @@
         var isSettingsTab = IsController("Account") || string.Equals(currentArea, "Identity", StringComparison.OrdinalIgnoreCase);
     }
     <header class="app-topbar">
-        <nav class="navbar navbar-expand-md navbar-light px-3">
+        <nav class="navbar navbar-expand-md navbar-light">
             <div class="container-fluid px-0">
                 <a class="navbar-brand app-brand" asp-area="" asp-controller="Home" asp-action="Index">うちの子健康カルテ</a>
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="mainNavigation"

@@ -1,3 +1,9 @@
+/* ヘッダーと本文の左右をそろえるため、基準幅と余白は1か所で持つ */
+:root {
+  --shell-max-width: 920px;
+  --shell-padding-x: 16px;
+}
+
 html {
   font-size: 16px;
   min-height: 100%;
@@ -35,7 +41,9 @@ a:hover {
 
 .app-topbar .navbar {
   margin: 0 auto;
-  max-width: 960px;
+  max-width: var(--shell-max-width);
+  padding-left: var(--shell-padding-x);
+  padding-right: var(--shell-padding-x);
 }
 
 .app-brand {
@@ -45,8 +53,8 @@ a:hover {
 
 .app-main {
   margin: 0 auto;
-  max-width: 920px;
-  padding: 24px 16px 32px;
+  max-width: var(--shell-max-width);
+  padding: 24px var(--shell-padding-x) 32px;
 }
 
 .app-footer {
@@ -485,6 +493,16 @@ a:hover {
   margin: 2px 0 0;
 }
 
+/* ユーザー入力は空白なしの長い文字列もありうるので、必ず枠内で折り返す。
+   ペット名は一覧が h2/h3、詳細が h1 なので3つとも対象にする。 */
+.detail-grid dd,
+.pet-card__title h1,
+.pet-card__title h2,
+.pet-card__title h3,
+.record-pick__name {
+  overflow-wrap: anywhere;
+}
+
 .chip {
   background: #dff3ef;
   border-radius: 8px;
@@ -517,12 +535,16 @@ a:hover {
 }
 
 @media (min-width: 768px) {
+  :root {
+    --shell-padding-x: 24px;
+  }
+
   body.has-bottom-nav {
     padding-bottom: 0;
   }
 
   .app-main {
-    padding: 36px 24px 48px;
+    padding: 36px var(--shell-padding-x) 48px;
   }
 
   .app-bottom-nav {
@@ -545,12 +567,13 @@ a:hover {
     padding: 24px;
   }
 
+  /* カード内は縦積みのまま、一覧側の列を幅に応じて増やす */
   .pet-list {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   }
 
-  .pet-card {
-    grid-template-columns: 150px minmax(0, 1fr);
+  .pet-card .detail-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .record-grid {

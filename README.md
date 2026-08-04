@@ -4,7 +4,7 @@
 
 ## 前提環境
 
-- `.NET SDK 10.0.103` 以上（`global.json` に追従）
+- `.NET SDK 10.0.302` 以上（`global.json` に追従）
 - SQL Server LocalDB（Windows の開発環境で使用）
 
 ## クイックスタート
