@@ -99,3 +99,42 @@ if ($DotnetArgs.Count -gt 0 -and $DotnetArgs[0] -eq '--') {
 
 $TestArgs = @('test', '-c', $Configuration) + $DotnetArgs
 Invoke-Dotnet $TestArgs
+
+# Shell-level regression tests for the CD smoke script. CI runs these through
+# test.sh; this keeps the PowerShell entry point in step for local runs. bash
+# ships with Git for Windows, but skip rather than fail if it is absent.
+$ShellTests = Join-Path $RepoRoot 'tests/scripts/local-smoke.tests.sh'
+
+# Git for Windows first. `bash` on PATH is usually C:\Windows\System32\bash.exe,
+# the WSL launcher, which fails with "execvpe(/bin/bash)" when no distro is
+# installed -- so a PATH lookup alone is not enough.
+$BashPath = @(
+  (Join-Path $env:ProgramFiles 'Git\bin\bash.exe')
+  (Join-Path ${env:ProgramFiles(x86)} 'Git\bin\bash.exe')
+) | Where-Object { $_ -and (Test-Path -LiteralPath $_) } | Select-Object -First 1
+
+if (-not $BashPath) {
+  $BashCommand = Get-Command bash -ErrorAction SilentlyContinue
+  if ($BashCommand -and $BashCommand.Source -notlike "$env:SystemRoot*") {
+    $BashPath = $BashCommand.Source
+  }
+}
+
+if (-not $BashPath) {
+  Write-Warn "Git Bash not found; skipping shell script tests ($ShellTests). CI runs them via test.sh."
+}
+else {
+  Write-Info 'Running shell script tests...'
+
+  # -l matters: started as a non-login shell, bin\bash.exe does not put Git's
+  # usr\bin on PATH in every installation, and the tests then die on
+  # dirname/mktemp/tr before reaching anything they assert. Prepending those
+  # directories from PowerShell instead was measured on an affected machine and
+  # does not work, because the additions do not survive into Git Bash's own
+  # PATH. The test script derives its paths from BASH_SOURCE, so a profile that
+  # changes directory is harmless.
+  & $BashPath -l $ShellTests
+  if ($LASTEXITCODE -ne 0) {
+    throw "Shell script tests failed with exit code $LASTEXITCODE."
+  }
+}

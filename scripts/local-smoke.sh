@@ -41,6 +41,7 @@ wait_until_available() {
   local startup_log_path="$2"
   local timeout_seconds="${3:-30}"
   local deadline=$((SECONDS + timeout_seconds))
+  local http_code=""
 
   while (( SECONDS < deadline )); do
     if [[ -n "$startup_log_path" ]] && [[ -f "$startup_log_path" ]] \
@@ -48,14 +49,19 @@ wait_until_available() {
       return 0
     fi
 
-    if curl -sS --output /dev/null --max-time 5 "$uri"; then
+    # curl exits 0 for any HTTP response it receives, 5xx included, so the exit
+    # code alone cannot tell "ready" from "up but still failing". App Service
+    # answers 500 while it finishes starting, which would otherwise let the
+    # smoke run proceed against an app that is not serving yet.
+    http_code="$(curl -sS --output /dev/null --max-time 5 -w '%{http_code}' "$uri" 2>/dev/null)" || http_code=""
+    if [[ "$http_code" == "200" ]]; then
       return 0
     fi
 
     sleep 0.5
   done
 
-  echo "Timed out waiting for $uri" >&2
+  echo "Timed out waiting for $uri (last status: ${http_code:-no response})" >&2
   return 1
 }
 
@@ -71,14 +77,24 @@ resolve_request_uri() {
   printf '%s/%s' "${base_url%/}" "${candidate#/}"
 }
 
+# Usage: perform_request <label> <expected_status> [curl args...]
+#
+# <label> names the endpoint in failure output. Never pass "$@" or a raw curl
+# argument list here: the login POST carries the smoke account password, and
+# anything printed from this function lands in the CD log.
 perform_request() {
+  local label="$1"
+  local expected_status="$2"
+  shift 2
+
   local max_retries=4
+  local retry_delay="${SMOKE_RETRY_DELAY_SECONDS:-10}"
   local attempt=1
 
   while true; do
     : >"$RESPONSE_BODY_PATH"
     : >"$RESPONSE_HEADERS_PATH"
-    
+
     set +e
     local http_code
     http_code="$(curl -sS \
@@ -89,23 +105,30 @@ perform_request() {
     local curl_exit=$?
     set -e
 
-    # If curl succeeded AND HTTP status is not a 5xx server error, return success
-    if [[ $curl_exit -eq 0 && ! "$http_code" =~ ^5 ]]; then
+    # Retry a 5xx only when it is unexpected. Some checks assert a server error
+    # on purpose (/Error/500), and retrying those wasted 30s per run while
+    # logging failures that were actually the expected result.
+    if [[ $curl_exit -eq 0 ]] \
+      && { [[ ! "$http_code" =~ ^5 ]] || [[ "$http_code" == "$expected_status" ]]; }; then
       printf '%s' "$http_code"
       return 0
     fi
 
     if (( attempt >= max_retries )); then
       if [[ $curl_exit -eq 0 ]]; then
+        # Hand the status back and let the caller report the mismatch.
         printf '%s' "$http_code"
         return 0
-      else
-        return "$curl_exit"
       fi
+      # Returning non-zero aborts the caller's assignment under `set -e` before
+      # it can print anything, so name the endpoint here or the failure is
+      # anonymous, which is exactly what happened in the CD run for #135.
+      echo "$label: request failed after $max_retries attempts (curl exit: $curl_exit)." >&2
+      return "$curl_exit"
     fi
 
-    echo "Request failed (curl exit: $curl_exit, HTTP status: $http_code). App Service might be restarting, retrying in 10s... ($attempt/$max_retries)" >&2
-    sleep 10
+    echo "$label: request failed (curl exit: $curl_exit, HTTP status: $http_code). Retrying in ${retry_delay}s... ($attempt/$max_retries)" >&2
+    sleep "$retry_delay"
     attempt=$((attempt + 1))
   done
 }
@@ -224,26 +247,26 @@ fi
 
 wait_until_available "$BASE_URL" "$([[ "$USE_EXISTING_APP" == "true" ]] && printf '' || printf '%s' "$STDOUT_PATH")" "$TIMEOUT_SECONDS"
 
-status_code="$(perform_request "$BASE_URL/")"
+status_code="$(perform_request "Home page" 200 "$BASE_URL/")"
 if [[ "$status_code" != "200" ]]; then
   echo "Home page returned unexpected status code: $status_code" >&2
   exit 1
 fi
 
-status_code="$(perform_request "$BASE_URL/Identity/Account/Login")"
+status_code="$(perform_request "Login page" 200 "$BASE_URL/Identity/Account/Login")"
 if [[ "$status_code" != "200" ]]; then
   echo "Login page returned unexpected status code: $status_code" >&2
   exit 1
 fi
 
-status_code="$(perform_request --max-redirs 0 "$BASE_URL/MyPage")"
+status_code="$(perform_request "Anonymous /MyPage" 302 --max-redirs 0 "$BASE_URL/MyPage")"
 if [[ "$status_code" != "302" ]]; then
   echo "Anonymous /MyPage request returned unexpected status code: $status_code" >&2
   exit 1
 fi
 
 for expected_status in 400 403 404 500; do
-  status_code="$(perform_request "$BASE_URL/Error/$expected_status")"
+  status_code="$(perform_request "/Error/$expected_status" "$expected_status" "$BASE_URL/Error/$expected_status")"
   if [[ "$status_code" != "$expected_status" ]]; then
     echo "/Error/$expected_status returned unexpected status code: $status_code" >&2
     exit 1
@@ -258,7 +281,7 @@ if [[ -z "$EMAIL" || -z "$PASSWORD" ]]; then
   exit 0
 fi
 
-status_code="$(perform_request -c "$COOKIE_JAR_PATH" -b "$COOKIE_JAR_PATH" "$BASE_URL/Identity/Account/Login")"
+status_code="$(perform_request "Login page (authenticated)" 200 -c "$COOKIE_JAR_PATH" -b "$COOKIE_JAR_PATH" "$BASE_URL/Identity/Account/Login")"
 if [[ "$status_code" != "200" ]]; then
   echo "Login page for authenticated smoke returned unexpected status code: $status_code" >&2
   exit 1
@@ -270,7 +293,7 @@ ANTIFORGERY_TOKEN="$(extract_antiforgery_token)" || {
 }
 
 status_code="$(
-  perform_request \
+  perform_request "Login POST" 302 \
     -X POST \
     -c "$COOKIE_JAR_PATH" \
     -b "$COOKIE_JAR_PATH" \
@@ -286,13 +309,13 @@ if [[ "$status_code" != "302" ]]; then
   exit 1
 fi
 
-status_code="$(perform_request -c "$COOKIE_JAR_PATH" -b "$COOKIE_JAR_PATH" "$BASE_URL/MyPage")"
+status_code="$(perform_request "Authenticated /MyPage" 200 -c "$COOKIE_JAR_PATH" -b "$COOKIE_JAR_PATH" "$BASE_URL/MyPage")"
 if [[ "$status_code" != "200" ]]; then
   echo "Authenticated /MyPage returned unexpected status code: $status_code" >&2
   exit 1
 fi
 
-status_code="$(perform_request -c "$COOKIE_JAR_PATH" -b "$COOKIE_JAR_PATH" "$BASE_URL/Pets")"
+status_code="$(perform_request "Authenticated /Pets" 200 -c "$COOKIE_JAR_PATH" -b "$COOKIE_JAR_PATH" "$BASE_URL/Pets")"
 if [[ "$status_code" != "200" ]]; then
   echo "Authenticated /Pets returned unexpected status code: $status_code" >&2
   exit 1
@@ -300,7 +323,7 @@ fi
 
 if [[ -n "$IMAGE_URL" ]]; then
   RESOLVED_IMAGE_URL="$(resolve_request_uri "$BASE_URL" "$IMAGE_URL")"
-  status_code="$(perform_request -c "$COOKIE_JAR_PATH" -b "$COOKIE_JAR_PATH" "$RESOLVED_IMAGE_URL")"
+  status_code="$(perform_request "Authenticated image request" 200 -c "$COOKIE_JAR_PATH" -b "$COOKIE_JAR_PATH" "$RESOLVED_IMAGE_URL")"
   if [[ "$status_code" != "200" ]]; then
     echo "Authenticated image request returned unexpected status code: $status_code" >&2
     exit 1
@@ -313,7 +336,7 @@ if [[ -n "$IMAGE_URL" ]]; then
 fi
 
 if [[ "$EXPECT_ADMIN" == "true" ]]; then
-  status_code="$(perform_request -c "$COOKIE_JAR_PATH" -b "$COOKIE_JAR_PATH" "$BASE_URL/Admin/Users")"
+  status_code="$(perform_request "Authenticated /Admin/Users" 200 -c "$COOKIE_JAR_PATH" -b "$COOKIE_JAR_PATH" "$BASE_URL/Admin/Users")"
   if [[ "$status_code" != "200" ]]; then
     echo "Authenticated /Admin/Users returned unexpected status code: $status_code" >&2
     exit 1

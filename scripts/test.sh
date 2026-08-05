@@ -54,3 +54,9 @@ if [[ "${1:-}" == "--configuration" ]]; then
 fi
 
 dotnet test -c "$CONFIGURATION" "$@"
+
+# Shell-level regression tests for the CD smoke script. They run here rather
+# than as a separate workflow step so CI picks them up through the entry point
+# it already calls.
+log "Running shell script tests..."
+bash "$SCRIPT_DIR/../tests/scripts/local-smoke.tests.sh"
