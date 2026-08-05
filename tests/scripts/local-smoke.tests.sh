@@ -179,8 +179,9 @@ teardown
 # ---------------------------------------------------------------------------
 
 if (( tests_failed > 0 )); then
-  log "$tests_failed of $tests_run checks failed."
+  # Counted per assertion, not per test: one broken test can report several.
+  log "$tests_failed assertion failure(s) across $tests_run tests."
   exit 1
 fi
 
-log "All $tests_run checks passed."
+log "All $tests_run tests passed."
