@@ -2,6 +2,10 @@ version: 2
 updates:
   - package-ecosystem: "nuget"
     directories:
+      # リポジトリ直下には CPM の Directory.Packages.props と、ローカルツール
+      # マニフェスト dotnet-tools.json がある。"/" が無いとどちらも探索対象外になる。
+      # dotnet-ef が 10.0.9 に取り残されていたのはこれが原因。
+      - "/"
       - "/src/**"
       - "/tests/**"
     schedule:
@@ -10,10 +14,40 @@ updates:
       time: "09:00"
       timezone: "Asia/Tokyo"
     target-branch: "main"
-    open-pull-requests-limit: 5
+    # 枠が埋まると更新 PR の作成が次回以降に先送りされ、しかもそれが通知されない。
+    # 実際 EFCore.SqlServer 等の 10.0.10 は長期間 PR 化されていなかった。
+    open-pull-requests-limit: 10
     commit-message:
       prefix: "deps"
       include: "scope"
+    groups:
+      # ASP.NET Core と EF Core は同一トレイン（10.0.x）で同時にリリースされる。
+      # PR が分かれると片方だけマージされてバージョンが割れるため 1 本にまとめる。
+      # dotnet-ef も同じトレインなので同居させる。
+      aspnetcore-efcore:
+        patterns:
+          - "Microsoft.AspNetCore.*"
+          - "Microsoft.EntityFrameworkCore.*"
+          - "dotnet-ef"
+        update-types:
+          - "minor"
+          - "patch"
+      # テスト基盤。src と tests で版がずれると原因の切り分けが難しくなる。
+      test-tooling:
+        patterns:
+          - "Microsoft.NET.Test.Sdk"
+          - "Microsoft.Playwright.*"
+          - "xunit*"
+          - "coverlet.*"
+        update-types:
+          - "minor"
+          - "patch"
+      azure:
+        patterns:
+          - "Azure.*"
+        update-types:
+          - "minor"
+          - "patch"
 
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -23,7 +57,11 @@ updates:
       time: "09:30"
       timezone: "Asia/Tokyo"
     target-branch: "main"
-    open-pull-requests-limit: 2
+    # あえてグループ化しない。同じ action を使う複数ワークフローは Dependabot が
+    # 元から 1 PR にまとめる（#130 は setup-dotnet を 5 ファイルまとめて更新した）。
+    # ここでグループを足すと、別々の action の major 更新まで同じ PR に同居し、
+    # CI が落ちたときの切り分けが難しくなる。
+    open-pull-requests-limit: 5
     commit-message:
       prefix: "deps"
       include: "scope"
