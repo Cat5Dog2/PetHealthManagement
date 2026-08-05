@@ -126,30 +126,15 @@ if (-not $BashPath) {
 else {
   Write-Info 'Running shell script tests...'
 
-  # Started as a non-login shell, bin\bash.exe does not put Git's usr\bin on
-  # PATH in every installation, and the tests then fail on dirname/mktemp/tr
-  # rather than on anything they are testing. Both guards are applied because
-  # that setup could not be reproduced here to tell which one is sufficient:
-  # the directories are added explicitly, and -l runs the MSYS profile that was
-  # confirmed to work on an affected machine. The test script derives its own
-  # paths from BASH_SOURCE, so a profile that changes directory is harmless.
-  $GitRoot = Split-Path -Parent (Split-Path -Parent $BashPath)
-  $ExtraPaths = @(
-    (Join-Path $GitRoot 'usr\bin')
-    (Join-Path $GitRoot 'bin')
-  ) | Where-Object { Test-Path -LiteralPath $_ }
-
-  $PreviousPath = $env:PATH
-  try {
-    if ($ExtraPaths) {
-      $env:PATH = ($ExtraPaths -join ';') + ';' + $env:PATH
-    }
-    & $BashPath -l $ShellTests
-    if ($LASTEXITCODE -ne 0) {
-      throw "Shell script tests failed with exit code $LASTEXITCODE."
-    }
-  }
-  finally {
-    $env:PATH = $PreviousPath
+  # -l matters: started as a non-login shell, bin\bash.exe does not put Git's
+  # usr\bin on PATH in every installation, and the tests then die on
+  # dirname/mktemp/tr before reaching anything they assert. Prepending those
+  # directories from PowerShell instead was measured on an affected machine and
+  # does not work, because the additions do not survive into Git Bash's own
+  # PATH. The test script derives its paths from BASH_SOURCE, so a profile that
+  # changes directory is harmless.
+  & $BashPath -l $ShellTests
+  if ($LASTEXITCODE -ne 0) {
+    throw "Shell script tests failed with exit code $LASTEXITCODE."
   }
 }
