@@ -1,4 +1,10 @@
 version: 2
+
+# 注意: Dependabot は dotnet-tools.json（ローカルツールマニフェスト）を監視しない。
+# dotnet-ef は EF Core と同じリリーストレインなので、EF Core を更新したら
+# `dotnet tool update dotnet-ef --tool-manifest dotnet-tools.json --version <同じ版>`
+# を手動で実行して揃えること。
+
 updates:
   - package-ecosystem: "nuget"
     directories:
@@ -10,10 +16,38 @@ updates:
       time: "09:00"
       timezone: "Asia/Tokyo"
     target-branch: "main"
-    open-pull-requests-limit: 5
+    # グループ化しても、メジャー更新と未グループのパッケージは個別 PR になる。
+    # 上限に張り付くと更新が黙って取りこぼされる（PR が作られない）ため余裕を持たせる。
+    open-pull-requests-limit: 10
     commit-message:
       prefix: "deps"
       include: "scope"
+    groups:
+      # ASP.NET Core と EF Core は同一トレイン（10.0.x）で同時にリリースされる。
+      # バラバラの PR にすると片方だけマージされてバージョンが割れるため 1 本にまとめる。
+      aspnetcore-efcore:
+        patterns:
+          - "Microsoft.AspNetCore.*"
+          - "Microsoft.EntityFrameworkCore.*"
+        update-types:
+          - "minor"
+          - "patch"
+      # テスト基盤。src と tests で版がずれると原因の切り分けが難しくなる。
+      test-tooling:
+        patterns:
+          - "Microsoft.NET.Test.Sdk"
+          - "Microsoft.Playwright.*"
+          - "xunit*"
+          - "coverlet.*"
+        update-types:
+          - "minor"
+          - "patch"
+      azure:
+        patterns:
+          - "Azure.*"
+        update-types:
+          - "minor"
+          - "patch"
 
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -23,10 +57,17 @@ updates:
       time: "09:30"
       timezone: "Asia/Tokyo"
     target-branch: "main"
-    open-pull-requests-limit: 2
+    open-pull-requests-limit: 5
     commit-message:
       prefix: "deps"
       include: "scope"
+    groups:
+      # 同じ action が複数ワークフローで使われているので、まとめて上げる。
+      # action のバージョンタグ更新（v5 -> v6 等）はすべて major 判定になるため、
+      # update-types で絞るとグループが実質機能しない。ここでは絞らない。
+      github-actions:
+        patterns:
+          - "*"
 
   - package-ecosystem: "dotnet-sdk"
     directory: "/"
