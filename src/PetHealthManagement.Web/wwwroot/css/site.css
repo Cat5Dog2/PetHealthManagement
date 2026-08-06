@@ -15,7 +15,17 @@ body {
     linear-gradient(180deg, #c9ebe3 0, #f7fbf8 240px),
     #f7fbf8;
   color: #243a38;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  /* system-ui はOSごとに別フォントへ解決され、特にWindowsはカナ幅が約0.72emの
+     Yu Gothic UI になるため、同じ文章でも行数がOSで変わる。日本語フォントを
+     明示して主要環境間の字幅差を抑える。Webフォントではないので、いずれも
+     入っていない環境では sans-serif に落ちる。統一ではなく近似である。 */
+  font-family:
+    "Yu Gothic",
+    YuGothic,
+    "Hiragino Sans",
+    "Noto Sans CJK JP",
+    Meiryo,
+    sans-serif;
   margin: 0;
   min-height: 100vh;
 }
@@ -454,6 +464,27 @@ a:hover {
   margin: 0;
 }
 
+/* カード内は「ラベル｜値」を1行に並べ、品種のような長い値へ幅を渡す。
+   ラベル列は最低幅を固定して、行をまたいでも値の開始位置をそろえる。
+   3列時のカードは283pxで値列は173px＝全角約10文字。これを超える品種名は
+   折り返すが、3列の表示密度を優先して許容する（body のフォント指定も参照）。 */
+.pet-card .detail-grid {
+  gap: 6px;
+}
+
+.pet-card .detail-grid > div {
+  align-items: baseline;
+  column-gap: 12px;
+  display: grid;
+  grid-template-columns: minmax(4.5rem, auto) minmax(0, 1fr);
+  /* 1項目1行になり縦の区切りが倍に増えるため、行間は縦積み時より詰める */
+  padding-bottom: 6px;
+}
+
+.pet-card .detail-grid dd {
+  margin: 0;
+}
+
 .record-card {
   display: grid;
   gap: 12px;
@@ -567,13 +598,10 @@ a:hover {
     padding: 24px;
   }
 
-  /* カード内は縦積みのまま、一覧側の列を幅に応じて増やす */
+  /* カード内は1列（ラベル｜値）のまま、一覧側の列を幅に応じて増やす。
+     カードを2列にすると品種名が入りきらず折り返すため、ここでは列を増やさない。 */
   .pet-list {
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  }
-
-  .pet-card .detail-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .record-grid {

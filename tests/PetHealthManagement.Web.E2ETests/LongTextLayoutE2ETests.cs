@@ -121,6 +121,64 @@ public sealed class LongTextLayoutE2ETests(E2EWebApplicationFactory factory)
         }
     }
 
+    // 品種はカード内で最も長くなりやすい項目なので、カード幅の大半を値側に渡す。
+    // ただし「◯文字までは1行」を直接固定するのは避ける。日本語フォントは
+    // site.css で明示しているが、いずれも無い環境では sans-serif に落ちて
+    // 字幅が変わるため、ここではグリフ幅に依存しない「幅の配分」を固定する。
+    private const string BreedRowProbeScript = """
+        () => {
+          const rows = [];
+          for (const card of document.querySelectorAll('.pet-card')) {
+            const row = [...card.querySelectorAll('.detail-grid > div')]
+              .find(item => item.querySelector('dt').textContent.trim() === '品種');
+            if (!row) continue;
+            const dt = row.querySelector('dt');
+            const dd = row.querySelector('dd');
+            rows.push({
+              valueWidth: dd.clientWidth,
+              fontSize: parseFloat(getComputedStyle(dd).fontSize),
+              // ラベルと値が同じ行にあること（縦積みに戻っていないこと）
+              inlineWithLabel: Math.abs(dt.getBoundingClientRect().top - dd.getBoundingClientRect().top) < 8
+            });
+          }
+          return rows;
+        }
+        """;
+
+    [E2EFact]
+    public async Task PetList_GivesBreedValueMostOfCardWidth_AcrossViewports()
+    {
+        await SeedAndSignInAsync();
+
+        // 全角10文字ぶん。カード内を2列に戻すと値列が約8文字ぶんまで狭まるため、
+        // その退行をこの下限で検出する。
+        const int RequiredFullWidthCharacters = 10;
+
+        foreach (var width in (int[])[390, 768, 880, 1280, 1920])
+        {
+            await Page.SetViewportSizeAsync(width, 900);
+            await GotoAsync("/Pets");
+
+            var rows = await Page.EvaluateAsync<JsonElement>(BreedRowProbeScript);
+            var probed = rows.EnumerateArray().ToArray();
+
+            Assert.True(probed.Length > 0, $"{width}px: 品種行が1件も見つからない");
+
+            foreach (var row in probed)
+            {
+                var valueWidth = row.GetProperty("valueWidth").GetDouble();
+                var required = row.GetProperty("fontSize").GetDouble() * RequiredFullWidthCharacters;
+
+                Assert.True(
+                    row.GetProperty("inlineWithLabel").GetBoolean(),
+                    $"{width}px: 品種のラベルと値が同じ行にない");
+                Assert.True(
+                    valueWidth >= required,
+                    $"{width}px: 品種の値幅が {valueWidth}px しかない（全角{RequiredFullWidthCharacters}文字 = {required}px 必要）");
+            }
+        }
+    }
+
     [E2EFact]
     public async Task PetDetails_KeepsLongestNameInsideCard()
     {

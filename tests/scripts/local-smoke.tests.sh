@@ -5,8 +5,11 @@
 # where: readiness treated an HTTP 500 as "ready", and perform_request retried
 # server errors that a check was deliberately asserting.
 #
-# curl is replaced by tests/scripts/fake-curl.sh, and SMOKE_RETRY_DELAY_SECONDS
-# is set to 0, so nothing here waits on real time.
+# curl is replaced by tests/scripts/fake-curl.sh, and both wait knobs
+# (SMOKE_RETRY_DELAY_SECONDS and SMOKE_READY_POLL_SECONDS) are set to 0, so
+# nothing here waits on real time. Readiness polls against a wall-clock
+# deadline, so a non-zero poll delay made the "waits through 500" case fail on
+# a loaded machine.
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -64,11 +67,17 @@ queue_response() {
   printf '%s\n' "$@" >"$FAKE_CURL_DIR/q_$key"
 }
 
+# The readiness timeout is deliberately generous: with the poll delay zeroed the
+# only cost left is spawning the stubbed curl, which is slow on Windows and
+# slower still on a loaded machine. Nothing here asserts a readiness timeout, and
+# the loop returns as soon as the queue yields 200, so a larger budget costs no
+# run time. Lowering it back to a few seconds is what made this suite flaky.
 run_smoke() {
   PATH="$FAKE_CURL_DIR/bin:$PATH" \
   FAKE_CURL_DIR="$FAKE_CURL_DIR" \
   SMOKE_RETRY_DELAY_SECONDS=0 \
-    bash "$SMOKE_SCRIPT" --use-existing-app --base-url "$BASE_URL" --timeout 5 "$@" \
+  SMOKE_READY_POLL_SECONDS=0 \
+    bash "$SMOKE_SCRIPT" --use-existing-app --base-url "$BASE_URL" --timeout 20 "$@" \
     >"$STDOUT_FILE" 2>"$STDERR_FILE"
   SMOKE_EXIT=$?
   return 0
@@ -173,6 +182,14 @@ start_test "the production retry delay stays at 10 seconds"
 # default would otherwise go unnoticed here and only show up in CD.
 if ! grep -Fq 'SMOKE_RETRY_DELAY_SECONDS:-10' "$SMOKE_SCRIPT"; then
   fail "the default retry delay in local-smoke.sh is no longer 10 seconds"
+fi
+teardown
+
+start_test "the production readiness poll delay stays at 0.5 seconds"
+# Same static guard: the tests force this to 0, so a default that no longer
+# paces the readiness polling would only show up in CD.
+if ! grep -Fq 'SMOKE_READY_POLL_SECONDS:-0.5' "$SMOKE_SCRIPT"; then
+  fail "the default readiness poll delay in local-smoke.sh is no longer 0.5 seconds"
 fi
 teardown
 
