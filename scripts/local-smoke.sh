@@ -40,6 +40,12 @@ wait_until_available() {
   local uri="$1"
   local startup_log_path="$2"
   local timeout_seconds="${3:-30}"
+  # The deadline is wall-clock, so every poll spends real time out of the
+  # budget: the sleep plus whatever the request itself costs. Tests drive this
+  # loop through several not-ready responses with a stubbed curl, where the
+  # sleeps are the avoidable part of that cost - spawning the stub is not - so
+  # they set this to 0 the same way they zero the retry delay.
+  local poll_delay="${SMOKE_READY_POLL_SECONDS:-0.5}"
   local deadline=$((SECONDS + timeout_seconds))
   local http_code=""
 
@@ -58,7 +64,7 @@ wait_until_available() {
       return 0
     fi
 
-    sleep 0.5
+    sleep "$poll_delay"
   done
 
   echo "Timed out waiting for $uri (last status: ${http_code:-no response})" >&2
