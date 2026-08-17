@@ -30,7 +30,7 @@
   </ItemGroup>
 
   <ItemGroup Label="Application">
-    <PackageVersion Include="SixLabors.ImageSharp" Version="3.1.12" />
+    <PackageVersion Include="SixLabors.ImageSharp" Version="4.1.0" />
   </ItemGroup>
 
   <ItemGroup Label="Testing">
