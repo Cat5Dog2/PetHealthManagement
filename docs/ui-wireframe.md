@@ -4,15 +4,19 @@
 ```mermaid
 flowchart TB
   HeaderAnon["Top App Bar（未ログイン）<br/>うちの子健康カルテ | トップ | Login / Register"]
-  HeaderAuth["Top App Bar（ログイン）<br/>うちの子健康カルテ | ホーム | ペット | アカウント | Logout"]
+  HeaderAuth["Top App Bar（ログイン）<br/>うちの子健康カルテ | ホーム | ペット | アカウント | Logout<br/>※ゲストは「アカウント」を表示しない"]
+  GuestBanner["ゲスト用バナー（ゲストのみ）<br/>ゲストとして利用中／yyyy/MM/dd HH:mm（日本時間）ごろに自動削除"]:::note
   StatusAlert["ステータスアラート（共通）<br/>POST成功後に TempData のメッセージを表示（例：保存しました）"]
   BottomNav["Bottom Nav（ログイン・モバイル）<br/>ホーム(/MyPage) | ペット(/Pets) | 記録(/HealthLogs/Record) | 設定(/Account/EditProfile)<br/>アイコン+ラベル、現在地は aria-current=page とアクティブ色で表示"]
   Body["Body<br/>(画面ごとのコンテンツ)"]
 
   HeaderAnon --> StatusAlert
+  HeaderAuth --> GuestBanner --> StatusAlert
   HeaderAuth --> StatusAlert
   StatusAlert --> Body
   Body --> BottomNav
+
+  classDef note fill:#fff,stroke:#999,stroke-dasharray: 4 4,color:#333;
 ```
 
 - スマホ幅を主対象にしたモバイルファーストUIとし、PC幅では読みやすい最大幅を持つレスポンシブ表示にする
@@ -33,6 +37,7 @@ flowchart TB
 - **存在秘匿（404）**：非公開ペット（他ユーザー）／健康ログ・予定・通院（非オーナー）
 - POST後の遷移：`returnUrl`（ローカルURLのみ許可）を優先、無効なら安全な既定（例：一覧）へ
 - **PWA対応**：`manifest.webmanifest`（`standalone`、テーマ色 `#2f9e9b`）とアイコン（192/512/maskable/apple-touch-icon）を配信し、ホーム画面追加に対応する
+- **ゲスト**：ゲストでログイン中は、ヘッダーの下にゲスト用バナー（削除予定時刻を日本時間で表示）を出す。ヘッダーの「アカウント」は表示しない
 
 ---
 
@@ -43,10 +48,13 @@ flowchart TB
   Header["Top App Bar（未ログイン）<br/>うちの子健康カルテ | Login / Register"]
   Hero["ヒーロー<br/>・アプリ概要（健康管理/予定/通院記録）<br/>・スクリーンショット枠（任意）"]
   CTA["[Login / Register]（Identity UIへ）"]
+  GuestCTA["[ゲストとして試す]（POST /Identity/Account/GuestLogin → /MyPage）<br/>登録不要・8時間後に自動削除"]
   Note["※ ログイン済みは /MyPage へ自動リダイレクト（302）"]:::note
+  GuestNote["※ GuestLogin:Enabled が false のときは表示しない"]:::note
 
-  Header --> Hero --> CTA
+  Header --> Hero --> CTA --> GuestCTA
   Hero -.-> Note
+  GuestCTA -.-> GuestNote
 
   classDef note fill:#fff,stroke:#999,stroke-dasharray: 4 4,color:#333;
 ```
@@ -58,6 +66,7 @@ flowchart TB
 - URL：Identity 標準
 - 主要要素：Email / Password / Register / Login
 - 成功後：`returnUrl` があれば戻る、なければ `/MyPage`
+- ログイン画面のフォームの下に [ゲストとして試す]（登録不要・8時間後に自動削除。`returnUrl` を hidden で引き継ぐ）を置く
 
 ---
 
@@ -81,7 +90,7 @@ flowchart TB
 flowchart TB
   Header["Top App Bar（ログイン）<br/>うちの子健康カルテ | ホーム | ペット | アカウント | Logout"]
   BottomNav["Bottom Nav<br/>ホーム | ペット | 記録 | 設定"]
-  Profile["プロフィールカード<br/>- Avatar（/images/{imageId} or default）<br/>- 表示名<br/>- Email<br/>[プロフィール編集]<br/>[パスワード変更]<br/>※アカウント削除の導線はプロフィール編集画面へ移動"]
+  Profile["プロフィールカード<br/>- Avatar（/images/{imageId} or default）<br/>- 表示名<br/>- Email<br/>[プロフィール編集]<br/>[パスワード変更]（ゲストは非表示）<br/>※アカウント削除の導線はプロフィール編集画面へ移動"]
   Pets["自分のペット一覧<br/>[＋ペット登録]<br/>ペットカード×N<br/>- サムネイル（/images/{imageId} or default）/名前<br/>- 公開/非公開バッジ<br/>[詳細]"]
   Empty["（0件の場合）<br/>ペットを登録してください"]:::note
 
@@ -157,6 +166,8 @@ flowchart TB
 
   Header --> Form
 ```
+
+- ゲストには公開設定のチェックボックスの代わりに「ゲストのペットは非公開で保存され、他の利用者には表示されない」旨の説明文を表示する（編集画面も同じ）
 
 ---
 

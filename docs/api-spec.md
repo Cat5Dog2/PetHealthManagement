@@ -38,6 +38,9 @@
     - 非許可・存在しない・参照元が辿れない等：存在秘匿のため **404**
   - **Admin エリア**
     - Admin 以外：**403**
+  - **ゲスト（お試し利用。3.3 の `POST /Identity/Account/GuestLogin` で作成）**
+    - `/Identity/Account/Manage` 配下：**403**
+    - それ以外は一般ユーザーと同じ。ただしペットは常に非公開で保存する
 
 #### 1.2.1 403 / 404 の使い分け（実装ルール）
 - 他人のリソースに対するアクセス（所有者不一致）の扱い：
@@ -225,8 +228,9 @@
 | トップ | GET | `/` | 匿名可（ログイン済みは `/MyPage` へ 302） |
 | エラーページ | GET | `/Error/{statusCode}` | 匿名可 |
 | MyPage | GET | `/MyPage` | 認証必須 |
+| ゲストログイン | POST | `/Identity/Account/GuestLogin` | 匿名可（antiforgery 必須、IP 単位のレート制限） |
 | プロフィール編集 | GET/POST | `/Account/EditProfile` | 認証必須 |
-| パスワード変更 | GET/POST | `/Identity/Account/Manage/ChangePassword` | 認証必須（Identity標準） |
+| パスワード変更 | GET/POST | `/Identity/Account/Manage/ChangePassword` | 認証必須（Identity標準。ゲストは 403） |
 | アカウント削除（確認） | GET | `/Account/Delete` | 認証必須 |
 | アカウント削除（実行） | POST | `/Account/DeleteConfirmed` | 認証必須 |
 | ペット一覧 | GET | `/Pets` | 認証必須 |
@@ -281,7 +285,28 @@
 
 ---
 
-### 3.3 Account（プロフィール・削除）
+### 3.3 Account（ゲストログイン・プロフィール・削除）
+#### POST `/Identity/Account/GuestLogin`
+- 概要：ゲストユーザーを作成してログインする（お試し利用。要件 FR-090〜093）
+- 認可：匿名可（`[AllowAnonymous]`）
+- セキュリティ：
+  - CSRF 対策必須（Anti-forgery）。トークンなし／不正は 400（`/Error/400`）
+  - レート制限：IP 単位（`RemoteIpAddress`）の固定窓で **10 分に 5 回**。超過は 429（`Retry-After` 付き、`/Error/429`）
+- Content-Type：`application/x-www-form-urlencoded`
+- フォーム項目：
+  - `returnUrl`：任意（ログイン後に戻す URL。**ローカル URL のみ有効**）
+- 処理：
+  - ゲストユーザーを作成する（UserName `guest-{Guid:N}`、メールアドレス・パスワードなし、表示名「ゲスト」、claim `pethealth:guest-expires-at` に 8 時間後の期限）
+  - サンプルのペット 3 件と健康ログ・予定・通院履歴を `IsPublic = false` で作成する（画像なし）
+  - 非永続 Cookie（`IsPersistent = false`、`AllowRefresh = false`、`ExpiresUtc` = 期限）でサインインする
+- 成功：302 → `returnUrl`（指定があり、かつローカル URL の場合）
+  - `returnUrl` 未指定／非ローカル：302 → `/MyPage`
+- ログイン済み（ゲストを含む）の場合：ゲストを作らずに 302（遷移先は成功時と同じ）
+- 失敗：
+  - `GuestLogin:Enabled` が false：404
+  - antiforgery 不正：400
+  - レート制限超過：429
+
 #### GET `/Account/EditProfile`
 - 概要：プロフィール編集画面表示（表示名、アバター）
 - 認可：認証必須
@@ -298,7 +323,7 @@
 
 #### GET `/Identity/Account/Manage/ChangePassword`
 - 概要：パスワード変更画面（ASP.NET Core Identity 標準のスキャフォールドを利用）
-- 認可：認証必須
+- 認可：認証必須（ゲストは 403。`/Identity/Account/Manage` 配下はすべて同じ）
 - 備考：
   - 本機能は Identity 標準実装に準拠するため、**入力項目・バリデーション詳細は Identity の実装（画面/モデル）を正**とする。
   - 仕様上 `returnUrl` を扱う場合は「1.12 戻り先指定 `returnUrl`」に従う。
@@ -373,6 +398,7 @@
   - `AdoptedDate`：任意（`yyyy-MM-dd`）
   - `IsPublic`：必須（**新規作成時の初期値は `true`**）
     - checkbox の場合、未送信にならないよう送信形式（hidden 併用等）に注意
+    - **ゲストは送信値にかかわらず `false` で保存**する（Edit も同じ）
   - `PhotoFile`：任意（画像ルールに準拠：拡張子/Content-Type/上限サイズなどは共通仕様に従う）
     - **未送信の場合**：画像は未設定（表示時はデフォルト画像を使用）
   - `returnUrl`：任意（作成後に戻すURL。**ローカルURLのみ有効**）

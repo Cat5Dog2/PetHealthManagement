@@ -18,6 +18,7 @@
 - UserA：一般ユーザー、PetA（公開）/ PetA2（非公開）を所有、各種データあり
 - UserB：一般ユーザー、他人リソースアクセス検証用
 - Admin：管理者（ロール Admin）
+- Guest：「ゲストとして試す」で作成したゲストユーザー（サンプルのペット こむぎ・ルナ・まめ を所有）
 
 ---
 
@@ -29,6 +30,8 @@
 | SCR-001-001 | 未ログイン | 1) `/` にアクセス | 1) トップが表示される 2) Login/Register導線が表示される | SS |
 | SCR-001-002 | ログイン済み（UserA） | 1) `/` にアクセス | 仕様どおりに `/MyPage` へ誘導（自動遷移 or MyPageボタン表示） | SS/NT |
 | SCR-001-003 | 未ログイン | 1) トップの Login を押下 | IdentityのLogin画面へ遷移する | SS |
+| SCR-001-004 | 未ログイン | 1) トップの「ゲストとして試す」を押下 | 1) 302で `/MyPage` へ遷移 2) サンプルのペット（こむぎ・ルナ・まめ）が非公開で表示される 3) ゲスト用バナー（削除予定時刻）が表示される | SS/NT/DB |
+| SCR-001-005 | 未ログイン（`GuestLogin:Enabled=false`） | 1) `/` にアクセス 2) `POST /Identity/Account/GuestLogin` を送る | 1) 「ゲストとして試す」は表示されない 2) 404 | SS/NT |
 
 ---
 
@@ -43,6 +46,11 @@
 | SCR-002-004 | 未ログイン | 1) 誤ったパスワードでログイン | Identity標準のエラー表示、ログイン失敗（セッションなし） | SS |
 | SCR-002-005 | 未登録メール | 1) Registerでユーザー登録 → 2) ログイン | 登録→ログインできる（Identity標準） | SS |
 | SCR-002-006 | 既登録メール | 1) Registerで同一メール登録 | Identity標準のエラー表示、登録不可 | SS |
+| SCR-002-007 | 未ログイン | 1) Login画面の「ゲストとして試す」を押下 | 302で `returnUrl`（ローカルのみ）または `/MyPage` へ遷移し、ゲストとしてログインしている（非永続Cookie、8時間で失効） | SS/NT |
+| SCR-002-008 | 未ログイン | 1) トークン無しで `POST /Identity/Account/GuestLogin` を送る | 400（/Error/400）で拒否され、ユーザーは作成されない | NT/DB |
+| SCR-002-009 | 未ログイン（同一IP） | 1) `POST /Identity/Account/GuestLogin` を10分以内に6回送る | 6回目は429（`Retry-After` 付き、/Error/429） | NT |
+| SCR-002-010 | ログイン済み（UserA または Guest） | 1) `POST /Identity/Account/GuestLogin` を送る | 新しいゲストは作成されず、302で `/MyPage` へ遷移する | NT/DB |
+| SCR-002-011 | 未ログイン | 1) `returnUrl=https://evil.example/` を付けてゲストログイン | 外部へは遷移せず、302で `/MyPage` へフォールバック | NT |
 
 ---
 
@@ -61,6 +69,7 @@
 | SCR-003-008 | ログイン済み（UserA） | 1) モバイル幅で `/MyPage` を表示 | 正式アプリ名「うちの子健康カルテ」と既存機能への導線のみ表示され、未実装の分析/カレンダー/通知/バックアップ等へのリンクは表示されない | SS |
 | SCR-003-009 | ログイン済み（UserA） | 1) モバイル幅で `/MyPage` を表示 | ボトムナビに「ホーム/ペット/記録/設定」がアイコン+ラベルで表示され、「ホーム」がアクティブ表示（`aria-current="page"`）になる | SS |
 | SCR-003-010 | ログイン済み（UserA） | 1) `/`（トップ）へアクセス | `/MyPage` へ302リダイレクトされる | NT |
+| SCR-003-011 | ログイン済み（Guest） | 1) `/MyPage` にアクセス | 「パスワード変更」とヘッダーの「アカウント」は表示されず、Emailは「未設定」と表示される | SS |
 
 ---
 
@@ -158,6 +167,8 @@
 | SCR-008-015 | ログイン済み（UserA） | 1) キャンセル（returnUrl指定あり） | `returnUrl` 優先で戻る | NT |
 | SCR-008-016 | ログイン済み（UserA） | 1) 削除ボタン実行（詳細画面から） | `POST /Pets/Delete/{id}` がCSRF有効で実行され、関連データも削除される | NT/DB |
 | SCR-008-017 | ログイン済み（UserA、画像合計が上限に近い） | 1) Editで写真を添付して保存（合計100MB超になるように事前準備） | エラー表示、保存されない（ユーザー合計100MB制限） | SS/DB |
+| SCR-008-018 | ログイン済み（Guest） | 1) Create/Edit画面表示 | 公開設定のチェックボックスの代わりに、非公開で保存される旨の説明文が表示される | SS |
+| SCR-008-019 | ログイン済み（Guest） | 1) `IsPublic=true` を送信してCreate/Editを保存 | `IsPublic=false` で保存され、他のユーザーの一覧・詳細には表示されない（詳細は404） | NT/DB |
 
 ---
 
@@ -386,6 +397,20 @@
 | SCR-019-003 | なし | 1) `/Error/404` にアクセス | 404用の表示が出る | SS |
 | SCR-019-004 | なし | 1) `/Error/500` にアクセス | 500用の表示が出る | SS |
 | SCR-019-005 | ログイン済み | 1) エラーページのMyPageリンク押下 | `/MyPage` に遷移できる | SS |
+
+---
+
+## 共通：ゲスト（お試し利用）
+- ゲストの識別と期限：claim `pethealth:guest-expires-at`（作成から8時間）
+
+| No | 前提 | 手順 | 期待結果 | 証跡 |
+|---|---|---|---|---|
+| GST-001 | ログイン済み（Guest） | 1) `/Identity/Account/Manage`、`/Identity/Account/Manage/ChangePassword`、`/Identity/Account/Manage/SetPassword` にアクセス | いずれも403（/Error/403） | NT |
+| GST-002 | ログイン済み（UserA） | 1) `/Identity/Account/Manage` にアクセス | 200で表示される（ゲスト以外は従来どおり） | NT |
+| GST-003 | ログイン済み（Guest） | 1) `/Account/EditProfile` と `/Account/Delete` を表示 2) 削除を実行 | 1) 200で表示される 2) ゲストと関連データが削除され、`/` へ遷移する | SS/NT/DB |
+| GST-004 | Guest（期限＋猶予5分を過ぎている）、UserA、Guest（期限内） | 1) 自動削除を実行（起動時／5分ごと） | 期限切れのゲストと関連データ（画像ファイルを含む）が削除され、UserAと期限内のゲストは残る | DB/LOG |
+| GST-005 | Guest（期限切れ）、`GuestLogin:CleanupEnabled=false` | 1) アプリを起動する | 自動削除は実行されない | DB/LOG |
+| GST-006 | Guest | 1) ゲストログインから8時間後に保護URLへアクセス | Cookieが失効しており、Loginへ302リダイレクトされる | NT |
 
 ---
 
