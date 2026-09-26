@@ -100,55 +100,67 @@ public class UserDataDeletionService(
 
         user.AvatarImageId = null;
 
-        var transaction = dbContext.Database.IsRelational()
-            ? await dbContext.Database.BeginTransactionAsync(cancellationToken)
-            : null;
-
         try
         {
-            if (healthLogImages.Count > 0)
-            {
-                dbContext.HealthLogImages.RemoveRange(healthLogImages);
-            }
+            // EnableRetryOnFailure は実行戦略の外で開始したトランザクションを拒否するため、戦略の中で開始する。
+            // 再試行ではコールバック全体が再実行されるので、中では DB 操作だけを行う。
+            var executionStrategy = dbContext.Database.CreateExecutionStrategy();
+            await executionStrategy.ExecuteAsync(
+                async ct =>
+                {
+                    // コミット前に失敗した場合は、破棄（await using）でロールバックされる
+                    await using var transaction = dbContext.Database.IsRelational()
+                        ? await dbContext.Database.BeginTransactionAsync(ct)
+                        : null;
 
-            if (visitImages.Count > 0)
-            {
-                dbContext.VisitImages.RemoveRange(visitImages);
-            }
+                    if (healthLogImages.Count > 0)
+                    {
+                        dbContext.HealthLogImages.RemoveRange(healthLogImages);
+                    }
 
-            if (imageAssets.Count > 0)
-            {
-                dbContext.ImageAssets.RemoveRange(imageAssets);
-            }
+                    if (visitImages.Count > 0)
+                    {
+                        dbContext.VisitImages.RemoveRange(visitImages);
+                    }
 
-            if (healthLogs.Count > 0)
-            {
-                dbContext.HealthLogs.RemoveRange(healthLogs);
-            }
+                    if (imageAssets.Count > 0)
+                    {
+                        dbContext.ImageAssets.RemoveRange(imageAssets);
+                    }
 
-            if (visits.Count > 0)
-            {
-                dbContext.Visits.RemoveRange(visits);
-            }
+                    if (healthLogs.Count > 0)
+                    {
+                        dbContext.HealthLogs.RemoveRange(healthLogs);
+                    }
 
-            if (scheduleItems.Count > 0)
-            {
-                dbContext.ScheduleItems.RemoveRange(scheduleItems);
-            }
+                    if (visits.Count > 0)
+                    {
+                        dbContext.Visits.RemoveRange(visits);
+                    }
 
-            if (pets.Count > 0)
-            {
-                dbContext.Pets.RemoveRange(pets);
-            }
+                    if (scheduleItems.Count > 0)
+                    {
+                        dbContext.ScheduleItems.RemoveRange(scheduleItems);
+                    }
 
-            dbContext.Users.Remove(user);
+                    if (pets.Count > 0)
+                    {
+                        dbContext.Pets.RemoveRange(pets);
+                    }
 
-            await dbContext.SaveChangesAsync(cancellationToken);
+                    dbContext.Users.Remove(user);
 
-            if (transaction is not null)
-            {
-                await transaction.CommitAsync(cancellationToken);
-            }
+                    // 変更の確定はコミット後に行う。コミットで失敗して再試行されても、同じ変更を送り直せるようにする。
+                    await dbContext.SaveChangesAsync(acceptAllChangesOnSuccess: false, ct);
+
+                    if (transaction is not null)
+                    {
+                        await transaction.CommitAsync(ct);
+                    }
+                },
+                cancellationToken);
+
+            dbContext.ChangeTracker.AcceptAllChanges();
 
             ApplicationOperationLogging.LogDeletionCompleted(
                 logger,
@@ -179,19 +191,7 @@ public class UserDataDeletionService(
                 imageAssetCount: imageAssets.Count,
                 storageTargetCount: storageTargets.Count);
 
-            if (transaction is not null)
-            {
-                await transaction.RollbackAsync(cancellationToken);
-            }
-
             throw;
-        }
-        finally
-        {
-            if (transaction is not null)
-            {
-                await transaction.DisposeAsync();
-            }
         }
 
         await DeleteImageFilesBestEffortAsync(userId, storageTargets, cancellationToken);
