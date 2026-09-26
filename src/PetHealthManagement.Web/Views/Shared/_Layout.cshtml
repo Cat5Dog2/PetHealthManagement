@@ -61,6 +61,13 @@
     </header>
 
     <main role="main" class="app-main">
+        @if (PetHealthManagement.Web.Infrastructure.GuestIdentity.FindExpiresAt(User) is { } guestExpiresAt)
+        {
+            <div class="guest-banner" role="note">
+                <strong>ゲストとして利用中です。</strong>
+                <span>登録した内容は @guestExpiresAt.ToOffset(TimeSpan.FromHours(9)).ToString("yyyy/MM/dd HH:mm", System.Globalization.CultureInfo.InvariantCulture) ごろに自動で削除されます。</span>
+            </div>
+        }
         <partial name="_StatusAlert" />
         @RenderBody()
     </main>

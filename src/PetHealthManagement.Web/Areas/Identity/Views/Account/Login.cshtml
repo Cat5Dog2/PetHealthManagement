@@ -41,6 +41,8 @@
                 <a asp-area="Identity" asp-controller="Account" asp-action="Register" asp-route-returnUrl="@Model.ReturnUrl">新規登録はこちら</a>
                 <span class="text-muted">パスワードを忘れた場合は、管理者に連絡してください。</span>
             </div>
+
+            <partial name="_GuestLoginForm" model="new PetHealthManagement.Web.ViewModels.Shared.GuestLoginFormViewModel { ReturnUrl = Model.ReturnUrl }" />
         </section>
     </div>
 

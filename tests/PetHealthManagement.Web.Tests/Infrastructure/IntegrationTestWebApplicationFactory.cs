@@ -19,6 +19,8 @@ internal sealed class IntegrationTestWebApplicationFactory : WebApplicationFacto
     private readonly string _databaseName = $"integration-tests-{Guid.NewGuid():N}";
     private readonly TemporaryStorageRoot _storageRoot = new("PetHealthManagement.IntegrationTests");
 
+    public bool GuestLoginEnabled { get; init; } = true;
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Development");
@@ -37,6 +39,13 @@ internal sealed class IntegrationTestWebApplicationFactory : WebApplicationFacto
             services.PostConfigure<StorageOptions>(options =>
             {
                 options.RootPath = _storageRoot.RootPath;
+            });
+
+            // 自動削除は起動時と周期で走るため、テストのデータを消さないよう止める（削除処理は個別のテストで検証する）
+            services.PostConfigure<GuestLoginOptions>(options =>
+            {
+                options.Enabled = GuestLoginEnabled;
+                options.CleanupEnabled = false;
             });
 
             services.AddAuthentication(options =>
@@ -121,10 +130,20 @@ internal sealed class IntegrationTestWebApplicationFactory : WebApplicationFacto
         return await action(dbContext);
     }
 
-    public async Task<AntiforgeryRequestData> CreateAntiforgeryRequestDataAsync(
+    public Task<AntiforgeryRequestData> CreateAntiforgeryRequestDataAsync(
         string userId,
         string? userName = null,
         IEnumerable<string>? roles = null)
+    {
+        return CreateAntiforgeryRequestDataAsync(CreatePrincipal(userId, userName, roles));
+    }
+
+    public Task<AntiforgeryRequestData> CreateAnonymousAntiforgeryRequestDataAsync()
+    {
+        return CreateAntiforgeryRequestDataAsync(new ClaimsPrincipal(new ClaimsIdentity()));
+    }
+
+    private async Task<AntiforgeryRequestData> CreateAntiforgeryRequestDataAsync(ClaimsPrincipal principal)
     {
         await using var scope = Services.CreateAsyncScope();
         var antiforgery = scope.ServiceProvider.GetRequiredService<IAntiforgery>();
@@ -132,7 +151,7 @@ internal sealed class IntegrationTestWebApplicationFactory : WebApplicationFacto
         var httpContext = new DefaultHttpContext
         {
             RequestServices = scope.ServiceProvider,
-            User = CreatePrincipal(userId, userName, roles)
+            User = principal
         };
         httpContext.Request.Scheme = Uri.UriSchemeHttps;
 

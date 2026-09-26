@@ -410,12 +410,13 @@
 - 決定事項：コールバックは再試行で再実行されるため、中では DB 操作（トランザクション開始 → Remove → `SaveChanges` → Commit）だけを行う。画像ファイル削除と完了ログはコミット成功後に1回だけ行う。失敗時のロールバックはトランザクションの破棄（`await using`）で行う。
 - 決定事項：`SaveChanges` は `acceptAllChangesOnSuccess: false` とし、コミット成功後に `ChangeTracker.AcceptAllChanges()` する（コミット失敗で再試行されても同じ変更を送り直すため）。画像使用量（`UsedImageBytes`）の減算後の値はコールバックの外で1回だけ求める。
 - 決定事項：再試行する実行戦略との組み合わせは InMemory / 既定の SQLite では検出できないため、削除系のテストは再試行する実行戦略を設定した SQLite（`TestDbContextFactory.CreateRetryingSqliteInMemoryContextAsync`）でも検証する。
-- [ ] **ゲストログイン（お試し利用）（2026-09 実施）**：ポートフォリオの読み手（採用側のエンジニア）が新規登録なしでアプリを試せるようにする
+- [x] **ゲストログイン（お試し利用）（2026-09 実施）**：ポートフォリオの読み手（採用側のエンジニア）が新規登録なしでアプリを試せるようにする
   - [x] 仕様書（要件定義 FR-090〜093、基本設計、API仕様、画面項目定義、画面遷移図、UIワイヤー、テストケース）と README の更新
-  - [ ] `POST /Identity/Account/GuestLogin`（ゲスト作成・サンプルデータ・サインイン・レート制限・`GuestLogin` 設定）
-  - [ ] ゲストの利用制限（ペットは常に非公開、`/Identity/Account/Manage` 配下は 403、導線の非表示）と画面（Home/Login のボタン、共通レイアウトのバナー）
-  - [ ] 期限切れゲストの自動削除（`BackgroundService`）
-  - [ ] テスト（統合・自動削除・E2E）と LocalDB での確認
+  - [x] `POST /Identity/Account/GuestLogin`（ゲスト作成・サンプルデータ・サインイン・レート制限・`GuestLogin` 設定）
+  - [x] ゲストの利用制限（ペットは常に非公開、`/Identity/Account/Manage` 配下は 403、導線の非表示）と画面（Home/Login のボタン、共通レイアウトのバナー）
+  - [x] 期限切れゲストの自動削除（`BackgroundService`）
+  - [x] テスト（統合・自動削除・E2E）と LocalDB での確認
+  - [ ] 本番でのゲストログイン確認と、レート制限の単位（`RemoteIpAddress`）の確認（マージ後に実施）
 - 決定事項：ゲストは実際の Identity ユーザーとして作る（UserName `guest-{Guid:N}`、メールアドレス・パスワードなし、表示名「ゲスト」）。サインインは `PasswordSignInAsync` ではなく `SignInAsync` で行う。
 - 決定事項：ゲストの識別と有効期限は、ユーザー claim `pethealth:guest-expires-at`（値は UTC の ISO 8601「O」形式）で持つ。本番の Migration は手動で適用するため、スキーマ変更によるデプロイ順序の制約を増やさない（Migration を追加しない）。
 - 決定事項：有効期間は **8 時間**。認証 Cookie は `IsPersistent = false`、`AllowRefresh = false`、`ExpiresUtc = 期限` で発行し、延長しない。
