@@ -418,3 +418,17 @@
 | SEC-CSRF-002 | ログイン済み（UserA） | 1) トークン無しで `POST /Pets/Delete/{id}` を送る（DevTools/ツール） | 400（/Error/400）で拒否され、削除されない | NT/DB |
 | SEC-CSRF-003 | ログイン済み（UserA） | 1) トークン無しで `POST /HealthLogs/Delete/{id}` | 400（/Error/400）で拒否され、削除されない | NT/DB |
 | SEC-CSRF-004 | ログイン済み（Admin） | 1) トークン無しで `POST /Admin/Users/Delete/{id}` | 400（/Error/400）で拒否され、削除されない | NT/DB |
+| SEC-CSRF-005 | ログイン済み（UserA） | 1) トークン無しで `POST /Identity/Account/Logout` | 400（/Error/400）で拒否され、ログアウトされない | NT |
+
+---
+
+## 共通：Identity 既定ページ・ログアウト
+- ログイン・登録・ログアウト・アカウント管理はアプリの画面で提供し、Identity UI の既定ページ（英語）は公開しない
+
+| No | 前提 | 手順 | 期待結果 | 証跡 |
+|---|---|---|---|---|
+| IDP-001 | 未ログイン／ログイン済み（UserA） | 1) `/Identity/Account/ForgotPassword`、`/Identity/Account/LoginWith2fa`、`/Identity/Account/Manage/SetPassword`、`/Identity/Account/Manage/ExternalLogins`、`/Identity/Account/Manage/GenerateRecoveryCodes` などの既定ページにアクセス | 404（/Error/404）。英語の画面や500は表示されない | NT/SS |
+| IDP-002 | ログイン済み（UserA、パスワード未設定） | 1) `POST /Identity/Account/Manage/SetPassword`、`POST /Identity/Account/Manage/DeletePersonalData` をトークン付きで送る | パスワードは設定されず、ユーザーも削除されない | NT/DB |
+| IDP-003 | ログイン済み（UserA） | 1) ヘッダーの「ログアウト」を押下 | 302で `/` へ遷移し、以後の保護URLはLoginへ302リダイレクトされる | NT |
+| IDP-004 | ログイン済み（UserA） | 1) `returnUrl=https://evil.example/` を付けて `POST /Identity/Account/Logout` | 外部へは遷移せず、302で `/` へフォールバック | NT |
+| IDP-005 | ログイン済み（UserA） | 1) `GET /Identity/Account/Logout` にアクセス | 404（確認画面は提供しない） | NT |

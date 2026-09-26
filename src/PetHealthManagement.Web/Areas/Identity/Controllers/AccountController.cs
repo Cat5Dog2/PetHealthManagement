@@ -72,6 +72,18 @@ public class AccountController(
         return View(model);
     }
 
+    // Identity UI 既定の Logout ページの代わり。POST だけを受け付け、GET の確認画面は持たない。
+    // セッション切れ後に押されてもログイン画面へ回さないよう、未ログインでも受け付ける（サインアウトは何もしない）。
+    [HttpPost("Logout")]
+    [AllowAnonymous]
+    public async Task<IActionResult> Logout(string? returnUrl = null)
+    {
+        await signInManager.SignOutAsync();
+        logger.LogInformation("User logged out.");
+
+        return Redirect(ReturnUrlHelper.ResolveLocalReturnUrl(returnUrl, "/"));
+    }
+
     [HttpGet("Register")]
     [AllowAnonymous]
     public IActionResult Register(string? returnUrl = null)

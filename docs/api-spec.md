@@ -224,6 +224,7 @@
 |---|---:|---|---|
 | トップ | GET | `/` | 匿名可（ログイン済みは `/MyPage` へ 302） |
 | エラーページ | GET | `/Error/{statusCode}` | 匿名可 |
+| ログアウト | POST | `/Identity/Account/Logout` | 匿名可（antiforgery 必須） |
 | MyPage | GET | `/MyPage` | 認証必須 |
 | プロフィール編集 | GET/POST | `/Account/EditProfile` | 認証必須 |
 | パスワード変更 | GET/POST | `/Identity/Account/Manage/ChangePassword` | 認証必須（Identity標準） |
@@ -270,6 +271,16 @@
 - 概要：トップページ
 - 認可：匿名可
 - 成功：200（HTML）
+
+#### POST `/Identity/Account/Logout`
+- 概要：ログアウト（`Areas.Identity.AccountController.Logout`。Identity UI 既定の Logout ページは使わない）
+- 認可：匿名可（未ログインの場合、サインアウトは何もしない）
+- セキュリティ：CSRF 対策必須（Anti-forgery）。トークンなし／不正は 400（`/Error/400`）
+- フォーム項目／Query：
+  - `returnUrl`：任意（ログアウト後に戻す URL。**ローカル URL のみ有効**。共通レイアウトは `/` を渡す）
+- 成功：302 → `returnUrl`（指定があり、かつローカル URL の場合）
+  - `returnUrl` 未指定／非ローカル：302 → `/`
+- `GET /Identity/Account/Logout`（確認画面）は提供しない：404
 
 ---
 
@@ -834,5 +845,6 @@
 - `page` の異常値は「1.3.1 `page` のバリデーション」に従い **1に補正**する。
 - 一覧の検索条件クエリも **lowerCamelCase**（例：`nameKeyword`, `speciesFilter`）で統一する。
 - 一覧のトグル操作（`IsDone`）は **`POST /ScheduleItems/SetDone/{scheduleItemId}`** を使用して更新する（編集 POST への流用はしない）。
+- ASP.NET Core Identity UI の既定ページ（Razor Pages）は公開しない。`/Identity/Account/*` のうち本仕様書にないもの（`ForgotPassword`、`ResetPassword`、`ConfirmEmail`、`LoginWith2fa`、`Manage/SetPassword`、`Manage/ExternalLogins`、`Manage/EnableAuthenticator`、`Manage/DeletePersonalData` など）は 404 とする。
 
 ---

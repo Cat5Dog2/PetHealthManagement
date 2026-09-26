@@ -287,6 +287,10 @@
 - [x] 所有者不一致は原則 404（秘匿対象：Pet/HealthLog/ScheduleItem/Visit/Image）
 - [x] Adminルート非許可は 403
 - [x] 400/403/404/500 を `/Error/{statusCode}` に統一表示
+- [x] **Identity UI の既定ページ（英語）を公開しない（2026-09 実施・不具合修正）**
+- 決定事項：ログイン・新規登録・アカウント管理（Index / Email / ChangePassword / TwoFactorAuthentication / PersonalData）・ログアウトは `Areas/Identity` のコントローラーで提供し、`AddDefaultIdentity` が同梱する Identity UI の Razor Pages は使わない。Razor Pages はマップしない（`AddRazorPages` / `MapRazorPages` を使わない）ため、外部ログイン・2FA 設定・パスワードリセット・メール確認などの既定ページは 404 になる（FR-080 のスコープ外機能）。既定ページの 500（GenerateRecoveryCodes / Disable2fa / LoginWith2fa）と、既定の DeletePersonalData がペット・画像を残したまま Identity ユーザーだけを削除できる問題もなくなる。
+- 決定事項：ログアウトは `POST /Identity/Account/Logout`（`Areas.Identity.AccountController.Logout`）。antiforgery 必須、未ログインでも受け付ける（サインアウトは何もしない）。`returnUrl` はローカル URL のみ受け付け、それ以外は `/` へ遷移する。GET の確認画面は持たない（404）。
+- 決定事項（別タスク）：存在しない URL への POST は、共通エラーページの再実行が POST のまま `ErrorController` に届くため、404 ではなく 400（トークンなし）や 500 の画面（トークンあり）になる。既存の挙動で、本件とは別に修正する。
 
 ### 10.3 入力バリデーション
 - [x] 文字数（例：Name 50、Note 1000等）
