@@ -19,6 +19,8 @@
 | COM-03 | ペット | リンク/下部ナビ | 認証時 | `/Pets` |
 | COM-04 | Admin | リンク | Adminのみ | `/Admin/Users` |
 | COM-05 | Logout | ボタン | 認証時 | ログアウト |
+| COM-06 | アカウント | リンク | 認証時（ゲストを除く） | `/Identity/Account/Manage` |
+| COM-07 | ゲスト用バナー | テキスト | ゲストのみ | ゲストとして利用中であることと、削除予定時刻（claim の期限を日本時間 `yyyy/MM/dd HH:mm` で表示）を示す。本文の上に表示する |
 
 ### 1.2 共通ルール（入力・画像・遷移）
 | 区分 | ルール |
@@ -46,6 +48,7 @@
 |---|---|---:|---|---:|---|
 | 001-01 | Login / Register | A | リンク |  | Identity UI へ |
 | 001-02 | MyPageへ | A | リンク/ボタン |  | ログイン済み表示時（自動遷移運用の場合は省略可） |
+| 001-03 | ゲストとして試す | A | ボタン（POST フォーム） |  | `POST /Identity/Account/GuestLogin`（`returnUrl` なし）→ `/MyPage`。「登録不要」「8時間後に自動削除」を注記する。`GuestLogin:Enabled` が false のときは表示しない |
 
 ---
 
@@ -58,6 +61,7 @@
 | 002-02 | Password | I | パスワード | ✓ | Identity標準 | |
 | 002-03 | Confirm Password | I | パスワード | （登録時） | Identity標準 | |
 | 002-04 | Login / Register | A | ボタン |  |  | 成功後：`returnUrl` があれば戻る、なければ `/MyPage` |
+| 002-05 | ゲストとして試す | A | ボタン（POST フォーム） |  | hidden `returnUrl`（ローカル URL のみ） | ログイン画面のみ。`POST /Identity/Account/GuestLogin`。成功後：`returnUrl` があれば戻る、なければ `/MyPage`。注記・非表示条件は 001-03 と同じ |
 
 ---
 
@@ -68,10 +72,10 @@
 | 項目ID | 項目名 | I/D/A | 種別 | 必須 | 参照元 | 備考 |
 |---|---|---:|---|---:|---|---|
 | 003-01 | 表示名 | D | テキスト |  | ApplicationUser.DisplayName | |
-| 003-02 | Email | D | テキスト |  | ApplicationUser.Email | |
+| 003-02 | Email | D | テキスト |  | ApplicationUser.Email | 未設定（ゲストなど）は「未設定」 |
 | 003-03 | Avatar | D | 画像 |  | ApplicationUser.AvatarImageId | `/images/{id}` or default |
 | 003-04 | プロフィール編集 | A | リンク |  |  | `/Account/EditProfile` |
-| 003-05 | パスワード変更 | A | リンク |  |  | Identity標準 |
+| 003-05 | パスワード変更 | A | リンク |  |  | Identity標準。ゲストには表示しない |
 | 003-06 | （廃止）アカウント削除 | - | - |  |  | 誤操作防止のため導線を SCR-004 プロフィール編集内へ移動 |
 | 003-07 | ＋ペット登録 | A | ボタン/リンク |  |  | `/Pets/Create` |
 | 003-08 | 自分のペット一覧 | D | カード一覧 |  | Pet | サムネ/名前/公開バッジ/詳細 |
@@ -165,7 +169,7 @@
 | 008-04 | 性別 | I | テキスト/セレクト | 任意 | Max 10 | Pet.Sex | |
 | 008-05 | 誕生日 | I | 日付 | 任意 |  | Pet.BirthDate | |
 | 008-06 | 迎えた日 | I | 日付 | 任意 |  | Pet.AdoptedDate | |
-| 008-07 | 公開設定 | I | チェック | ✓ | bool（初期true） | Pet.IsPublic | |
+| 008-07 | 公開設定 | I | チェック | ✓ | bool（初期true） | Pet.IsPublic | ゲストにはチェックの代わりに「ゲストのペットは非公開で保存され、他の利用者には表示されない」旨の説明文を表示する（サーバ側でも false で保存） |
 | 008-08 | ペット画像 | I | ファイル | 任意 | 共通画像ルール | Pet.PhotoImageId | |
 | 008-A01 | 保存 | A | ボタン |  |  |  | POST後：`returnUrl` 優先、無効なら（作成）`/Pets`／（編集）`/Pets/Details/{id}` |
 | 008-A02 | キャンセル | A | リンク |  |  |  | `returnUrl` 優先、無効なら（作成）`/Pets`／（編集）`/Pets/Details/{id}` |

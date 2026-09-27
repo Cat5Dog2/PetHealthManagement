@@ -63,6 +63,16 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev-certs.ps1 -Trust
 - `Staging` / `Production` で Development の LocalDB 接続文字列を使おうとした場合も fail fast します
 - `ConnectionStrings__DefaultConnection` や `Storage__RootPath` のような標準 ASP.NET Core キーで上書きできます
 
+## ゲストログイン（お試し利用）
+
+- トップ画面とログイン画面の「ゲストとして試す」から、新規登録なしで利用できます（ポートフォリオの読み手向け）
+- ゲストは有効期間 8 時間の一時ユーザーです。サンプルのペット（こむぎ・ルナ・まめ）と記録を持った状態で始まり、ペットは常に非公開です。アカウント管理（`/Identity/Account/Manage` 配下）は利用できません
+- 期限切れのゲストと関連データ（画像を含む）は、アプリ内のバックグラウンド処理が起動時と 5 分ごとに削除します。App Service Free F1 のアイドル停止中に期限を迎えたゲストは、次にアプリが起動したときに削除されます（認証 Cookie は期限で失効します）
+- 設定
+  - `GuestLogin__Enabled`：`false` にするとボタンを表示せず、`POST /Identity/Account/GuestLogin` は 404 になります（既定 `true`）
+  - `GuestLogin__CleanupEnabled`：`false` にすると自動削除を止めます（既定 `true`）
+- ゲストログインは IP アドレス単位で 10 分に 5 回までです。アプリは転送ヘッダー（`X-Forwarded-For`）を処理していないため、App Service 上では前段の IP で数えられ、全利用者で 1 つの枠になる可能性があります（`todo.md` の要確認事項）
+
 ## Azure App Service プラットフォーム決定
 
 - 本番 Web ホストは **Azure App Service on Linux** を採用します
@@ -404,11 +414,13 @@ bash ./scripts/local-smoke.sh --use-existing-app --base-url 'https://pethealth.e
 ## セキュリティ既定値
 
 - 認証 Cookie は `__Host-PetHealthManagement.Auth`、`Secure`、`HttpOnly`、`SameSite=Lax` です
+- ゲストの認証 Cookie は非永続で、発行から 8 時間で失効します（延長しません）
 - Anti-forgery Cookie は `__Host-PetHealthManagement.AntiForgery`、`Secure`、`HttpOnly`、`SameSite=Strict` です
 - HSTS は Development 以外で有効、`Max-Age` は 180 日です
 - セキュリティヘッダとして `Content-Security-Policy`、`Referrer-Policy`、`Permissions-Policy`、`X-Content-Type-Options`、`X-Frame-Options` を付与します
 - CSP の `script-src` は `'self'` のみです。確認ダイアログや自動送信は inline handler ではなく、`data-confirm` / `data-autosubmit` 属性 + `site.js` のイベントデリゲーションで実装しています
 - CSP の `style-src` は、既存 Razor に style 属性が残っているため `'unsafe-inline'` を許可しています
+- ASP.NET Core Identity UI の既定ページ（英語）は公開しません。ログイン・新規登録・ログアウト・アカウント管理は `Areas/Identity` のコントローラーで提供し、Razor Pages はマップしないため、それ以外の `/Identity/Account/*`（パスワードリセット、外部ログイン、2FA 設定など）は 404 です
 
 ## ログ既定値
 
@@ -423,6 +435,7 @@ bash ./scripts/local-smoke.sh --use-existing-app --base-url 'https://pethealth.e
 
 - 単体テストと controller テストは、基本的に `TestDbContextFactory.CreateInMemoryDbContext(...)` による EF Core InMemory を使います
 - SQL 変換確認やクエリ数確認は `TestDbContextFactory.CreateSqliteInMemoryContextAsync(...)` による SQLite in-memory を使います
+- 明示的なトランザクションを使う処理（削除サービスなど）は、本番の `EnableRetryOnFailure` と同じく再試行する実行戦略を設定した `TestDbContextFactory.CreateRetryingSqliteInMemoryContextAsync(...)` でも検証します。InMemory や既定の SQLite では、実行戦略の外で開始したトランザクションの誤用を検出できないためです
 - integration テストは `IntegrationTestWebApplicationFactory` を使い、アプリ DB を EF Core InMemory に差し替えつつ、テストごとの一時 `StorageRoot` を割り当てます
 - Playwright E2E テストは `PetHealthManagement.Web.E2ETests` に分離し、テスト用 Kestrel プロキシを実ポートで起動しながら、アプリ DB は EF Core InMemory、画像ストレージは一時 `StorageRoot` に差し替えます
 - Playwright E2E テストは既定ではスキップされます。実ブラウザで実行する場合だけ `RUN_PLAYWRIGHT_E2E=1` を設定します

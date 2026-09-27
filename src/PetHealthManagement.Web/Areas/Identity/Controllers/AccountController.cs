@@ -2,8 +2,12 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Options;
 using PetHealthManagement.Web.Helpers;
+using PetHealthManagement.Web.Infrastructure;
 using PetHealthManagement.Web.Models;
+using PetHealthManagement.Web.Services;
 using PetHealthManagement.Web.ViewModels.Identity.Account;
 
 namespace PetHealthManagement.Web.Areas.Identity.Controllers;
@@ -13,6 +17,8 @@ namespace PetHealthManagement.Web.Areas.Identity.Controllers;
 public class AccountController(
     UserManager<ApplicationUser> userManager,
     SignInManager<ApplicationUser> signInManager,
+    IGuestAccountService guestAccountService,
+    IOptions<GuestLoginOptions> guestLoginOptions,
     ILogger<AccountController> logger) : Controller
 {
     [HttpGet("Login")]
@@ -72,6 +78,18 @@ public class AccountController(
         return View(model);
     }
 
+    // Identity UI 既定の Logout ページの代わり。POST だけを受け付け、GET の確認画面は持たない。
+    // セッション切れ後に押されてもログイン画面へ回さないよう、未ログインでも受け付ける（サインアウトは何もしない）。
+    [HttpPost("Logout")]
+    [AllowAnonymous]
+    public async Task<IActionResult> Logout(string? returnUrl = null)
+    {
+        await signInManager.SignOutAsync();
+        logger.LogInformation("User logged out.");
+
+        return Redirect(ReturnUrlHelper.ResolveLocalReturnUrl(returnUrl, "/"));
+    }
+
     [HttpGet("Register")]
     [AllowAnonymous]
     public IActionResult Register(string? returnUrl = null)
@@ -121,6 +139,35 @@ public class AccountController(
         }
 
         return View(model);
+    }
+
+    [HttpPost("GuestLogin")]
+    [AllowAnonymous]
+    [EnableRateLimiting(GuestLoginRateLimiting.PolicyName)]
+    public async Task<IActionResult> GuestLogin(string? returnUrl = null)
+    {
+        if (!guestLoginOptions.Value.Enabled)
+        {
+            return NotFound();
+        }
+
+        // ログイン済み（ゲストを含む）なら、ゲストを増やさずに遷移だけする
+        if (User.Identity?.IsAuthenticated == true)
+        {
+            return Redirect(ResolveReturnUrl(returnUrl));
+        }
+
+        var guest = await guestAccountService.CreateAsync(HttpContext.RequestAborted);
+
+        // 期限で必ず失効させるため、永続化も延長もしない
+        await signInManager.SignInAsync(guest.User, new AuthenticationProperties
+        {
+            IsPersistent = false,
+            AllowRefresh = false,
+            ExpiresUtc = guest.ExpiresAt
+        });
+
+        return Redirect(ResolveReturnUrl(returnUrl));
     }
 
     private static string? NormalizeReturnUrl(string? returnUrl)

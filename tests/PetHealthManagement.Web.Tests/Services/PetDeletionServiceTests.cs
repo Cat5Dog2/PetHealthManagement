@@ -182,6 +182,86 @@ public class PetDeletionServiceTests
         Assert.Equal("images/pet-1.jpg", warningLog.Properties["StorageKey"]);
     }
 
+    [Fact]
+    public async Task DeleteAsync_RemovesPetRelatedData_WithRetryingExecutionStrategy()
+    {
+        await using var testContext = await TestDbContextFactory.CreateRetryingSqliteInMemoryContextAsync();
+        var dbContext = testContext.DbContext;
+        await SeedPetWithRelatedDataAsync(dbContext);
+
+        var storage = new FakeImageStorageService();
+        var service = new PetDeletionService(dbContext, storage, NullLogger<PetDeletionService>.Instance);
+        var pet = await dbContext.Pets.SingleAsync(x => x.Id == 1);
+
+        await service.DeleteAsync(pet, "user-a");
+
+        await AssertOnlyOtherPetDataRemainsAsync(dbContext, expectedUsedImageBytes: 320);
+        Assert.Equal(
+            ["images/log-1.jpg", "images/pet-1.jpg", "images/visit-1.jpg"],
+            storage.DeletedStorageKeys.Order().ToArray());
+    }
+
+    [Fact]
+    public async Task DeleteAsync_RetriesTransactionWithoutDoubleCountingBytes_WhenCommitFailsTransiently()
+    {
+        var commitFailures = new CommitFailureInterceptor();
+        await using var testContext = await TestDbContextFactory.CreateRetryingSqliteInMemoryContextAsync(commitFailures);
+        var dbContext = testContext.DbContext;
+        await SeedPetWithRelatedDataAsync(dbContext);
+        commitFailures.FailNextCommitWith(new TransientTestException("Simulated transient commit failure."));
+
+        var storage = new FakeImageStorageService();
+        var logger = new TestLogger<PetDeletionService>();
+        var service = new PetDeletionService(dbContext, storage, logger);
+        var pet = await dbContext.Pets.SingleAsync(x => x.Id == 1);
+
+        await service.DeleteAsync(pet, "user-a");
+
+        Assert.Equal(1, commitFailures.FailedCommitCount);
+        await AssertOnlyOtherPetDataRemainsAsync(dbContext, expectedUsedImageBytes: 320);
+        Assert.Equal(
+            ["images/log-1.jpg", "images/pet-1.jpg", "images/visit-1.jpg"],
+            storage.DeletedStorageKeys.Order().ToArray());
+        Assert.Single(logger.Entries, entry => entry.Message.StartsWith("Completed deletion operation.", StringComparison.Ordinal));
+        Assert.DoesNotContain(logger.Entries, entry => entry.LogLevel == LogLevel.Error);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_RollsBackAndKeepsFiles_WhenCommitFails()
+    {
+        var commitFailures = new CommitFailureInterceptor();
+        await using var testContext = await TestDbContextFactory.CreateRetryingSqliteInMemoryContextAsync(commitFailures);
+        var dbContext = testContext.DbContext;
+        await SeedPetWithRelatedDataAsync(dbContext);
+        var failure = new InvalidOperationException("Simulated commit failure.");
+        commitFailures.FailNextCommitWith(failure);
+
+        var storage = new FakeImageStorageService();
+        var logger = new TestLogger<PetDeletionService>();
+        var service = new PetDeletionService(dbContext, storage, logger);
+        var pet = await dbContext.Pets.SingleAsync(x => x.Id == 1);
+
+        var thrown = await Assert.ThrowsAsync<InvalidOperationException>(() => service.DeleteAsync(pet, "user-a"));
+
+        Assert.Same(failure, thrown);
+        dbContext.ChangeTracker.Clear();
+        Assert.Equal(2, await dbContext.Pets.CountAsync());
+        Assert.Equal(1, await dbContext.HealthLogs.CountAsync());
+        Assert.Equal(1, await dbContext.HealthLogImages.CountAsync());
+        Assert.Equal(1, await dbContext.Visits.CountAsync());
+        Assert.Equal(1, await dbContext.VisitImages.CountAsync());
+        Assert.Equal(2, await dbContext.ScheduleItems.CountAsync());
+        Assert.Equal(4, await dbContext.ImageAssets.CountAsync());
+        Assert.Equal(790, await dbContext.Users.Where(x => x.Id == "user-a").Select(x => x.UsedImageBytes).SingleAsync());
+        Assert.Empty(storage.DeletedStorageKeys);
+        Assert.Contains(
+            logger.Entries,
+            entry => entry.LogLevel == LogLevel.Error
+                     && ReferenceEquals(entry.Exception, failure)
+                     && Equals(entry.Properties["Operation"], ApplicationOperationLogging.Operations.DeletePet));
+        Assert.DoesNotContain(logger.Entries, entry => entry.Message.StartsWith("Completed deletion operation.", StringComparison.Ordinal));
+    }
+
     private static ApplicationDbContext CreateDbContext()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
@@ -189,6 +269,80 @@ public class PetDeletionServiceTests
             .Options;
 
         return new ApplicationDbContext(options);
+    }
+
+    // user-a（使用量 790 bytes）のペット1（写真 200 + 健康ログ画像 120 + 通院画像 150）と、残すべきペット2・アバター 320 を作る
+    private static async Task SeedPetWithRelatedDataAsync(ApplicationDbContext dbContext)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var petPhotoImageId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        var healthLogImageId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+        var visitImageId = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc");
+        var avatarImageId = Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd");
+
+        dbContext.ImageAssets.AddRange(
+            NewImageAsset(petPhotoImageId, "user-a", "PetPhoto", "images/pet-1.jpg", 200),
+            NewImageAsset(healthLogImageId, "user-a", "HealthLog", "images/log-1.jpg", 120),
+            NewImageAsset(visitImageId, "user-a", "Visit", "images/visit-1.jpg", 150),
+            NewImageAsset(avatarImageId, "user-a", "Avatar", "images/avatar-1.jpg", 320));
+
+        dbContext.Users.Add(new ApplicationUser
+        {
+            Id = "user-a",
+            UserName = "userA",
+            AvatarImageId = avatarImageId,
+            UsedImageBytes = 790
+        });
+
+        dbContext.Pets.AddRange(
+            NewPet(1, "user-a", "Mugi", petPhotoImageId),
+            NewPet(2, "user-a", "Sora", null));
+
+        dbContext.HealthLogs.Add(new HealthLog { Id = 10, PetId = 1, RecordedAt = now, CreatedAt = now, UpdatedAt = now });
+        dbContext.Visits.Add(new Visit { Id = 20, PetId = 1, VisitDate = new DateTime(2026, 3, 22), CreatedAt = now, UpdatedAt = now });
+        dbContext.ScheduleItems.AddRange(
+            new ScheduleItem
+            {
+                Id = 30,
+                PetId = 1,
+                DueDate = new DateTime(2026, 3, 30),
+                Type = ScheduleItemTypeCatalog.Vaccine,
+                Title = "Rabies",
+                CreatedAt = now,
+                UpdatedAt = now
+            },
+            new ScheduleItem
+            {
+                Id = 31,
+                PetId = 2,
+                DueDate = new DateTime(2026, 4, 1),
+                Type = ScheduleItemTypeCatalog.Other,
+                Title = "Reminder",
+                CreatedAt = now,
+                UpdatedAt = now
+            });
+
+        dbContext.HealthLogImages.Add(new HealthLogImage { Id = 1, HealthLogId = 10, ImageId = healthLogImageId, SortOrder = 1 });
+        dbContext.VisitImages.Add(new VisitImage { Id = 1, VisitId = 20, ImageId = visitImageId, SortOrder = 1 });
+
+        await dbContext.SaveChangesAsync();
+        dbContext.ChangeTracker.Clear();
+    }
+
+    private static async Task AssertOnlyOtherPetDataRemainsAsync(ApplicationDbContext dbContext, long expectedUsedImageBytes)
+    {
+        dbContext.ChangeTracker.Clear();
+
+        Assert.Equal(2, Assert.Single(await dbContext.Pets.Select(x => x.Id).ToArrayAsync()));
+        Assert.Equal(0, await dbContext.HealthLogs.CountAsync());
+        Assert.Equal(0, await dbContext.HealthLogImages.CountAsync());
+        Assert.Equal(0, await dbContext.Visits.CountAsync());
+        Assert.Equal(0, await dbContext.VisitImages.CountAsync());
+        Assert.Equal(31, Assert.Single(await dbContext.ScheduleItems.Select(x => x.Id).ToArrayAsync()));
+        Assert.Equal("images/avatar-1.jpg", Assert.Single(await dbContext.ImageAssets.Select(x => x.StorageKey).ToArrayAsync()));
+        Assert.Equal(
+            expectedUsedImageBytes,
+            await dbContext.Users.Where(x => x.Id == "user-a").Select(x => x.UsedImageBytes).SingleAsync());
     }
 
     private static Pet NewPet(int id, string ownerId, string name, Guid? photoImageId)

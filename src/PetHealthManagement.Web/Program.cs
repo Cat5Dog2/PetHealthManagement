@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using PetHealthManagement.Web.Data;
 using PetHealthManagement.Web.Infrastructure;
 using PetHealthManagement.Web.Models;
@@ -57,6 +58,8 @@ builder.Services.AddDefaultIdentity<ApplicationUser>(options => options.SignIn.R
     .AddEntityFrameworkStores<ApplicationDbContext>();
 builder.Services.Configure<StorageOptions>(builder.Configuration.GetSection("Storage"));
 builder.Services.Configure<DevelopmentSetupOptions>(builder.Configuration.GetSection(DevelopmentSetupOptions.SectionName));
+builder.Services.Configure<GuestLoginOptions>(builder.Configuration.GetSection(GuestLoginOptions.SectionName));
+builder.Services.TryAddSingleton(TimeProvider.System);
 builder.Services.AddScoped<IImageStorageService, FileSystemImageStorageService>();
 builder.Services.AddScoped<IDevelopmentSetupService, DevelopmentSetupService>();
 builder.Services.AddScoped<IOwnershipAuthorizer, OwnershipAuthorizer>();
@@ -68,6 +71,13 @@ builder.Services.AddScoped<IHealthLogDeletionService, HealthLogDeletionService>(
 builder.Services.AddScoped<IVisitDeletionService, VisitDeletionService>();
 builder.Services.AddScoped<IUserAvatarService, UserAvatarService>();
 builder.Services.AddScoped<IUserDataDeletionService, UserDataDeletionService>();
+builder.Services.AddScoped<IGuestAccountService, GuestAccountService>();
+builder.Services.AddSingleton<GuestAccountCleanupService>();
+builder.Services.AddHostedService<GuestAccountCleanupWorker>();
+builder.Services.AddAuthorizationBuilder()
+    .AddPolicy(GuestIdentity.NonGuestPolicyName, policy => policy
+        .RequireAuthenticatedUser()
+        .RequireAssertion(context => !GuestIdentity.IsGuest(context.User)));
 builder.Services.ConfigureApplicationCookie(options =>
 {
     options.Cookie.Name = "__Host-PetHealthManagement.Auth";
@@ -87,7 +97,6 @@ builder.Services.AddControllersWithViews(options =>
 {
     options.Filters.Add(new AutoValidateAntiforgeryTokenAttribute());
 });
-builder.Services.AddRazorPages();
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -111,6 +120,7 @@ builder.Services.AddRateLimiter(options =>
         return ValueTask.CompletedTask;
     };
     options.AddPolicy(UploadRateLimiting.ImageUploadPolicyName, UploadRateLimiting.BuildImageUploadPolicy());
+    options.AddPolicy(GuestLoginRateLimiting.PolicyName, GuestLoginRateLimiting.BuildPolicy());
 });
 
 var app = builder.Build();
@@ -232,9 +242,8 @@ app.MapControllerRoute(
 
 app.MapControllers();
 
-app.MapRazorPages()
-   .WithStaticAssets();
-
+// Razor Pages はマップしない。AddDefaultIdentity が登録する Identity UI の既定ページ（英語）を公開しないため。
+// ログイン・登録・ログアウト・アカウント管理は Areas/Identity のコントローラーで提供する。
 app.Run();
 
 static bool IsMultipartRequestParsingFailure(HttpContext context, InvalidDataException exception)

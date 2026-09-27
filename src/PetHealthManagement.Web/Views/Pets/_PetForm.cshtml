@@ -74,10 +74,17 @@
     </div>
 </div>
 
-<div class="form-check mb-3">
-    <input asp-for="IsPublic" class="form-check-input" />
-    <label asp-for="IsPublic" class="form-check-label">公開する</label>
-</div>
+@if (PetHealthManagement.Web.Infrastructure.GuestIdentity.IsGuest(User))
+{
+    <p class="form-text mb-3">ゲストのペットは非公開で保存され、ほかの利用者には表示されません。</p>
+}
+else
+{
+    <div class="form-check mb-3">
+        <input asp-for="IsPublic" class="form-check-input" />
+        <label asp-for="IsPublic" class="form-check-label">公開する</label>
+    </div>
+}
 
 <div class="mb-3">
     <label asp-for="PhotoFile" class="form-label">写真（jpg / jpeg / png / webp、2MB以下）</label>

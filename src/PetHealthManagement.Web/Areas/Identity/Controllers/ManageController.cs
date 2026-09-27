@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using PetHealthManagement.Web.Infrastructure;
 using PetHealthManagement.Web.Models;
 using PetHealthManagement.Web.ViewModels.Identity.Manage;
 
@@ -8,6 +9,7 @@ namespace PetHealthManagement.Web.Areas.Identity.Controllers;
 
 [Area("Identity")]
 [Authorize]
+[Authorize(Policy = GuestIdentity.NonGuestPolicyName)]
 [Route("Identity/Account/Manage")]
 public class ManageController(
     UserManager<ApplicationUser> userManager,

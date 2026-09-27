@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -59,6 +60,17 @@ public sealed class E2EWebApplicationFactory : WebApplicationFactory<Program>
                 // The local E2E proxy uses HTTP, so browsers reject __Host- cookies.
                 options.Cookie.Name = "PetHealthManagement.E2E.AntiForgery";
                 options.Cookie.SecurePolicy = CookieSecurePolicy.None;
+            });
+            services.PostConfigure<CookieAuthenticationOptions>(IdentityConstants.ApplicationScheme, options =>
+            {
+                // Guest login signs in with the real Identity cookie, which has the same __Host- problem over HTTP.
+                options.Cookie.Name = "PetHealthManagement.E2E.Auth";
+                options.Cookie.SecurePolicy = CookieSecurePolicy.None;
+            });
+            services.PostConfigure<GuestLoginOptions>(options =>
+            {
+                options.Enabled = true;
+                options.CleanupEnabled = false;
             });
 
             services.AddAuthentication(options =>
