@@ -6,11 +6,15 @@
 <ul class="navbar-nav">
 @if (SignInManager.IsSignedIn(User))
 {
-    <li class="nav-item">
-        <a class="nav-link" href="/Identity/Account/Manage" title="アカウント管理">
-            アカウント
-        </a>
-    </li>
+    @* ゲストはアカウント管理（メールアドレス・パスワード等）を使えないため、導線を出さない *@
+    if (!PetHealthManagement.Web.Infrastructure.GuestIdentity.IsGuest(User))
+    {
+        <li class="nav-item">
+            <a class="nav-link" href="/Identity/Account/Manage" title="アカウント管理">
+                アカウント
+            </a>
+        </li>
+    }
     <li class="nav-item">
         <form class="form-inline" asp-area="Identity" asp-controller="Account" asp-action="Logout" asp-route-returnUrl="@Url.Action("Index", "Home", new { area = "" })">
             <button type="submit" class="nav-link btn btn-link">ログアウト</button>

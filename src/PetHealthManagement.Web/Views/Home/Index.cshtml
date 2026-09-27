@@ -17,5 +17,7 @@
             <a class="btn btn-primary" asp-area="Identity" asp-controller="Account" asp-action="Login">ログイン</a>
             <a class="btn btn-outline-primary" asp-area="Identity" asp-controller="Account" asp-action="Register">新規登録</a>
         </div>
+
+        <partial name="_GuestLoginForm" model="new GuestLoginFormViewModel()" />
     </div>
 </section>

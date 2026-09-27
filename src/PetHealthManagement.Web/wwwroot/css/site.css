@@ -262,6 +262,46 @@ a:hover {
   margin-bottom: 16px;
 }
 
+.guest-banner {
+  background: #fff4e0;
+  border: 1px solid #f2c48c;
+  border-radius: 8px;
+  color: #6b4a14;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+  margin-bottom: 16px;
+  padding: 10px 14px;
+}
+
+.guest-login {
+  align-items: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.guest-login .btn {
+  min-height: 44px;
+}
+
+.guest-login__note {
+  color: #687a78;
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+/* トップはポートフォリオのデモリンクの着地点なので、ログイン導線と並べて中央に置く */
+.home-intro .guest-login {
+  align-items: center;
+}
+
+.form-panel .guest-login {
+  border-top: 1px solid rgba(47, 158, 155, 0.16);
+  margin-top: 24px;
+  padding-top: 20px;
+}
+
 .done-toggle {
   align-items: center;
   display: flex;
@@ -803,6 +843,20 @@ a:hover {
 
   .alert .btn-close {
     filter: invert(1) grayscale(100%);
+  }
+
+  .guest-banner {
+    background: #4a3316;
+    border-color: #6b4a14;
+    color: #f2c48c;
+  }
+
+  .guest-login__note {
+    color: #93a8a4;
+  }
+
+  .form-panel .guest-login {
+    border-top-color: rgba(108, 199, 194, 0.2);
   }
 
   .weight-chart__label {

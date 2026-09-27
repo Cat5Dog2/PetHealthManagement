@@ -7,6 +7,11 @@ flowchart LR
 
   Login --> MyPage["MyPage（ホーム相当）<br/>(/MyPage)"]
 
+  GuestLogin["ゲストとして試す<br/>(POST /Identity/Account/GuestLogin)<br/>ゲスト作成＋サンプルデータ、8時間で失効"]
+  Home -->|ゲストとして試す| GuestLogin
+  Login -->|ゲストとして試す| GuestLogin
+  GuestLogin -->|302| MyPage
+
   BottomNav["ボトムナビ（ログイン・モバイル）<br/>ホーム(/MyPage) | ペット(/Pets) | 記録(/HealthLogs/Record) | 設定(/Account/EditProfile)"]:::note
   BottomNav -.-> MyPage
 
@@ -77,6 +82,7 @@ flowchart LR
   NoteAdmin["※ /Admin は Admin のみ"]:::note
   NoteError["※ 400/403/404 等は /Error/{statusCode} を表示"]:::note
   NotePhase1["※ 第1段階UIでは健康分析/月間カレンダー等の新規画面は追加しない"]:::note
+  NoteGuest["※ ゲストはパスワード変更など /Identity/Account/Manage 配下が 403（導線も非表示）<br/>ペットは常に非公開、期限切れは自動削除"]:::note
 
   NoteAuth -.-> MyPage
   NoteOwner -.-> HealthLogsIndex
@@ -84,6 +90,7 @@ flowchart LR
   NoteAdmin -.-> AdminUsers
   NoteError -.-> ErrorPage
   NotePhase1 -.-> MyPage
+  NoteGuest -.-> GuestLogin
 
   classDef note fill:#fff,stroke:#999,stroke-dasharray: 4 4,color:#333;
 ```

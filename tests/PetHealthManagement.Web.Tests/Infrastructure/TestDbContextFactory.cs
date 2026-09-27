@@ -29,6 +29,37 @@ internal static class TestDbContextFactory
         return CreateSqliteInMemoryContextCoreAsync(retryOnFailure: true, interceptors);
     }
 
+    // DI に登録する場合など、DbContext を自分で作らないときにも同じ設定を使えるようにする
+    public static DbContextOptionsBuilder UseRetryingSqlite(
+        DbContextOptionsBuilder optionsBuilder,
+        SqliteConnection connection,
+        params IInterceptor[] interceptors)
+    {
+        return UseSqlite(optionsBuilder, connection, retryOnFailure: true, interceptors);
+    }
+
+    private static DbContextOptionsBuilder UseSqlite(
+        DbContextOptionsBuilder optionsBuilder,
+        SqliteConnection connection,
+        bool retryOnFailure,
+        IInterceptor[] interceptors)
+    {
+        optionsBuilder.UseSqlite(connection, sqliteOptions =>
+        {
+            if (retryOnFailure)
+            {
+                sqliteOptions.ExecutionStrategy(dependencies => new RetryingTestExecutionStrategy(dependencies));
+            }
+        });
+
+        if (interceptors.Length > 0)
+        {
+            optionsBuilder.AddInterceptors(interceptors);
+        }
+
+        return optionsBuilder;
+    }
+
     private static async Task<SqliteInMemoryTestContext> CreateSqliteInMemoryContextCoreAsync(
         bool retryOnFailure,
         IInterceptor[] interceptors)
@@ -36,19 +67,8 @@ internal static class TestDbContextFactory
         var connection = new SqliteConnection("Data Source=:memory:");
         await connection.OpenAsync();
 
-        var optionsBuilder = new DbContextOptionsBuilder<ApplicationDbContext>()
-            .UseSqlite(connection, sqliteOptions =>
-            {
-                if (retryOnFailure)
-                {
-                    sqliteOptions.ExecutionStrategy(dependencies => new RetryingTestExecutionStrategy(dependencies));
-                }
-            });
-
-        if (interceptors.Length > 0)
-        {
-            optionsBuilder.AddInterceptors(interceptors);
-        }
+        var optionsBuilder = new DbContextOptionsBuilder<ApplicationDbContext>();
+        UseSqlite(optionsBuilder, connection, retryOnFailure, interceptors);
 
         var dbContext = new ApplicationDbContext(optionsBuilder.Options);
         await dbContext.Database.EnsureCreatedAsync();

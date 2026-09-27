@@ -147,6 +147,8 @@
   - `IImageStorageService`（保存/取得/削除：ファイルシステム実装）
   - `IUserDataDeletionService`（ユーザー削除）
   - `AuthorizationHelper`（所有者チェック・参照元辿り）
+  - `IGuestAccountService`（ゲストの作成とサンプルデータ）
+  - `GuestAccountCleanupService` / `GuestAccountCleanupWorker`（期限切れゲストの自動削除）
 - `/wwwroot/images/default`（デフォルト画像のみ）
 - `/Data`
   - `ApplicationDbContext`（Identity + アプリテーブル）
@@ -163,7 +165,8 @@
 | ログアウト | POST | `/Identity/Account/Logout` | `Areas.Identity.AccountController.Logout` | 匿名可（antiforgery 必須。`returnUrl` はローカルのみ、既定は `/`） |
 | MyPage | GET | `/MyPage` | `MyPageController.Index` | 認証必須 |
 | プロフィール編集 | GET/POST | `/Account/EditProfile` | `AccountController.EditProfile` | 認証必須 |
-| パスワード変更 | GET/POST | `/Identity/Account/Manage/ChangePassword` | Identity 標準 | 認証必須 |
+| ゲストログイン | POST | `/Identity/Account/GuestLogin` | `Areas.Identity.AccountController.GuestLogin` | 匿名可（antiforgery 必須、IP 単位のレート制限。ログイン済みは作成せず 302。3.4 参照） |
+| パスワード変更 | GET/POST | `/Identity/Account/Manage/ChangePassword` | Identity 標準 | 認証必須（ゲストは 403） |
 | アカウント削除（確認） | GET | `/Account/Delete` | `AccountController.Delete` | 認証必須 |
 | アカウント削除（実行） | POST | `/Account/DeleteConfirmed` | `AccountController.DeleteConfirmed` | 認証必須 |
 | ペット一覧（公開検索） | GET | `/Pets?page={page}` | `PetsController.Index` | 認証必須 |
@@ -212,6 +215,22 @@
   - 遷移：`returnUrl` が有効ならそこへ、無効なら一覧（`page` を維持）へ戻す。
 - `petId` はクライアント改ざん可能なため、**サーバ側で `scheduleItemId` から PetId を復元**し、所有者チェックを行う。
 
+### 3.4 ゲストログイン（お試し利用）
+- `POST /Identity/Account/GuestLogin`（`Areas.Identity.AccountController.GuestLogin`、`[AllowAnonymous]`）
+  - CSRF 対策は既存のグローバル antiforgery フィルタで行う。
+  - レート制限ポリシー `GuestLogin`：IP 単位（`HttpContext.Connection.RemoteIpAddress`）の固定窓で **10 分に 5 回**。超過時の 429 は既存の `OnRejected`（`Retry-After` 付き、`/Error/429` 表示）を使う。
+  - `GuestLogin:Enabled` が false の場合は 404。
+  - ログイン済み（ゲストを含む）の場合は、ゲストを作らずに `returnUrl`（ローカル URL のみ）または `/MyPage` へ 302。
+  - 成功時は 302 で `returnUrl`（ローカル URL のみ）または `/MyPage`。
+- ゲストユーザー（`IGuestAccountService.CreateAsync`）
+  - Identity ユーザーとして作る：UserName `guest-{Guid:N}`、メールアドレス・パスワードなし、表示名「ゲスト」。
+  - ユーザー claim `pethealth:guest-expires-at` に有効期限（作成から 8 時間、UTC の ISO 8601「O」形式）を持たせ、ゲストの識別にも使う。スキーマは変更しない。
+  - サンプルデータ：管理者用デモペット（こむぎ・ルナ・まめ と健康ログ・予定・通院履歴。`DemoPetCatalog`）を `IsPublic = false` で作る。画像は作らない。
+  - ユーザー・claim・サンプルデータは 1 回の `SaveChanges`（`UserManager.CreateAsync` の保存）でまとめて保存する。途中で失敗しても一部だけ残らず、再試行する実行戦略とも両立する。
+- サインイン：`SignInManager.SignInAsync` で、`IsPersistent = false`、`AllowRefresh = false`、`ExpiresUtc = 有効期限` を指定する（延長しない）。
+- 設定：`GuestLogin:Enabled`（ボタンの表示と POST の受付）、`GuestLogin:CleanupEnabled`（自動削除。10.5 参照）。`appsettings.json` の既定はどちらも true。
+- 認可と表示の制限は 6.4、自動削除は 10.5 を参照。
+
 ---
 
 ## 4. 画面設計（概要）
@@ -229,6 +248,8 @@
 - PWA 対応として `manifest.webmanifest`、`theme-color`、各種アイコン（192/512/maskable/apple-touch-icon）を配信し、ホーム画面追加に対応する。
 - 第1段階のナビゲーションは既存機能への導線に限定し、健康分析、月間カレンダー、通知設定、データバックアップ、利用規約、アプリについて等の未実装画面は追加しない（体重推移の簡易グラフは健康ログ一覧内の表示として提供する）。
 - MyPage は内部URLとして `/MyPage` を維持し、ユーザー向けには「ホーム」または「設定」相当の画面として表現してよい。
+- 未ログインの Home とログイン画面に「ゲストとして試す」（POST フォーム。「登録不要」「8時間後に自動削除」の注記付き）を置く。ポートフォリオのデモリンクはトップを指すため、Home のボタンを主導線とする。
+- ゲストでログイン中は、共通レイアウトにゲスト用バナーを表示し、削除予定時刻を日本時間（`TimeSpan.FromHours(9)`）で示す。
 
 ### 4.1 MyPage（/MyPage）
 - 自分のプロフィール（表示名、メール、アバター）を表示
@@ -398,7 +419,16 @@ public class ImageItemViewModel
 ### 6.3 ログイン済み：403（権限不足）
 - Admin エリア等、存在秘匿の必要が低い領域：
   - Admin 以外の Admin ルート：403
+  - ゲストの `/Identity/Account/Manage` 配下：403（6.4 参照）
 - それ以外は原則、存在秘匿したいリソース（ペット／健康ログ／予定／通院履歴／画像など）は 404 を優先する。
+
+### 6.4 ゲスト
+- ゲストの判定は claim `pethealth:guest-expires-at` の有無で行う（`GuestIdentity.IsGuest`）。
+- 認可ポリシー `NonGuest`（認証済みで、ゲスト claim を持たない）を `ManageController`（`/Identity/Account/Manage` 配下）に適用し、ゲストには 403 を返す。
+  - Identity UI 既定の Razor Pages は公開しないため（3.1）、`SetPassword` などの既定ページはゲストを含め誰にも 404 になる。
+- ゲストのペットは常に非公開にする。`PetsController` の Create / Edit の POST で `IsPublic = false` に固定する（フォームの表示に頼らない）。
+- 表示：`_LoginPartial` の「アカウント」リンクと MyPage の「パスワード変更」はゲストに表示しない。`_PetForm` は公開チェックボックスの代わりに説明文を表示する。
+- `/Account/EditProfile` と `/Account/Delete`（本人による削除。パスワード不要）はゲストも使える。
 
 ---
 
@@ -723,6 +753,14 @@ public class HealthLogEditViewModel
 ### 10.4 ペット削除
 - ペット配下（HealthLog/Schedule/Visit）と、それらの画像参照（ImageAsset）も削除対象
 - 画像削除失敗はログ、DB削除は継続
+
+### 10.5 期限切れゲストの自動削除
+- `GuestAccountCleanupWorker`（`BackgroundService`）が、起動時と 5 分ごと（`PeriodicTimer`）に `GuestAccountCleanupService` を実行する。`GuestLogin:CleanupEnabled` が false の場合は実行しない。
+- 対象：claim `pethealth:guest-expires-at` の期限に猶予 5 分を加えた時刻を過ぎたゲスト。1 回に最大 50 件（期限の古い順）。
+  - Admin ロールを持つユーザーと、期限を読めない claim のユーザーは削除しない（後者は警告ログ）。
+- 1 件ずつ別の DI スコープで `IUserDataDeletionService.DeleteUserAsync` を呼び、ユーザー自身の削除（10.2）と同じ内容を物理削除する。claim は DB のカスケードで削除される。
+  - 1 件ごとに例外をログに残して次へ進む（空の catch は作らない）。スコープを分けるため、失敗したユーザーの変更追跡が次のユーザーの保存に混ざらない。
+- App Service Free F1 はアイドル時に停止するため、削除は次にアプリが起動しているときに行われる。認証 Cookie は期限で失効するため、期限後にゲストとして操作されることはない。
 
 ---
 

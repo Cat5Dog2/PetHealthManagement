@@ -1,0 +1,13 @@
+@using Microsoft.Extensions.Options
+@using PetHealthManagement.Web.Services
+@model GuestLoginFormViewModel
+@inject IOptions<GuestLoginOptions> GuestLoginOptions
+
+@if (GuestLoginOptions.Value.Enabled)
+{
+    <form asp-area="Identity" asp-controller="Account" asp-action="GuestLogin" method="post" class="guest-login">
+        <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+        <button type="submit" class="btn btn-outline-primary">ゲストとして試す</button>
+        <p class="guest-login__note">登録不要・8時間後に自動削除されます</p>
+    </form>
+}

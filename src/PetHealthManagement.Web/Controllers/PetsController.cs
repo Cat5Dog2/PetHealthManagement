@@ -198,6 +198,7 @@ public class PetsController(
             return Challenge();
         }
 
+        KeepGuestPetPrivate(viewModel);
         ValidateSpeciesCode(viewModel.SpeciesCode);
         if (!ModelState.IsValid)
         {
@@ -326,6 +327,7 @@ public class PetsController(
             return NotFound();
         }
 
+        KeepGuestPetPrivate(viewModel);
         ValidateSpeciesCode(viewModel.SpeciesCode);
         if (!ModelState.IsValid)
         {
@@ -513,6 +515,15 @@ public class PetsController(
                 })
                 .ToList()
         };
+    }
+
+    // ペット一覧は他の利用者の公開ペットも表示するため、ゲストのペットは送信値にかかわらず非公開にする
+    private void KeepGuestPetPrivate(PetEditViewModel viewModel)
+    {
+        if (GuestIdentity.IsGuest(User))
+        {
+            viewModel.IsPublic = false;
+        }
     }
 
     private void ValidateSpeciesCode(string? speciesCode)

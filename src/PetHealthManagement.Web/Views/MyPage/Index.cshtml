@@ -22,10 +22,13 @@
                class="btn btn-primary">
                 プロフィール編集
             </a>
-            <a href="/Identity/Account/Manage/ChangePassword"
-               class="btn btn-outline-primary">
-                パスワード変更
-            </a>
+            @if (!PetHealthManagement.Web.Infrastructure.GuestIdentity.IsGuest(User))
+            {
+                <a href="/Identity/Account/Manage/ChangePassword"
+                   class="btn btn-outline-primary">
+                    パスワード変更
+                </a>
+            }
         </div>
     </section>
 

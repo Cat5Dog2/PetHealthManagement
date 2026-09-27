@@ -157,7 +157,7 @@ public class AccountController(
         return new DeleteAccountViewModel
         {
             DisplayName = UserDisplayNameHelper.ResolveForDisplay(user),
-            Email = user.Email ?? string.Empty,
+            Email = string.IsNullOrWhiteSpace(user.Email) ? "未設定" : user.Email,
             ReturnUrl = safeReturnUrl,
             CancelUrl = ReturnUrlHelper.ResolveLocalReturnUrl(safeReturnUrl, "/MyPage")
         };
