@@ -424,9 +424,8 @@ public class ImageItemViewModel
 
 ### 6.4 ゲスト
 - ゲストの判定は claim `pethealth:guest-expires-at` の有無で行う（`GuestIdentity.IsGuest`）。
-- 認可ポリシー `NonGuest`（認証済みで、ゲスト claim を持たない）を次に適用し、ゲストには 403 を返す。
-  - `ManageController`（`/Identity/Account/Manage` 配下）
-  - Identity UI 既定の Razor Pages の `/Account/Manage` フォルダ（`SetPassword` など、既定のまま到達できるページを含む）
+- 認可ポリシー `NonGuest`（認証済みで、ゲスト claim を持たない）を `ManageController`（`/Identity/Account/Manage` 配下）に適用し、ゲストには 403 を返す。
+  - Identity UI 既定の Razor Pages は公開しないため（3.1）、`SetPassword` などの既定ページはゲストを含め誰にも 404 になる。
 - ゲストのペットは常に非公開にする。`PetsController` の Create / Edit の POST で `IsPublic = false` に固定する（フォームの表示に頼らない）。
 - 表示：`_LoginPartial` の「アカウント」リンクと MyPage の「パスワード変更」はゲストに表示しない。`_PetForm` は公開チェックボックスの代わりに説明文を表示する。
 - `/Account/EditProfile` と `/Account/Delete`（本人による削除。パスワード不要）はゲストも使える。

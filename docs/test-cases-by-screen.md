@@ -411,7 +411,7 @@
 
 | No | 前提 | 手順 | 期待結果 | 証跡 |
 |---|---|---|---|---|
-| GST-001 | ログイン済み（Guest） | 1) `/Identity/Account/Manage`、`/Identity/Account/Manage/ChangePassword`、`/Identity/Account/Manage/SetPassword` にアクセス | いずれも403（/Error/403） | NT |
+| GST-001 | ログイン済み（Guest） | 1) `/Identity/Account/Manage`、`/Identity/Account/Manage/ChangePassword` にアクセス | いずれも403（/Error/403）。Identity UI 既定の `SetPassword` などは IDP-001 のとおり404 | NT |
 | GST-002 | ログイン済み（UserA） | 1) `/Identity/Account/Manage` にアクセス | 200で表示される（ゲスト以外は従来どおり） | NT |
 | GST-003 | ログイン済み（Guest） | 1) `/Account/EditProfile` と `/Account/Delete` を表示 2) 削除を実行 | 1) 200で表示される 2) ゲストと関連データが削除され、`/` へ遷移する | SS/NT/DB |
 | GST-004 | Guest（期限＋猶予5分を過ぎている）、UserA、Guest（期限内） | 1) 自動削除を実行（起動時／5分ごと） | 期限切れのゲストと関連データ（画像ファイルを含む）が削除され、UserAと期限内のゲストは残る | DB/LOG |
