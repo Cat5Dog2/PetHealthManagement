@@ -50,6 +50,7 @@
 - [x] **CIの段階導入**：最初は「ビルド + 重要シナリオ最小テスト（認証/秘匿/画像）」を必須チェックにする
 - [x] tool manifest + `./scripts/format.sh`（Windowsは `./scripts/format.ps1`）を有効化
 - [x] 依存関係更新の運用（例：Dependabot/Renovate。必要なら）
+- 決定事項：`SixLabors.ImageSharp` は 3.x に留め、Dependabot のメジャー更新は無視する（`.github/dependabot.yml` の `ignore`。2026-09 判断）。4.x はライセンスキーの設定を求める（未設定だとビルドで警告し、取得を促す）。一方、3.1.12 には既知の脆弱性がない（GitHub Advisory・`dotnet list package --vulnerable` とも 0 件）。3.x で修正されない脆弱性が出たら、ライセンスを用意して 4.x へ移行する。移行時のコード変更は、テストの `new Image<Rgba32>(w, h, Color.X)` 5 箇所を `Color.X.ToPixel<Rgba32>()` にする程度で、その状態で全テストが通ることを確認済み。
 
 > 参考：ローカルの品質ゲート（build/test/format）は `CONTRIBUTING.md` に明文化済み。
 
