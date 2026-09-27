@@ -83,6 +83,9 @@
 ### 1.3 ミドルウェア・共通UI
 - [x] ルーティング/エリア（Admin）設定
 - [x] `UseStatusCodePagesWithReExecute("/Error/{0}")` 等でエラーページ統一
+- [x] **POST の後もエラーページを正しく表示する（2026-09 実施・不具合修正）**
+- 決定事項：エラーページは元のリクエストの HTTP メソッドのまま再実行されるため、`ErrorController` は antiforgery の検証から外す（`[IgnoreAntiforgeryToken]`。状態を変えない）。また、ステータスコードは引数で受けずにルート値から読み、リクエスト本文を読まない（モデルバインドが大きすぎる・壊れた本文を読んで失敗するため）。これまでは、トークンなしの POST（存在しない URL、antiforgery 失敗、レート制限超過など）が本文なしの 400 になり、トークン付きでも 405 のときは 500 の画面になっていた。
+- 決定事項：専用の画面がないステータスコードは近い画面にそろえ、4xx を 500 にはしない。405（メソッド不一致）は 404、それ以外の 4xx は 400、5xx は 500、エラー以外の値は 404 とする。405 を 404 にするのは、存在秘匿の方針に合わせるためと、静的ファイルの fallback（`MapStaticAssets` が追加する GET/HEAD のみの `{**path:file}`）がビルド出力から起動したとき（ローカル実行・テスト）だけあることによる差をなくすため。存在しない URL への POST はローカルでだけ 405 になり、POST 専用の URL への GET（例：`GET /Pets/Delete/{id}`）は本番（発行したアプリ）でだけ 405 になって、これまで本番では 500 の画面が出ていた。405 の `Allow` ヘッダーは外す。テストは既定でビルド出力から起動するため、fallback を外した本番と同じルーティングでも確かめる。
 - [x] 共通レイアウト（ヘッダ：未ログイン/ログイン/Admin表示切替）
 - [x] CSRF（Anti-forgery）をフォームPOSTへ適用
 
@@ -409,6 +412,11 @@
 - 決定事項：画像URLの組み立て・デフォルト画像は **`Helpers/ImageUrlHelper`**、便の様子の選択肢は **`Models/StoolConditionCatalog`** に集約する。
 - 決定事項：`Areas/Admin/Views/_ViewImports.cshtml` を追加し、Admin エリアでも tag helper（フォームURL生成・antiforgery 注入）を有効化する（欠落による潜在バグの修正）。
 - 決定事項：ボトムナビの余白（`padding-bottom`）はログイン時のみ `body.has-bottom-nav` で確保し、未ログインページに無駄な余白を残さない。apple-touch-icon は iOS が角丸マスクを適用するため**全面塗りの正方形**で生成する。
+- [x] **削除処理のトランザクションを EF Core 実行戦略の中で実行（2026-09 実施・不具合修正）**
+- 決定事項：明示的なトランザクションは **`Database.CreateExecutionStrategy()` のコールバック内で開始する**（`EnableRetryOnFailure` と併用するため）。戦略の外で開始すると `SaveChanges` が `InvalidOperationException` になり、SQL Server（本番・LocalDB）でアカウント削除（本人・Admin）/ペット/健康ログ/通院履歴の削除が失敗していた。
+- 決定事項：コールバックは再試行で再実行されるため、中では DB 操作（トランザクション開始 → Remove → `SaveChanges` → Commit）だけを行う。画像ファイル削除と完了ログはコミット成功後に1回だけ行う。失敗時のロールバックはトランザクションの破棄（`await using`）で行う。
+- 決定事項：`SaveChanges` は `acceptAllChangesOnSuccess: false` とし、コミット成功後に `ChangeTracker.AcceptAllChanges()` する（コミット失敗で再試行されても同じ変更を送り直すため）。画像使用量（`UsedImageBytes`）の減算後の値はコールバックの外で1回だけ求める。
+- 決定事項：再試行する実行戦略との組み合わせは InMemory / 既定の SQLite では検出できないため、削除系のテストは再試行する実行戦略を設定した SQLite（`TestDbContextFactory.CreateRetryingSqliteInMemoryContextAsync`）でも検証する。
 - [ ] **第2段階以降の候補**：健康ログを使った分析画面、予定を使った月間カレンダー画面、設定画面の拡張（通知/バックアップ/規約/アプリ情報）
 - [ ] 監査ログ（Admin削除など）
 - [ ] UI改善（入力補助のさらなる拡充、削除確認のモーダル化、一覧の検索条件保持）

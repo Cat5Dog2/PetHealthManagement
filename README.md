@@ -424,6 +424,7 @@ bash ./scripts/local-smoke.sh --use-existing-app --base-url 'https://pethealth.e
 
 - 単体テストと controller テストは、基本的に `TestDbContextFactory.CreateInMemoryDbContext(...)` による EF Core InMemory を使います
 - SQL 変換確認やクエリ数確認は `TestDbContextFactory.CreateSqliteInMemoryContextAsync(...)` による SQLite in-memory を使います
+- 明示的なトランザクションを使う処理（削除サービスなど）は、本番の `EnableRetryOnFailure` と同じく再試行する実行戦略を設定した `TestDbContextFactory.CreateRetryingSqliteInMemoryContextAsync(...)` でも検証します。InMemory や既定の SQLite では、実行戦略の外で開始したトランザクションの誤用を検出できないためです
 - integration テストは `IntegrationTestWebApplicationFactory` を使い、アプリ DB を EF Core InMemory に差し替えつつ、テストごとの一時 `StorageRoot` を割り当てます
 - Playwright E2E テストは `PetHealthManagement.Web.E2ETests` に分離し、テスト用 Kestrel プロキシを実ポートで起動しながら、アプリ DB は EF Core InMemory、画像ストレージは一時 `StorageRoot` に差し替えます
 - Playwright E2E テストは既定ではスキップされます。実ブラウザで実行する場合だけ `RUN_PLAYWRIGHT_E2E=1` を設定します

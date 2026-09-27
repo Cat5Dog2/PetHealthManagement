@@ -60,31 +60,46 @@ public class VisitDeletionService(
             storageTargetCount: storageTargets.Count,
             deletedReadyBytes: deletedReadyBytes);
 
-        var transaction = dbContext.Database.IsRelational()
-            ? await dbContext.Database.BeginTransactionAsync(cancellationToken)
-            : null;
+        // 再試行でコールバックが再実行されても二重に減算しないよう、減算後の値は1回だけ求める
+        var remainingUsedImageBytes = Math.Max(0, owner.UsedImageBytes - deletedReadyBytes);
 
         try
         {
-            if (visitImages.Count > 0)
-            {
-                dbContext.VisitImages.RemoveRange(visitImages);
-            }
+            // EnableRetryOnFailure は実行戦略の外で開始したトランザクションを拒否するため、戦略の中で開始する。
+            // 再試行ではコールバック全体が再実行されるので、中では DB 操作だけを行う。
+            var executionStrategy = dbContext.Database.CreateExecutionStrategy();
+            await executionStrategy.ExecuteAsync(
+                async ct =>
+                {
+                    // コミット前に失敗した場合は、破棄（await using）でロールバックされる
+                    await using var transaction = dbContext.Database.IsRelational()
+                        ? await dbContext.Database.BeginTransactionAsync(ct)
+                        : null;
 
-            if (imageAssets.Count > 0)
-            {
-                dbContext.ImageAssets.RemoveRange(imageAssets);
-            }
+                    if (visitImages.Count > 0)
+                    {
+                        dbContext.VisitImages.RemoveRange(visitImages);
+                    }
 
-            owner.UsedImageBytes = Math.Max(0, owner.UsedImageBytes - deletedReadyBytes);
-            dbContext.Visits.Remove(visit);
+                    if (imageAssets.Count > 0)
+                    {
+                        dbContext.ImageAssets.RemoveRange(imageAssets);
+                    }
 
-            await dbContext.SaveChangesAsync(cancellationToken);
+                    owner.UsedImageBytes = remainingUsedImageBytes;
+                    dbContext.Visits.Remove(visit);
 
-            if (transaction is not null)
-            {
-                await transaction.CommitAsync(cancellationToken);
-            }
+                    // 変更の確定はコミット後に行う。コミットで失敗して再試行されても、同じ変更を送り直せるようにする。
+                    await dbContext.SaveChangesAsync(acceptAllChangesOnSuccess: false, ct);
+
+                    if (transaction is not null)
+                    {
+                        await transaction.CommitAsync(ct);
+                    }
+                },
+                cancellationToken);
+
+            dbContext.ChangeTracker.AcceptAllChanges();
 
             ApplicationOperationLogging.LogDeletionCompleted(
                 logger,
@@ -109,19 +124,7 @@ public class VisitDeletionService(
                 storageTargetCount: storageTargets.Count,
                 deletedReadyBytes: deletedReadyBytes);
 
-            if (transaction is not null)
-            {
-                await transaction.RollbackAsync(cancellationToken);
-            }
-
             throw;
-        }
-        finally
-        {
-            if (transaction is not null)
-            {
-                await transaction.DisposeAsync();
-            }
         }
 
         await DeleteImageFilesBestEffortAsync(visit.Id, ownerId, storageTargets, cancellationToken);

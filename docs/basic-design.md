@@ -700,15 +700,21 @@ public class HealthLogEditViewModel
 ### 10.1 方針
 - DB は EF Core のカスケードに依存し過ぎず、**アプリケーションサービスで明示削除**する（画像削除のため）
 - ファイル削除に失敗しても DB 削除は継続（`ILogger` に記録）
+- DB 接続は `EnableRetryOnFailure`（再試行する実行戦略）を使うため、明示的なトランザクションは **`Database.CreateExecutionStrategy().ExecuteAsync(...)` のコールバック内で開始**する
+  - 実行戦略の外で開始したトランザクションの中で `SaveChanges` を呼ぶと `InvalidOperationException` になる
+  - コールバックは一時的な障害で再実行されるため、中では DB 操作（トランザクション開始 → Remove → `SaveChanges` → Commit）だけを行う
+  - `SaveChanges(acceptAllChangesOnSuccess: false)` とし、コミット成功後に `ChangeTracker.AcceptAllChanges()` する（コミットで失敗して再試行されても同じ変更を送り直せる）
+  - 画像使用量（`UsedImageBytes`）の減算後の値はコールバックの外で 1回だけ求める（再試行で二重に減算しない）
+  - コミット前に失敗した場合は、トランザクションの破棄（`await using`）でロールバックする
+  - 画像ファイル削除と完了ログは、コミット成功後に 1回だけ行う（ロールバック時はファイルを消さない）
 
 ### 10.2 ユーザー自身のアカウント削除
 - `AccountController.DeleteConfirmed` → `IUserDataDeletionService.DeleteUserAsync(userId)`
 
 **概要フロー**
 1. 対象ユーザーの関連データ（Pet/HealthLog/Schedule/Visit）と ImageAsset を列挙
-2. 画像を 1件ずつ try/catch で削除（失敗はログ、処理継続）
-3. 関連データを削除（トランザクション）
-4. Identity ユーザーを削除
+2. 関連データと Identity ユーザーを削除（実行戦略の中のトランザクション。10.1 参照）
+3. コミット成功後、画像ファイルを 1件ずつ try/catch で削除（失敗はログ、処理継続）
 
 ### 10.3 管理者によるユーザー削除
 - `Areas.Admin.UsersController.Delete` → 同サービスを呼び出す
@@ -723,6 +729,8 @@ public class HealthLogEditViewModel
 ## 11. エラーハンドリング・メッセージ（例）
 
 - 400 / 403 / 404 等のエラーは、共通エラーページ `/Error/{statusCode}` を表示する
+  - 共通エラーページは元のリクエストの HTTP メソッドのまま再実行される。POST の後でも表示できるよう、`ErrorController` は antiforgery の検証から外し（`[IgnoreAntiforgeryToken]`）、ステータスコードはルート値から読んでリクエスト本文を読まない。
+  - 画面があるのは 400 / 403 / 404 / 429 / 500。405 は 404、その他の 4xx は 400、5xx は 500 の画面とステータスコードにそろえる（API 仕様 1.6）。`MapStaticAssets` の fallback（GET/HEAD のみ）はビルド出力から起動したとき（ローカル実行・テスト）だけあるため、存在しない URL への POST はローカルでだけ、POST 専用の URL への GET は本番（発行したアプリ）でだけ 405 になるが、この扱いでどちらも 404 になる。
 - 一覧画面上のトグル／削除など「画面を持たない」POST の入力不備（ID 不正、必須不足等）は 400 を返す
 - 登録／編集など入力画面を持つ機能は、検証失敗時に同一画面へ戻してエラーメッセージを表示し、データは保存しない
 

@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using PetHealthManagement.Web.Data;
 using PetHealthManagement.Web.Models;
 using PetHealthManagement.Web.Services;
+using PetHealthManagement.Web.Tests.Infrastructure;
 
 namespace PetHealthManagement.Web.Tests.Services;
 
@@ -112,6 +114,82 @@ public class VisitDeletionServiceTests
         Assert.Contains("images/visit-1.jpg", storage.DeletedStorageKeys);
     }
 
+    [Fact]
+    public async Task DeleteAsync_RemovesVisitAndImages_WithRetryingExecutionStrategy()
+    {
+        await using var testContext = await TestDbContextFactory.CreateRetryingSqliteInMemoryContextAsync();
+        var dbContext = testContext.DbContext;
+        await SeedVisitWithImagesAsync(dbContext);
+
+        var storage = new FakeImageStorageService();
+        var service = new VisitDeletionService(dbContext, storage, NullLogger<VisitDeletionService>.Instance);
+        var visit = await dbContext.Visits.SingleAsync(x => x.Id == 10);
+
+        await service.DeleteAsync(visit, "user-a");
+
+        await AssertVisitRemovedAsync(dbContext, expectedUsedImageBytes: 200);
+        Assert.Equal(
+            ["images/visit-1.jpg", "images/visit-2.jpg"],
+            storage.DeletedStorageKeys.Order().ToArray());
+    }
+
+    [Fact]
+    public async Task DeleteAsync_RetriesTransactionWithoutDoubleCountingBytes_WhenCommitFailsTransiently()
+    {
+        var commitFailures = new CommitFailureInterceptor();
+        await using var testContext = await TestDbContextFactory.CreateRetryingSqliteInMemoryContextAsync(commitFailures);
+        var dbContext = testContext.DbContext;
+        await SeedVisitWithImagesAsync(dbContext);
+        commitFailures.FailNextCommitWith(new TransientTestException("Simulated transient commit failure."));
+
+        var storage = new FakeImageStorageService();
+        var logger = new TestLogger<VisitDeletionService>();
+        var service = new VisitDeletionService(dbContext, storage, logger);
+        var visit = await dbContext.Visits.SingleAsync(x => x.Id == 10);
+
+        await service.DeleteAsync(visit, "user-a");
+
+        Assert.Equal(1, commitFailures.FailedCommitCount);
+        await AssertVisitRemovedAsync(dbContext, expectedUsedImageBytes: 200);
+        Assert.Equal(
+            ["images/visit-1.jpg", "images/visit-2.jpg"],
+            storage.DeletedStorageKeys.Order().ToArray());
+        Assert.Single(logger.Entries, entry => entry.Message.StartsWith("Completed deletion operation.", StringComparison.Ordinal));
+        Assert.DoesNotContain(logger.Entries, entry => entry.LogLevel == LogLevel.Error);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_RollsBackAndKeepsFiles_WhenCommitFails()
+    {
+        var commitFailures = new CommitFailureInterceptor();
+        await using var testContext = await TestDbContextFactory.CreateRetryingSqliteInMemoryContextAsync(commitFailures);
+        var dbContext = testContext.DbContext;
+        await SeedVisitWithImagesAsync(dbContext);
+        var failure = new InvalidOperationException("Simulated commit failure.");
+        commitFailures.FailNextCommitWith(failure);
+
+        var storage = new FakeImageStorageService();
+        var logger = new TestLogger<VisitDeletionService>();
+        var service = new VisitDeletionService(dbContext, storage, logger);
+        var visit = await dbContext.Visits.SingleAsync(x => x.Id == 10);
+
+        var thrown = await Assert.ThrowsAsync<InvalidOperationException>(() => service.DeleteAsync(visit, "user-a"));
+
+        Assert.Same(failure, thrown);
+        dbContext.ChangeTracker.Clear();
+        Assert.Equal(1, await dbContext.Visits.CountAsync());
+        Assert.Equal(2, await dbContext.VisitImages.CountAsync());
+        Assert.Equal(3, await dbContext.ImageAssets.CountAsync());
+        Assert.Equal(470, await dbContext.Users.Where(x => x.Id == "user-a").Select(x => x.UsedImageBytes).SingleAsync());
+        Assert.Empty(storage.DeletedStorageKeys);
+        Assert.Contains(
+            logger.Entries,
+            entry => entry.LogLevel == LogLevel.Error
+                     && ReferenceEquals(entry.Exception, failure)
+                     && Equals(entry.Properties["Operation"], ApplicationOperationLogging.Operations.DeleteVisit));
+        Assert.DoesNotContain(logger.Entries, entry => entry.Message.StartsWith("Completed deletion operation.", StringComparison.Ordinal));
+    }
+
     private static ApplicationDbContext CreateDbContext()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
@@ -119,6 +197,50 @@ public class VisitDeletionServiceTests
             .Options;
 
         return new ApplicationDbContext(options);
+    }
+
+    // user-a（使用量 470 bytes）の通院履歴10（画像 120 + 150）と、残すべきアバター 200 を作る
+    private static async Task SeedVisitWithImagesAsync(ApplicationDbContext dbContext)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var firstImageId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        var secondImageId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+        var avatarImageId = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc");
+
+        dbContext.ImageAssets.AddRange(
+            NewImageAsset(firstImageId, "user-a", "Visit", "images/visit-1.jpg", 120),
+            NewImageAsset(secondImageId, "user-a", "Visit", "images/visit-2.jpg", 150),
+            NewImageAsset(avatarImageId, "user-a", "Avatar", "images/avatar.jpg", 200));
+
+        dbContext.Users.Add(new ApplicationUser
+        {
+            Id = "user-a",
+            UserName = "userA",
+            AvatarImageId = avatarImageId,
+            UsedImageBytes = 470
+        });
+
+        dbContext.Pets.Add(NewPet(1, "user-a"));
+        dbContext.Visits.Add(new Visit { Id = 10, PetId = 1, VisitDate = new DateTime(2026, 3, 21), CreatedAt = now, UpdatedAt = now });
+        dbContext.VisitImages.AddRange(
+            new VisitImage { Id = 1, VisitId = 10, ImageId = firstImageId, SortOrder = 1 },
+            new VisitImage { Id = 2, VisitId = 10, ImageId = secondImageId, SortOrder = 2 });
+
+        await dbContext.SaveChangesAsync();
+        dbContext.ChangeTracker.Clear();
+    }
+
+    private static async Task AssertVisitRemovedAsync(ApplicationDbContext dbContext, long expectedUsedImageBytes)
+    {
+        dbContext.ChangeTracker.Clear();
+
+        Assert.Equal(0, await dbContext.Visits.CountAsync());
+        Assert.Equal(0, await dbContext.VisitImages.CountAsync());
+        Assert.Equal(1, Assert.Single(await dbContext.Pets.Select(x => x.Id).ToArrayAsync()));
+        Assert.Equal("images/avatar.jpg", Assert.Single(await dbContext.ImageAssets.Select(x => x.StorageKey).ToArrayAsync()));
+        Assert.Equal(
+            expectedUsedImageBytes,
+            await dbContext.Users.Where(x => x.Id == "user-a").Select(x => x.UsedImageBytes).SingleAsync());
     }
 
     private static Pet NewPet(int id, string ownerId)
