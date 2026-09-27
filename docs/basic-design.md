@@ -162,6 +162,7 @@
 |---|---:|---|---|---|
 | トップ | GET | `/` | `HomeController.Index` | 匿名可（ログイン済みは `/MyPage` へ 302） |
 | 共通エラー | GET | `/Error/{statusCode}` | `ErrorController.Index` | 匿名可 |
+| ログアウト | POST | `/Identity/Account/Logout` | `Areas.Identity.AccountController.Logout` | 匿名可（antiforgery 必須。`returnUrl` はローカルのみ、既定は `/`） |
 | MyPage | GET | `/MyPage` | `MyPageController.Index` | 認証必須 |
 | プロフィール編集 | GET/POST | `/Account/EditProfile` | `AccountController.EditProfile` | 認証必須 |
 | ゲストログイン | POST | `/Identity/Account/GuestLogin` | `Areas.Identity.AccountController.GuestLogin` | 匿名可（antiforgery 必須、IP 単位のレート制限。ログイン済みは作成せず 302。3.4 参照） |
@@ -192,6 +193,8 @@
 | 通院履歴削除 | POST | `/Visits/Delete/{visitId}` | `VisitsController.Delete` | 認証必須（所有者のみ） |
 | 画像配信（統一） | GET | `/images/{imageId}` | `ImagesController.Get` | 認証必須 |
 
+- ログイン・新規登録（`/Identity/Account/Login`・`/Identity/Account/Register`）、ログアウト、アカウント管理（`/Identity/Account/Manage` 配下）は `Areas/Identity` のコントローラーで提供する。
+- `AddDefaultIdentity` が同梱する Identity UI の既定ページ（Razor Pages）は使わず、Razor Pages をマップしない。上記以外の `/Identity/Account/*`（外部ログイン、二要素認証の設定、パスワードリセット、メール確認など）は 404 とする（要件 FR-080）。
 
 ### 3.2 管理者（Admin Area）
 | 機能 | HTTP | URL | Controller / Action | 認可 |
@@ -765,6 +768,8 @@ public class HealthLogEditViewModel
 ## 11. エラーハンドリング・メッセージ（例）
 
 - 400 / 403 / 404 等のエラーは、共通エラーページ `/Error/{statusCode}` を表示する
+  - 共通エラーページは元のリクエストの HTTP メソッドのまま再実行される。POST の後でも表示できるよう、`ErrorController` は antiforgery の検証から外し（`[IgnoreAntiforgeryToken]`）、ステータスコードはルート値から読んでリクエスト本文を読まない。
+  - 画面があるのは 400 / 403 / 404 / 429 / 500。405 は 404、その他の 4xx は 400、5xx は 500 の画面とステータスコードにそろえる（API 仕様 1.6）。`MapStaticAssets` の fallback（GET/HEAD のみ）はビルド出力から起動したとき（ローカル実行・テスト）だけあるため、存在しない URL への POST はローカルでだけ、POST 専用の URL への GET は本番（発行したアプリ）でだけ 405 になるが、この扱いでどちらも 404 になる。
 - 一覧画面上のトグル／削除など「画面を持たない」POST の入力不備（ID 不正、必須不足等）は 400 を返す
 - 登録／編集など入力画面を持つ機能は、検証失敗時に同一画面へ戻してエラーメッセージを表示し、データは保存しない
 

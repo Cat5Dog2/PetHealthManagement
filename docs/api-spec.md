@@ -132,7 +132,14 @@
 - 共通エラーページ：`GET /Error/{statusCode}`（例：`/Error/404`）
   - 認可：匿名可
   - 用途：`UseStatusCodePagesWithReExecute("/Error/{0}")` でのエラーハンドリング（表示専用）
-  - `statusCode`：`400/403/404/500` など
+  - `statusCode`：`400/403/404/429/500` など
+  - 元のリクエストの HTTP メソッドのまま再実行されるため、POST の後でも表示する（antiforgery の検証をしない。リクエスト本文を読まない）
+    - 例：存在しない URL への POST は 404、antiforgery 不正は 400、レート制限超過は 429 の画面を、トークンの有無にかかわらず表示する
+  - 専用の画面がないステータスコードは、次のステータスコードと画面にそろえる（4xx を 500 にはしない）
+    - 405（メソッド不一致。例：POST 専用の URL への GET）：404（存在秘匿の方針に合わせる。`Allow` ヘッダーは返さない）
+    - その他の 4xx：400
+    - その他の 5xx：500
+    - エラー以外の値（例：`/Error/200`）：404
 - 未ログイン：302（ログインへ）
 - 認可NG：403 または 404（存在秘匿ポリシーに従う）
 - NotFound：404（対象レコードが存在しない）
@@ -227,6 +234,7 @@
 |---|---:|---|---|
 | トップ | GET | `/` | 匿名可（ログイン済みは `/MyPage` へ 302） |
 | エラーページ | GET | `/Error/{statusCode}` | 匿名可 |
+| ログアウト | POST | `/Identity/Account/Logout` | 匿名可（antiforgery 必須） |
 | MyPage | GET | `/MyPage` | 認証必須 |
 | ゲストログイン | POST | `/Identity/Account/GuestLogin` | 匿名可（antiforgery 必須、IP 単位のレート制限） |
 | プロフィール編集 | GET/POST | `/Account/EditProfile` | 認証必須 |
@@ -274,6 +282,16 @@
 - 概要：トップページ
 - 認可：匿名可
 - 成功：200（HTML）
+
+#### POST `/Identity/Account/Logout`
+- 概要：ログアウト（`Areas.Identity.AccountController.Logout`。Identity UI 既定の Logout ページは使わない）
+- 認可：匿名可（未ログインの場合、サインアウトは何もしない）
+- セキュリティ：CSRF 対策必須（Anti-forgery）。トークンなし／不正は 400（`/Error/400`）
+- フォーム項目／Query：
+  - `returnUrl`：任意（ログアウト後に戻す URL。**ローカル URL のみ有効**。共通レイアウトは `/` を渡す）
+- 成功：302 → `returnUrl`（指定があり、かつローカル URL の場合）
+  - `returnUrl` 未指定／非ローカル：302 → `/`
+- `GET /Identity/Account/Logout`（確認画面）は提供しない：404
 
 ---
 
@@ -860,5 +878,6 @@
 - `page` の異常値は「1.3.1 `page` のバリデーション」に従い **1に補正**する。
 - 一覧の検索条件クエリも **lowerCamelCase**（例：`nameKeyword`, `speciesFilter`）で統一する。
 - 一覧のトグル操作（`IsDone`）は **`POST /ScheduleItems/SetDone/{scheduleItemId}`** を使用して更新する（編集 POST への流用はしない）。
+- ASP.NET Core Identity UI の既定ページ（Razor Pages）は公開しない。`/Identity/Account/*` のうち本仕様書にないもの（`ForgotPassword`、`ResetPassword`、`ConfirmEmail`、`LoginWith2fa`、`Manage/SetPassword`、`Manage/ExternalLogins`、`Manage/EnableAuthenticator`、`Manage/DeletePersonalData` など）は 404 とする。
 
 ---

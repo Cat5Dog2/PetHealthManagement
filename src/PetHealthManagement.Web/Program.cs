@@ -97,11 +97,6 @@ builder.Services.AddControllersWithViews(options =>
 {
     options.Filters.Add(new AutoValidateAntiforgeryTokenAttribute());
 });
-builder.Services.AddRazorPages(options =>
-{
-    // Identity UI 既定の管理ページ（SetPassword など）は ManageController を通らないため、フォルダ単位でもゲストを拒否する
-    options.Conventions.AuthorizeAreaFolder("Identity", "/Account/Manage", GuestIdentity.NonGuestPolicyName);
-});
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -247,9 +242,8 @@ app.MapControllerRoute(
 
 app.MapControllers();
 
-app.MapRazorPages()
-   .WithStaticAssets();
-
+// Razor Pages はマップしない。AddDefaultIdentity が登録する Identity UI の既定ページ（英語）を公開しないため。
+// ログイン・登録・ログアウト・アカウント管理は Areas/Identity のコントローラーで提供する。
 app.Run();
 
 static bool IsMultipartRequestParsingFailure(HttpContext context, InvalidDataException exception)

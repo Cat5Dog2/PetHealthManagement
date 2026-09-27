@@ -247,14 +247,12 @@ public class GuestLoginIntegrationTests
         using var guestClient = await SignInAsGuestAsync(factory);
         using var ownerClient = factory.CreateAuthenticatedClient("owner-user");
 
-        // SetPassword は ManageController ではなく Identity UI 既定の Razor Page が応答する
         foreach (var path in new[]
                  {
                      "/Identity/Account/Manage",
                      "/Identity/Account/Manage/Email",
                      "/Identity/Account/Manage/ChangePassword",
-                     "/Identity/Account/Manage/PersonalData",
-                     "/Identity/Account/Manage/SetPassword"
+                     "/Identity/Account/Manage/PersonalData"
                  })
         {
             using var guestResponse = await guestClient.GetAsync(path);

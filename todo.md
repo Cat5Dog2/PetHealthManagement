@@ -83,6 +83,9 @@
 ### 1.3 ミドルウェア・共通UI
 - [x] ルーティング/エリア（Admin）設定
 - [x] `UseStatusCodePagesWithReExecute("/Error/{0}")` 等でエラーページ統一
+- [x] **POST の後もエラーページを正しく表示する（2026-09 実施・不具合修正）**
+- 決定事項：エラーページは元のリクエストの HTTP メソッドのまま再実行されるため、`ErrorController` は antiforgery の検証から外す（`[IgnoreAntiforgeryToken]`。状態を変えない）。また、ステータスコードは引数で受けずにルート値から読み、リクエスト本文を読まない（モデルバインドが大きすぎる・壊れた本文を読んで失敗するため）。これまでは、トークンなしの POST（存在しない URL、antiforgery 失敗、レート制限超過など）が本文なしの 400 になり、トークン付きでも 405 のときは 500 の画面になっていた。
+- 決定事項：専用の画面がないステータスコードは近い画面にそろえ、4xx を 500 にはしない。405（メソッド不一致）は 404、それ以外の 4xx は 400、5xx は 500、エラー以外の値は 404 とする。405 を 404 にするのは、存在秘匿の方針に合わせるためと、静的ファイルの fallback（`MapStaticAssets` が追加する GET/HEAD のみの `{**path:file}`）がビルド出力から起動したとき（ローカル実行・テスト）だけあることによる差をなくすため。存在しない URL への POST はローカルでだけ 405 になり、POST 専用の URL への GET（例：`GET /Pets/Delete/{id}`）は本番（発行したアプリ）でだけ 405 になって、これまで本番では 500 の画面が出ていた。405 の `Allow` ヘッダーは外す。テストは既定でビルド出力から起動するため、fallback を外した本番と同じルーティングでも確かめる。
 - [x] 共通レイアウト（ヘッダ：未ログイン/ログイン/Admin表示切替）
 - [x] CSRF（Anti-forgery）をフォームPOSTへ適用
 
@@ -287,6 +290,10 @@
 - [x] 所有者不一致は原則 404（秘匿対象：Pet/HealthLog/ScheduleItem/Visit/Image）
 - [x] Adminルート非許可は 403
 - [x] 400/403/404/500 を `/Error/{statusCode}` に統一表示
+- [x] **Identity UI の既定ページ（英語）を公開しない（2026-09 実施・不具合修正）**
+- 決定事項：ログイン・新規登録・アカウント管理（Index / Email / ChangePassword / TwoFactorAuthentication / PersonalData）・ログアウトは `Areas/Identity` のコントローラーで提供し、`AddDefaultIdentity` が同梱する Identity UI の Razor Pages は使わない。Razor Pages はマップしない（`AddRazorPages` / `MapRazorPages` を使わない）ため、外部ログイン・2FA 設定・パスワードリセット・メール確認などの既定ページは 404 になる（FR-080 のスコープ外機能）。既定ページの 500（GenerateRecoveryCodes / Disable2fa / LoginWith2fa）と、既定の DeletePersonalData がペット・画像を残したまま Identity ユーザーだけを削除できる問題もなくなる。
+- 決定事項：ログアウトは `POST /Identity/Account/Logout`（`Areas.Identity.AccountController.Logout`）。antiforgery 必須、未ログインでも受け付ける（サインアウトは何もしない）。`returnUrl` はローカル URL のみ受け付け、それ以外は `/` へ遷移する。GET の確認画面は持たない（404）。
+- 決定事項（別タスク）：存在しない URL への POST は、共通エラーページの再実行が POST のまま `ErrorController` に届くため、404 ではなく 400（トークンなし）や 500 の画面（トークンあり）になる。既存の挙動で、本件とは別に修正する。
 
 ### 10.3 入力バリデーション
 - [x] 文字数（例：Name 50、Note 1000等）

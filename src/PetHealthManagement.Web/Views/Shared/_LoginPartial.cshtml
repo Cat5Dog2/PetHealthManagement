@@ -16,7 +16,7 @@
         </li>
     }
     <li class="nav-item">
-        <form class="form-inline" asp-area="Identity" asp-page="/Account/Logout" asp-route-returnUrl="@Url.Action("Index", "Home", new { area = "" })">
+        <form class="form-inline" asp-area="Identity" asp-controller="Account" asp-action="Logout" asp-route-returnUrl="@Url.Action("Index", "Home", new { area = "" })">
             <button type="submit" class="nav-link btn btn-link">ログアウト</button>
         </form>
     </li>
@@ -24,10 +24,10 @@
 else
 {
     <li class="nav-item">
-        <a class="nav-link" asp-area="Identity" asp-page="/Account/Register">新規登録</a>
+        <a class="nav-link" asp-area="Identity" asp-controller="Account" asp-action="Register">新規登録</a>
     </li>
     <li class="nav-item">
-        <a class="nav-link" asp-area="Identity" asp-page="/Account/Login">ログイン</a>
+        <a class="nav-link" asp-area="Identity" asp-controller="Account" asp-action="Login">ログイン</a>
     </li>
 }
 </ul>
