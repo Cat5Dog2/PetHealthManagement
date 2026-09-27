@@ -408,6 +408,11 @@
 - 決定事項：画像URLの組み立て・デフォルト画像は **`Helpers/ImageUrlHelper`**、便の様子の選択肢は **`Models/StoolConditionCatalog`** に集約する。
 - 決定事項：`Areas/Admin/Views/_ViewImports.cshtml` を追加し、Admin エリアでも tag helper（フォームURL生成・antiforgery 注入）を有効化する（欠落による潜在バグの修正）。
 - 決定事項：ボトムナビの余白（`padding-bottom`）はログイン時のみ `body.has-bottom-nav` で確保し、未ログインページに無駄な余白を残さない。apple-touch-icon は iOS が角丸マスクを適用するため**全面塗りの正方形**で生成する。
+- [x] **削除処理のトランザクションを EF Core 実行戦略の中で実行（2026-09 実施・不具合修正）**
+- 決定事項：明示的なトランザクションは **`Database.CreateExecutionStrategy()` のコールバック内で開始する**（`EnableRetryOnFailure` と併用するため）。戦略の外で開始すると `SaveChanges` が `InvalidOperationException` になり、SQL Server（本番・LocalDB）でアカウント削除（本人・Admin）/ペット/健康ログ/通院履歴の削除が失敗していた。
+- 決定事項：コールバックは再試行で再実行されるため、中では DB 操作（トランザクション開始 → Remove → `SaveChanges` → Commit）だけを行う。画像ファイル削除と完了ログはコミット成功後に1回だけ行う。失敗時のロールバックはトランザクションの破棄（`await using`）で行う。
+- 決定事項：`SaveChanges` は `acceptAllChangesOnSuccess: false` とし、コミット成功後に `ChangeTracker.AcceptAllChanges()` する（コミット失敗で再試行されても同じ変更を送り直すため）。画像使用量（`UsedImageBytes`）の減算後の値はコールバックの外で1回だけ求める。
+- 決定事項：再試行する実行戦略との組み合わせは InMemory / 既定の SQLite では検出できないため、削除系のテストは再試行する実行戦略を設定した SQLite（`TestDbContextFactory.CreateRetryingSqliteInMemoryContextAsync`）でも検証する。
 - [ ] **第2段階以降の候補**：健康ログを使った分析画面、予定を使った月間カレンダー画面、設定画面の拡張（通知/バックアップ/規約/アプリ情報）
 - [ ] 監査ログ（Admin削除など）
 - [ ] UI改善（入力補助のさらなる拡充、削除確認のモーダル化、一覧の検索条件保持）

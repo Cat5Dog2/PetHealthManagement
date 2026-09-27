@@ -16,14 +16,34 @@ internal static class TestDbContextFactory
         return new ApplicationDbContext(options);
     }
 
-    public static async Task<SqliteInMemoryTestContext> CreateSqliteInMemoryContextAsync(
+    public static Task<SqliteInMemoryTestContext> CreateSqliteInMemoryContextAsync(
         params IInterceptor[] interceptors)
+    {
+        return CreateSqliteInMemoryContextCoreAsync(retryOnFailure: false, interceptors);
+    }
+
+    // 本番（SQL Server + EnableRetryOnFailure）と同じく、再試行する実行戦略を設定した SQLite。
+    public static Task<SqliteInMemoryTestContext> CreateRetryingSqliteInMemoryContextAsync(
+        params IInterceptor[] interceptors)
+    {
+        return CreateSqliteInMemoryContextCoreAsync(retryOnFailure: true, interceptors);
+    }
+
+    private static async Task<SqliteInMemoryTestContext> CreateSqliteInMemoryContextCoreAsync(
+        bool retryOnFailure,
+        IInterceptor[] interceptors)
     {
         var connection = new SqliteConnection("Data Source=:memory:");
         await connection.OpenAsync();
 
         var optionsBuilder = new DbContextOptionsBuilder<ApplicationDbContext>()
-            .UseSqlite(connection);
+            .UseSqlite(connection, sqliteOptions =>
+            {
+                if (retryOnFailure)
+                {
+                    sqliteOptions.ExecutionStrategy(dependencies => new RetryingTestExecutionStrategy(dependencies));
+                }
+            });
 
         if (interceptors.Length > 0)
         {
