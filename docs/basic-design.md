@@ -160,6 +160,7 @@
 |---|---:|---|---|---|
 | トップ | GET | `/` | `HomeController.Index` | 匿名可（ログイン済みは `/MyPage` へ 302） |
 | 共通エラー | GET | `/Error/{statusCode}` | `ErrorController.Index` | 匿名可 |
+| ログアウト | POST | `/Identity/Account/Logout` | `Areas.Identity.AccountController.Logout` | 匿名可（antiforgery 必須。`returnUrl` はローカルのみ、既定は `/`） |
 | MyPage | GET | `/MyPage` | `MyPageController.Index` | 認証必須 |
 | プロフィール編集 | GET/POST | `/Account/EditProfile` | `AccountController.EditProfile` | 認証必須 |
 | パスワード変更 | GET/POST | `/Identity/Account/Manage/ChangePassword` | Identity 標準 | 認証必須 |
@@ -189,6 +190,8 @@
 | 通院履歴削除 | POST | `/Visits/Delete/{visitId}` | `VisitsController.Delete` | 認証必須（所有者のみ） |
 | 画像配信（統一） | GET | `/images/{imageId}` | `ImagesController.Get` | 認証必須 |
 
+- ログイン・新規登録（`/Identity/Account/Login`・`/Identity/Account/Register`）、ログアウト、アカウント管理（`/Identity/Account/Manage` 配下）は `Areas/Identity` のコントローラーで提供する。
+- `AddDefaultIdentity` が同梱する Identity UI の既定ページ（Razor Pages）は使わず、Razor Pages をマップしない。上記以外の `/Identity/Account/*`（外部ログイン、二要素認証の設定、パスワードリセット、メール確認など）は 404 とする（要件 FR-080）。
 
 ### 3.2 管理者（Admin Area）
 | 機能 | HTTP | URL | Controller / Action | 認可 |

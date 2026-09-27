@@ -409,6 +409,7 @@ bash ./scripts/local-smoke.sh --use-existing-app --base-url 'https://pethealth.e
 - セキュリティヘッダとして `Content-Security-Policy`、`Referrer-Policy`、`Permissions-Policy`、`X-Content-Type-Options`、`X-Frame-Options` を付与します
 - CSP の `script-src` は `'self'` のみです。確認ダイアログや自動送信は inline handler ではなく、`data-confirm` / `data-autosubmit` 属性 + `site.js` のイベントデリゲーションで実装しています
 - CSP の `style-src` は、既存 Razor に style 属性が残っているため `'unsafe-inline'` を許可しています
+- ASP.NET Core Identity UI の既定ページ（英語）は公開しません。ログイン・新規登録・ログアウト・アカウント管理は `Areas/Identity` のコントローラーで提供し、Razor Pages はマップしないため、それ以外の `/Identity/Account/*`（パスワードリセット、外部ログイン、2FA 設定など）は 404 です
 
 ## ログ既定値
 
