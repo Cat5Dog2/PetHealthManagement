@@ -414,9 +414,20 @@
 | GST-001 | ログイン済み（Guest） | 1) `/Identity/Account/Manage`、`/Identity/Account/Manage/ChangePassword` にアクセス | いずれも403（/Error/403）。Identity UI 既定の `SetPassword` などは IDP-001 のとおり404 | NT |
 | GST-002 | ログイン済み（UserA） | 1) `/Identity/Account/Manage` にアクセス | 200で表示される（ゲスト以外は従来どおり） | NT |
 | GST-003 | ログイン済み（Guest） | 1) `/Account/EditProfile` と `/Account/Delete` を表示 2) 削除を実行 | 1) 200で表示される 2) ゲストと関連データが削除され、`/` へ遷移する | SS/NT/DB |
-| GST-004 | Guest（期限＋猶予5分を過ぎている）、UserA、Guest（期限内） | 1) 自動削除を実行（起動時／5分ごと） | 期限切れのゲストと関連データ（画像ファイルを含む）が削除され、UserAと期限内のゲストは残る | DB/LOG |
+| GST-004 | Guest（期限＋猶予5分を過ぎている）、UserA、Guest（期限内） | 1) DB を利用する画面へアクセス 2) バックグラウンド整理の完了を待つ | 期限切れのゲストと関連データ（画像ファイルを含む）が削除され、UserAと期限内のゲストは残る | DB/LOG |
 | GST-005 | Guest（期限切れ）、`GuestLogin:CleanupEnabled=false` | 1) アプリを起動する | 自動削除は実行されない | DB/LOG |
 | GST-006 | Guest | 1) ゲストログインから8時間後に保護URLへアクセス | Cookieが失効しており、Loginへ302リダイレクトされる | NT |
+| GST-007 | 自動整理有効、利用者からの DB アクセスなし | 1) アプリを起動 2) トップの匿名表示と `/health` だけを利用 3) 5分以上経過 | ゲスト整理による SQL は発行されず、DB の自動休止を妨げない | DB/LOG |
+| GST-008 | 整理実行中または整理完了から5分未満 | 1) DB を利用するリクエストを並行で送る 2) 整理完了から5分後、DB を再度利用する | 実行中・5分未満には追加の整理を予約しない。5分経過だけでは実行せず、次の DB 利用を契機に整理する | DB/LOG |
+
+---
+
+## 共通：生存監視（`GET /health`）
+
+| No | 前提 | 手順 | 期待結果 | 証跡 |
+|---|---|---|---|---|
+| HLT-001 | 認証サービス・DB を利用できない状態 | 1) HTTPS で `/health` にアクセス | 200、`text/plain` の `Healthy`、`Cache-Control: no-store`。認証・DB を実行しない | NT/LOG |
+| HLT-002 | Azure SQL が休止できる構成、利用者・DB ツールの接続なし | 1) `/health` のみへアクセス 2) 自動休止の遅延と状態反映を待つ | DB は Paused となり、監視リクエストで再開しない。確認は実環境で行う | DB/LOG |
 
 ---
 

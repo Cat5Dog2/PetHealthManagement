@@ -60,6 +60,7 @@
   - Azure SQL Database では single database が基本のデプロイ選択肢で、Microsoft は vCore-based の購入モデルを推奨している。
   - ポートフォリオ用途では、初回接続の再開待ちよりも月額コスト抑制を優先する。
 - 将来、コスト最適化や利用状況に応じて General Purpose Provisioned / elastic pool / zone redundancy を再評価できる前提とする。
+- 既存無料オファーで超過課金を有効にした環境の費用抑制では、DB を移行せず Serverless を維持する。無人時の定期 DB 接続を廃止し、最小 vCore と自動一時停止までの遅延を抑える。設定・消費量確認の正本は README の「既存DBを維持して費用を抑える運用」とする。無料枠内への収束は実測で確認する。
 
 #### 1.3.2.1 Azure コスト管理方針
 - Azure リソースを作る前に **Cost Management の Budget Alert** を作成する。
@@ -755,12 +756,18 @@ public class HealthLogEditViewModel
 - 画像削除失敗はログ、DB削除は継続
 
 ### 10.5 期限切れゲストの自動削除
-- `GuestAccountCleanupWorker`（`BackgroundService`）が、起動時と 5 分ごと（`PeriodicTimer`）に `GuestAccountCleanupService` を実行する。`GuestLogin:CleanupEnabled` が false の場合は実行しない。
+- HTTP リクエスト内で EF Core が DB 接続を閉じたとき、`GuestAccountCleanupConnectionInterceptor` が `GuestAccountCleanupQueue` に通知する。`GuestAccountCleanupWorker`（`BackgroundService`）は通知を待機し、`GuestAccountCleanupService` を実行する。起動時の実行と定期ポーリングは行わない。`GuestLogin:CleanupEnabled` が false の場合は通知・実行とも行わない。
+- キューは最大 1 件で、整理待機中・実行中の通知はまとめる。整理完了後は 5 分間通知を受け付けず、次の HTTP リクエストによる DB 利用まで再実行しない。DB 接続失敗時も定期再試行せず、次の対象 DB 利用時に再試行する。バックグラウンド整理自身や migration/seed の接続は通知しない。
 - 対象：claim `pethealth:guest-expires-at` の期限に猶予 5 分を加えた時刻を過ぎたゲスト。1 回に最大 50 件（期限の古い順）。
   - Admin ロールを持つユーザーと、期限を読めない claim のユーザーは削除しない（後者は警告ログ）。
 - 1 件ずつ別の DI スコープで `IUserDataDeletionService.DeleteUserAsync` を呼び、ユーザー自身の削除（10.2）と同じ内容を物理削除する。claim は DB のカスケードで削除される。
   - 1 件ごとに例外をログに残して次へ進む（空の catch は作らない）。スコープを分けるため、失敗したユーザーの変更追跡が次のユーザーの保存に混ざらない。
-- App Service Free F1 はアイドル時に停止するため、削除は次にアプリが起動しているときに行われる。認証 Cookie は期限で失効するため、期限後にゲストとして操作されることはない。
+- DB を利用しない期間の削除は次の DB 利用後に行う。認証 Cookie は期限で失効するため、期限後にゲストとして操作されることはない。
+
+### 10.6 生存監視
+- `GET /health` は `200`、`text/plain` の `Healthy`、`Cache-Control: no-store` を返す。
+- ルーティングで `ShortCircuit` し、認証 Cookie の検証・DB 接続・ゲスト整理を行わない。既存の HTTPS リダイレクトとセキュリティヘッダーは適用する。
+- アプリプロセスの生存だけを確認するエンドポイントであり、DB や画像ストレージの可用性を保証しない。ログイン・一覧・画像配信の確認は既存のデプロイ後 smoke で別途行う。
 
 ---
 

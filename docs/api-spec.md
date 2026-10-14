@@ -225,6 +225,13 @@
 
 ---
 
+### 1.14 生存監視 `GET /health`
+- 認証不要。`200 OK`、`Content-Type: text/plain; charset=utf-8`、本文 `Healthy`、`Cache-Control: no-store` を返す。
+- ルーティング後に短絡し、Cookie 検証・DB 接続・ゲスト整理を実行しない。既存の HTTPS リダイレクトとセキュリティヘッダーは適用する。
+- アプリプロセスの生存確認用であり、DB・画像ストレージの可用性やログインの成否は検査しない。
+
+---
+
 ## 2. ルート一覧（サマリ）
 
 > Controller/Action 対応は基本設計の URL 一覧に準拠。
@@ -233,6 +240,7 @@
 | 機能 | HTTP | URL | 認可 |
 |---|---:|---|---|
 | トップ | GET | `/` | 匿名可（ログイン済みは `/MyPage` へ 302） |
+| 生存監視 | GET | `/health` | 匿名可（Cookie 検証・DB 接続なし） |
 | エラーページ | GET | `/Error/{statusCode}` | 匿名可 |
 | ログアウト | POST | `/Identity/Account/Logout` | 匿名可（antiforgery 必須） |
 | MyPage | GET | `/MyPage` | 認証必須 |

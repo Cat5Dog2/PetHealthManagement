@@ -434,8 +434,9 @@
 - 決定事項：ペット一覧は `OwnerId == userId || IsPublic` で他の利用者の公開ペットを表示するため、**ゲストのペットは常に非公開**にする。`Pets` の Create / Edit の POST ではゲストの `IsPublic` を false に固定し、`_PetForm` ではゲストに公開チェックボックスの代わりに説明文を表示する。
 - 決定事項：`/Identity/Account/Manage` 配下（メールアドレス・パスワード・2FA・個人データなど）はゲストに **403** を返す。ゲスト claim を持たないことを条件にする認可ポリシー `NonGuest` を `ManageController` に適用する。Identity UI 既定の Razor Pages は公開しないため（10.2）、`SetPassword` などの既定ページはゲストを含め誰にも 404 になる。`_LoginPartial` の「アカウント」リンクと MyPage の「パスワード変更」はゲストに表示しない。`/Account/EditProfile` と `/Account/Delete`（本人による削除。パスワード不要）はゲストも使える。
 - 決定事項：Home（未ログイン時）と Login に「ゲストとして試す」ボタン（POST フォーム、「登録不要」「8時間後に自動削除」の注記）を置く。ポートフォリオのデモリンクはサイトのトップを指すため、Home のボタンを主導線とする。共通レイアウトにゲスト用バナーを表示し、削除予定時刻を日本時間（`TimeSpan.FromHours(9)`）で示す。CSP は `script-src 'self'` のみのため、inline の JavaScript は使わない。
-- 決定事項：期限切れゲストは `BackgroundService` で起動時と 5 分ごと（`PeriodicTimer`）に削除する。期限に猶予 5 分を加えた時刻を過ぎたゲストを、1 回に最大 50 件、1 件ずつ別のスコープで `IUserDataDeletionService.DeleteUserAsync` により削除する（関連データ・画像ファイルを含む。claim は DB のカスケードで消える）。1 件ごとに例外をログに残して処理を続ける。Admin ロールを持つユーザーと、期限を読めない claim のユーザーは削除しない。
-- 決定事項：App Service Free F1 はアイドル時に停止するため、期限切れゲストの削除は次にアプリが起動しているときに行われる。認証 Cookie は期限で失効するため、削除前でも期限後にゲストとして操作されることはない。
+- 決定事項（2026-10-14、既存DBを維持して料金を抑制）：期限切れゲストは、HTTP リクエストによる実際の DB 利用後に `BackgroundService` で整理する。EF Core の接続クローズ時に通知し、最大 5 分に 1 回・待機キューは 1 件とする。起動時の整理と DB 定期ポーリングは行わず、整理自身の DB 接続や migration/seed は通知元にしない。期限に猶予 5 分を加えた時刻を過ぎたゲストを、1 回に最大 50 件、1 件ずつ別のスコープで `IUserDataDeletionService.DeleteUserAsync` により削除する（関連データ・画像ファイルを含む。claim は DB のカスケードで消える）。1 件ごとに例外をログに残して処理を続ける。Admin ロールを持つユーザーと、期限を読めない claim のユーザーは削除しない。
+- 決定事項：DB を利用しない期間の期限切れゲストは、次の DB 利用後に整理する。認証 Cookie は 8 時間の期限で失効するため、物理削除が遅れても期限後にゲストとして操作されることはない。
+- 決定事項：監視用の `GET /health` は匿名で 200・`text/plain` の `Healthy` を返す。ルーティング後に短絡し、Cookie 検証・DB 接続・ゲスト整理を行わない。Azure SQL の既存無料オファーと超過課金設定は維持し、最小 vCore・自動休止・接続ツールの切断・消費量の監視で費用を抑える。無料枠内を保証する仕様ではない。
 - 決定事項（要確認）：レート制限の単位は `HttpContext.Connection.RemoteIpAddress`。アプリは転送ヘッダー（`X-Forwarded-For`）を処理していないため、App Service 上では前段のロードバランサーの IP になり、全利用者で 1 つの枠を共有する可能性がある。本番での値を確認し、必要なら `ASPNETCORE_FORWARDEDHEADERS_ENABLED` の設定などを別タスクで判断する。
 - [ ] **第2段階以降の候補**：健康ログを使った分析画面、予定を使った月間カレンダー画面、設定画面の拡張（通知/バックアップ/規約/アプリ情報）
 - [ ] 監査ログ（Admin削除など）

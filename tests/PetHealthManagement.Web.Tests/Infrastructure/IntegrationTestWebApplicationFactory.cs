@@ -41,7 +41,7 @@ internal sealed class IntegrationTestWebApplicationFactory : WebApplicationFacto
                 options.RootPath = _storageRoot.RootPath;
             });
 
-            // 自動削除は起動時と周期で走るため、テストのデータを消さないよう止める（削除処理は個別のテストで検証する）
+            // DB 利用後の自動削除がテストデータを消さないよう止める（削除処理は個別に検証する）
             services.PostConfigure<GuestLoginOptions>(options =>
             {
                 options.Enabled = GuestLoginEnabled;
