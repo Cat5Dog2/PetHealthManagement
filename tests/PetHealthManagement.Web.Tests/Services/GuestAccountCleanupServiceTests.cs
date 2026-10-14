@@ -147,13 +147,37 @@ public sealed class GuestAccountCleanupServiceTests
     }
 
     [Fact]
-    public async Task CleanupWorker_DeletesExpiredGuestsOnStartup()
+    public async Task CleanupWorker_DoesNotAccessDatabase_WhenIdle()
+    {
+        var queryCounter = new QueryCountingDbCommandInterceptor();
+        await using var context = await CleanupTestContext.CreateAsync(queryCounter);
+        queryCounter.Reset();
+        using var cancellation = new CancellationTokenSource();
+        using var worker = new TestCleanupWorker(
+            context.CleanupService,
+            new GuestAccountCleanupQueue(context.TimeProvider, Options.Create(new GuestLoginOptions())),
+            Options.Create(new GuestLoginOptions { CleanupEnabled = true }),
+            context.TimeProvider,
+            new CleanupRunLogger());
+
+        var execution = worker.RunAsync(cancellation.Token);
+        context.TimeProvider.UtcNow += TimeSpan.FromDays(1);
+        cancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => execution);
+
+        Assert.Equal(0, queryCounter.ExecutedCommandCount);
+    }
+
+    [Fact]
+    public async Task CleanupWorker_DeletesExpiredGuests_AfterDatabaseActivity()
     {
         await using var context = await CleanupTestContext.CreateAsync();
         var expiredGuestId = await context.CreateGuestAsync(ExpiredCreatedAt);
         var workerLogger = new CleanupRunLogger();
+        var cleanupQueue = new GuestAccountCleanupQueue(context.TimeProvider, Options.Create(new GuestLoginOptions()));
         using var worker = new GuestAccountCleanupWorker(
             context.CleanupService,
+            cleanupQueue,
             Options.Create(new GuestLoginOptions { CleanupEnabled = true }),
             context.TimeProvider,
             workerLogger);
@@ -161,6 +185,7 @@ public sealed class GuestAccountCleanupServiceTests
         await worker.StartAsync(CancellationToken.None);
         try
         {
+            Assert.True(cleanupQueue.TryRequestCleanup());
             var message = await workerLogger.FirstRun.Task.WaitAsync(TimeSpan.FromSeconds(30));
             Assert.StartsWith("Expired guest cleanup completed.", message, StringComparison.Ordinal);
         }
@@ -182,6 +207,7 @@ public sealed class GuestAccountCleanupServiceTests
         var workerLogger = new CleanupRunLogger();
         using var worker = new GuestAccountCleanupWorker(
             context.CleanupService,
+            new GuestAccountCleanupQueue(context.TimeProvider, Options.Create(new GuestLoginOptions { CleanupEnabled = false })),
             Options.Create(new GuestLoginOptions { CleanupEnabled = false }),
             context.TimeProvider,
             workerLogger);
@@ -359,6 +385,17 @@ public sealed class GuestAccountCleanupServiceTests
         {
             return UtcNow;
         }
+    }
+
+    private sealed class TestCleanupWorker(
+        GuestAccountCleanupService cleanupService,
+        GuestAccountCleanupQueue cleanupQueue,
+        IOptions<GuestLoginOptions> options,
+        TimeProvider timeProvider,
+        ILogger<GuestAccountCleanupWorker> logger)
+        : GuestAccountCleanupWorker(cleanupService, cleanupQueue, options, timeProvider, logger)
+    {
+        public Task RunAsync(CancellationToken cancellationToken) => ExecuteAsync(cancellationToken);
     }
 
     // ワーカーの 1 回目の実行結果（完了または失敗のログ）を待てるようにする

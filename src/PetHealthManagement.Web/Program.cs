@@ -22,14 +22,20 @@ builder.WebHost.ConfigureKestrel(options =>
 {
     options.Limits.MaxRequestBodySize = UploadRequestLimits.MaxMultipartRequestBodySizeBytes;
 });
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddSingleton<GuestAccountCleanupQueue>();
+builder.Services.AddSingleton<GuestAccountCleanupConnectionInterceptor>();
+builder.Services.AddDbContext<ApplicationDbContext>((services, options) =>
+{
     options.UseSqlServer(connectionString, sqlOptions =>
     {
         sqlOptions.EnableRetryOnFailure(
             maxRetryCount: 5,
             maxRetryDelay: TimeSpan.FromSeconds(30),
             errorNumbersToAdd: null);
-    }));
+    });
+    options.AddInterceptors(services.GetRequiredService<GuestAccountCleanupConnectionInterceptor>());
+});
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 builder.Services.AddHsts(options =>
 {
@@ -225,6 +231,14 @@ app.UseRateLimiter();
 app.UseAuthorization();
 
 app.MapStaticAssets();
+
+// 監視リクエストは認証や DB を実行せず、SQL の休止状態を維持する。
+app.MapGet("/health", (HttpContext context) =>
+    {
+        context.Response.Headers.CacheControl = "no-store";
+        return Results.Text("Healthy");
+    })
+    .ShortCircuit();
 
 app.MapControllerRoute(
     name: "identity_manage",

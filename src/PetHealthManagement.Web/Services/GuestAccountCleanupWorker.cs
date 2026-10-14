@@ -4,6 +4,7 @@ namespace PetHealthManagement.Web.Services;
 
 public class GuestAccountCleanupWorker(
     GuestAccountCleanupService cleanupService,
+    GuestAccountCleanupQueue cleanupQueue,
     IOptions<GuestLoginOptions> options,
     TimeProvider timeProvider,
     ILogger<GuestAccountCleanupWorker> logger) : BackgroundService
@@ -18,13 +19,18 @@ public class GuestAccountCleanupWorker(
             return;
         }
 
-        // 起動時にも実行する。App Service Free F1 はアイドル時に停止するため、停止中に期限を迎えたゲストを次の起動で削除する。
-        using var timer = new PeriodicTimer(Interval, timeProvider);
-        do
+        // DB 利用がない間は待機し、Azure SQL の自動休止を妨げない。
+        await foreach (var _ in cleanupQueue.ReadAllAsync(stoppingToken))
         {
-            await RunOnceAsync(stoppingToken);
+            try
+            {
+                await RunOnceAsync(stoppingToken);
+            }
+            finally
+            {
+                cleanupQueue.CompleteCleanup();
+            }
         }
-        while (await timer.WaitForNextTickAsync(stoppingToken));
     }
 
     private async Task RunOnceAsync(CancellationToken stoppingToken)
@@ -43,7 +49,7 @@ public class GuestAccountCleanupWorker(
         }
         catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
         {
-            // DB に接続できない場合なども、アプリは止めずに次の周期で再試行する
+            // 次の DB 利用時に再試行する。失敗を契機に DB を定期的に起こさない。
             logger.LogError(ex, "Expired guest cleanup failed.");
         }
     }

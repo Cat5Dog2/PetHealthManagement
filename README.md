@@ -67,7 +67,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev-certs.ps1 -Trust
 
 - トップ画面とログイン画面の「ゲストとして試す」から、新規登録なしで利用できます（ポートフォリオの読み手向け）
 - ゲストは有効期間 8 時間の一時ユーザーです。サンプルのペット（こむぎ・ルナ・まめ）と記録を持った状態で始まり、ペットは常に非公開です。アカウント管理（`/Identity/Account/Manage` 配下）は利用できません
-- 期限切れのゲストと関連データ（画像を含む）は、アプリ内のバックグラウンド処理が起動時と 5 分ごとに削除します。App Service Free F1 のアイドル停止中に期限を迎えたゲストは、次にアプリが起動したときに削除されます（認証 Cookie は期限で失効します）
+- 期限切れのゲストと関連データ（画像を含む）は、実際の DB 利用後にバックグラウンドで整理します。整理完了後は少なくとも 5 分間隔を空けます。起動時や無人時の定期 DB 接続は行わず、DB を利用しない期間に期限を迎えたゲストは次の DB 利用後に整理されます（認証 Cookie は 8 時間の期限で失効します）
 - 設定
   - `GuestLogin__Enabled`：`false` にするとボタンを表示せず、`POST /Identity/Account/GuestLogin` は 404 になります（既定 `true`）
   - `GuestLogin__CleanupEnabled`：`false` にすると自動削除を止めます（既定 `true`）
@@ -94,6 +94,30 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev-certs.ps1 -Trust
 - 商用本番や常時安定稼働へ移す場合は、購入モデル **vCore-based**、サービス階層 **General Purpose**、compute model **Provisioned** を再評価します
 - このアプリは単一 DB の ASP.NET Core / EF Core アプリなので、Managed Instance や elastic pool を前提にしません
 - LocalDB と同じ SQL Server 系のため、既存の `UseSqlServer` と migration 運用をそのまま本番へ寄せやすい構成です
+
+### 既存DBを維持して費用を抑える運用
+
+既存の Azure SQL Database で **Continue using database for additional charges** を選んだ後は、無料枠超過時の **Auto-pause the database until next month** に戻せません。毎月の無料枠は残るので、DB・接続先・データを維持したまま、稼働時間と最低コンピューティング使用量を抑えます。以下は Azure Portal で確認・変更する設定であり、アプリのデプロイだけでは反映されません。
+
+| 対象 | 費用を抑える設定・操作 |
+|---|---|
+| SQL Database → コンピューティングとストレージ | General Purpose / Serverless / 無料オファー適用を維持する。最小 vCore は **0.5** を目安に、現在の最大 vCore（初期目安 2）で選べる最小値にする |
+| SQL Database の自動一時停止 | 有効にし、遅延を **15 分**（画面で選べる最短値）にする。停止までの待ち時間もコンピューティングの消費対象 |
+| App Service → 構成 → 全般設定 | **Always On をオフ**にする。F1 を使う場合は、その後スケールアップから F1 へ変更する |
+| 既存の監視・定期アクセス | DB を使う `/MyPage`・`/Pets`・ログイン等への継続的な監視は避け、監視が必要な場合は **`/health`** を使う。F1 をアイドル停止させる運用では、常時 ping 自体を避ける |
+| SSMS / VS Code / Query editor | 確認が終わったら切断する。オブジェクトエクスプローラー等の接続を残すと SQL の自動一時停止を妨げる場合がある |
+| 接続プール | 接続文字列の **Min Pool Size は 0（既定値）**を維持する。正の値でアイドル接続を常時保持しない |
+
+`/health` はアプリプロセスの生存だけを確認し、DB やストレージの障害検出は行いません。既存のデプロイ後 smoke は維持します。DB が休止すると次のログインや一覧表示に再開待ちが発生します。最小 vCore を下げても最低メモリ分の消費があり、アクセス・保存容量・バックアップが無料枠を超えると既存の設定に従って課金されます。
+
+デプロイ後は次の順で効果を確認します。
+
+1. 通常のログイン・一覧表示・ゲスト利用を確認する。SQL の最小 vCore、自動一時停止の有効化、遅延が意図した設定になっているか確認する。
+2. アプリの利用と DB ツールの接続を終了し、休止遅延と状態反映を待つ。`/health` のみへのアクセスで SQL が **Paused** になり、その状態を維持できるか確認する。
+3. Azure SQL のメトリック **app_cpu_billed**（合計、vCore 秒）と無料枠の **Free amount remaining**、Cost Management のリソース別・日別実績で、変更後の消費を比較する。料金表示には反映遅延があるので、画面更新直後に削減成功とは判断しない。
+4. 休止しない場合は DB のユーザーセッション、外部の監視、接続ツール、バックグラウンド処理、SQL の自動休止を妨げる機能を確認する。実績が予算を超える場合は利用頻度や監視を見直す。既に発生した超過料金は設定変更で消えない。
+
+参照：[無料オファーの制限](https://learn.microsoft.com/ja-jp/azure/azure-sql/database/free-offer)、[Serverless の最小構成・課金・自動休止](https://learn.microsoft.com/ja-jp/azure/azure-sql/database/serverless-tier-overview)。
 - free offer の自動停止や再開待ちがポートフォリオ閲覧に影響する場合は、デモ公開時間帯だけ手動確認するか、有料の安定構成へ切り替えます
 
 ## Azure コスト管理方針
