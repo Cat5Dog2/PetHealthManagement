@@ -7,8 +7,7 @@ using PetHealthManagement.Web.Data;
 using PetHealthManagement.Web.Models;
 using PetHealthManagement.Web.Tests.Infrastructure;
 using PetHealthManagement.Web.ViewModels.Account;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
+using SkiaSharp;
 
 namespace PetHealthManagement.Web.Tests.Integration;
 
@@ -524,10 +523,10 @@ public class ScreenCaseIntegrationTests
 
     private static byte[] CreatePngBytes(int width, int height)
     {
-        using var image = new Image<Rgba32>(width, height, new Rgba32(32, 128, 224));
-        using var stream = new MemoryStream();
-        image.SaveAsPng(stream);
-        return stream.ToArray();
+        using var bitmap = new SKBitmap(width, height);
+        bitmap.Erase(new SKColor(32, 128, 224));
+        using var data = bitmap.Encode(SKEncodedImageFormat.Png, 100);
+        return data.ToArray();
     }
 
     private static async Task<string> ReadDecodedHtmlAsync(HttpResponseMessage response)

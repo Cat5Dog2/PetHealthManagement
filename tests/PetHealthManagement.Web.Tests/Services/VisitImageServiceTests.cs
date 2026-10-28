@@ -6,8 +6,7 @@ using PetHealthManagement.Web.Data;
 using PetHealthManagement.Web.Models;
 using PetHealthManagement.Web.Services;
 using PetHealthManagement.Web.Tests.Infrastructure;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
+using SkiaSharp;
 
 namespace PetHealthManagement.Web.Tests.Services;
 
@@ -307,10 +306,10 @@ public class VisitImageServiceTests
 
     private static IFormFile CreateImageFormFile(string fileName, string contentType)
     {
-        using var image = new Image<Rgba32>(16, 16, Color.CadetBlue);
-        var stream = new MemoryStream();
-        image.SaveAsPng(stream);
-        stream.Position = 0;
+        using var bitmap = new SKBitmap(16, 16);
+        bitmap.Erase(SKColors.CadetBlue);
+        using var data = bitmap.Encode(SKEncodedImageFormat.Png, 100);
+        var stream = new MemoryStream(data.ToArray());
 
         return new FormFile(stream, 0, stream.Length, "NewFiles", fileName)
         {

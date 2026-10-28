@@ -1,12 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using PetHealthManagement.Web.Data;
 using PetHealthManagement.Web.Models;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Formats;
-using SixLabors.ImageSharp.Formats.Jpeg;
-using SixLabors.ImageSharp.Formats.Png;
-using SixLabors.ImageSharp.Formats.Webp;
-using SixLabors.ImageSharp.Processing;
 
 namespace PetHealthManagement.Web.Services;
 
@@ -17,8 +11,6 @@ public class PetPhotoService(
 {
     private const long MaxFileSizeBytes = 2 * 1024 * 1024;
     private const long MaxUserTotalBytes = 100 * 1024 * 1024;
-    private const int MaxEdgePixels = 4096;
-    private const long MaxTotalPixels = 16_777_216;
 
     private static readonly HashSet<string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -104,7 +96,7 @@ public class PetPhotoService(
         try
         {
             await imageStorageService.SaveFormFileToPathAsync(newPhotoFile, originalTempPath, cancellationToken);
-            var processed = await ProcessAndValidateImageAsync(originalTempPath, processedTempPath, cancellationToken);
+            var processed = await ImageUploadProcessor.ProcessAsync(originalTempPath, processedTempPath, cancellationToken);
             if (!processed.Succeeded)
             {
                 ImageOperationLogging.LogUploadRejected(
@@ -225,18 +217,6 @@ public class PetPhotoService(
 
             return PetPhotoUpdateResult.Success();
         }
-        catch (SixLabors.ImageSharp.UnknownImageFormatException)
-        {
-            ImageOperationLogging.LogUploadRejected(
-                logger,
-                "PetPhoto",
-                ownerId,
-                "Pet",
-                pet.Id,
-                ImageOperationLogging.Reasons.UnsupportedImageData,
-                newPhotoFile);
-            return PetPhotoUpdateResult.Fail(ImageUploadErrorMessages.UnsupportedFormat);
-        }
         finally
         {
             TryDeleteTemporaryFile(originalTempPath);
@@ -294,80 +274,6 @@ public class PetPhotoService(
         }
     }
 
-    private static async Task<ImageProcessingResult> ProcessAndValidateImageAsync(
-        string originalTempPath,
-        string processedTempPath,
-        CancellationToken cancellationToken)
-    {
-        await using var originalStream = new FileStream(originalTempPath, FileMode.Open, FileAccess.Read, FileShare.Read);
-
-        var detectedFormat = await Image.DetectFormatAsync(originalStream, cancellationToken);
-        if (detectedFormat is null)
-        {
-            return ImageProcessingResult.Fail(ImageUploadErrorMessages.UnsupportedFormat);
-        }
-
-        var mappedFormat = MapFormat(detectedFormat);
-        if (mappedFormat is null)
-        {
-            return ImageProcessingResult.Fail(ImageUploadErrorMessages.UnsupportedFormat);
-        }
-
-        var format = mappedFormat.Value;
-
-        originalStream.Position = 0;
-        using var image = await Image.LoadAsync(originalStream, cancellationToken);
-        image.Mutate(x => x.AutoOrient());
-        image.Metadata.ExifProfile = null;
-
-        if (image.Width > MaxEdgePixels || image.Height > MaxEdgePixels)
-        {
-            return ImageProcessingResult.Fail(ImageUploadErrorMessages.DimensionsExceeded);
-        }
-
-        var totalPixels = (long)image.Width * image.Height;
-        if (totalPixels > MaxTotalPixels)
-        {
-            return ImageProcessingResult.Fail(ImageUploadErrorMessages.DimensionsExceeded);
-        }
-
-        await using var processedStream = new FileStream(processedTempPath, FileMode.Create, FileAccess.Write, FileShare.None);
-        await image.SaveAsync(processedStream, format.Encoder, cancellationToken);
-
-        var processedSize = new FileInfo(processedTempPath).Length;
-        if (processedSize <= 0)
-        {
-            return ImageProcessingResult.Fail(ImageUploadErrorMessages.SaveFailed);
-        }
-
-        if (processedSize > MaxFileSizeBytes)
-        {
-            return ImageProcessingResult.Fail(ImageUploadErrorMessages.FileTooLarge);
-        }
-
-        return ImageProcessingResult.Success(format.Extension, format.ContentType, processedSize);
-    }
-
-    private static (string Extension, string ContentType, IImageEncoder Encoder)? MapFormat(IImageFormat detectedFormat)
-    {
-        if (detectedFormat.Name.Equals("JPEG", StringComparison.OrdinalIgnoreCase))
-        {
-            return (".jpg", "image/jpeg", new JpegEncoder { Quality = 90 });
-        }
-
-        if (detectedFormat.Name.Equals("PNG", StringComparison.OrdinalIgnoreCase))
-        {
-            return (".png", "image/png", new PngEncoder());
-        }
-
-        if (detectedFormat.Name.Equals("WEBP", StringComparison.OrdinalIgnoreCase))
-        {
-            return (".webp", "image/webp", new WebpEncoder());
-        }
-
-        return null;
-    }
-
     private static void TryDeleteTemporaryFile(string path)
     {
         try
@@ -381,14 +287,5 @@ public class PetPhotoService(
         {
             // Best effort cleanup.
         }
-    }
-
-    private sealed record ImageProcessingResult(bool Succeeded, string? ErrorMessage, string? Extension, string? ContentType, long SizeBytes)
-    {
-        public static ImageProcessingResult Success(string extension, string contentType, long sizeBytes)
-            => new(true, null, extension, contentType, sizeBytes);
-
-        public static ImageProcessingResult Fail(string errorMessage)
-            => new(false, errorMessage, null, null, 0);
     }
 }
