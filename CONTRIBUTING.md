@@ -132,4 +132,4 @@ Windows の場合:
 - `.github/dependabot.yml` で Dependabot を運用する
 - 自動更新の対象は `NuGet`、`GitHub Actions`、`.NET SDK (global.json)` とする
 - Dependabot PR も通常の PR と同様に CI を通してレビューする
-- `dotnet-tools.json` のような現在の自動更新対象外ファイルは、必要に応じて手動更新する
+- ローカルツール（`dotnet-ef` など）のマニフェストは `.config/dotnet-tools.json` に置く。Dependabot はこのパスしか読まないため、リポジトリ直下に `dotnet-tools.json` を作らない（`dotnet new tool-manifest` は既定で直下に作るので `-o .config` を付ける）

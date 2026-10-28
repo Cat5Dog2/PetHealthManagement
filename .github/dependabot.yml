@@ -2,9 +2,10 @@ version: 2
 updates:
   - package-ecosystem: "nuget"
     directories:
-      # リポジトリ直下には CPM の Directory.Packages.props と、ローカルツール
-      # マニフェスト dotnet-tools.json がある。"/" が無いとどちらも探索対象外になる。
-      # dotnet-ef が 10.0.9 に取り残されていたのはこれが原因。
+      # リポジトリ直下には CPM の Directory.Packages.props がある。"/" が無いと探索対象外になる。
+      # ローカルツールマニフェストは必ず .config/dotnet-tools.json に置く。Dependabot は
+      # このパスしか探さず、直下の dotnet-tools.json は "/" を足しても読まない
+      # （直下に置いていた間、dotnet-ef は一度も更新 PR に含まれなかった）。
       - "/"
       - "/src/**"
       - "/tests/**"

@@ -409,11 +409,11 @@ traces
 ## 依存関係更新の運用
 
 - `.github/dependabot.yml` で Dependabot version updates を有効にしています
-- `NuGet` は `src/**` と `tests/**` を毎週月曜 09:00 JST に確認します
+- `NuGet` はリポジトリ直下、`src/**`、`tests/**` を毎週月曜 09:00 JST に確認します
 - `GitHub Actions` は毎週月曜 09:30 JST に確認します
 - `.NET SDK` は `global.json` を毎月 10:00 JST に確認します
 - Dependabot PR は `main` 向けに作成される前提です。通常の CI が通ることを確認してからマージします
-- 現在の自動更新対象は `.csproj`、GitHub Actions、`global.json` です。`dotnet-tools.json` の更新は必要に応じて手動で確認します
+- 現在の自動更新対象は `Directory.Packages.props`、`.config/dotnet-tools.json`、GitHub Actions、`global.json` です。ツールマニフェストを直下の `dotnet-tools.json` に置くと Dependabot が読まないため、`.config/` から動かさないでください
 
 ## ローカル smoke 確認
 
