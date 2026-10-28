@@ -29,8 +29,12 @@
     <PackageVersion Include="Azure.Monitor.OpenTelemetry.AspNetCore" Version="1.6.0" />
   </ItemGroup>
 
+  <!-- SkiaSharp と NativeAssets は版が一致しないと実行時にネイティブライブラリの読み込みで失敗する。
+       同時に上げる役目は .github/dependabot.yml の skiasharp グループが担う。
+       Linux 用（本番の App Service / CI）は SkiaSharp 本体に含まれないため明示的に参照する。 -->
   <ItemGroup Label="Application">
-    <PackageVersion Include="SixLabors.ImageSharp" Version="3.1.12" />
+    <PackageVersion Include="SkiaSharp" Version="4.153.1" />
+    <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.153.1" />
   </ItemGroup>
 
   <!-- 推移的依存の脆弱性を、直接参照して修正版に引き上げる。

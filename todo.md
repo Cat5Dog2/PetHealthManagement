@@ -50,7 +50,9 @@
 - [x] **CIの段階導入**：最初は「ビルド + 重要シナリオ最小テスト（認証/秘匿/画像）」を必須チェックにする
 - [x] tool manifest + `./scripts/format.sh`（Windowsは `./scripts/format.ps1`）を有効化
 - [x] 依存関係更新の運用（例：Dependabot/Renovate。必要なら）
-- 決定事項：画像処理ライブラリは `SixLabors.ImageSharp` から `SkiaSharp`（MIT）へ移行する（2026-10 判断。2026-09 の「3.x に留める」判断を改める）。3.1.12 には 2026-10-07 公開の脆弱性が 6 件（high 4・medium 2）ある。修正版の 3.2.0 / 4.1.2 はどちらもライセンスキーがないと Release ビルドが失敗する（3.2.0 で確認済み。CI は Debug ビルドのため警告止まりで気付けない）。キーは年次更新で、期限が切れるとビルドできなくなる。移行が終わるまでは 3.1.12 に留め、Dependabot の ImageSharp 更新 PR は取り込まない。なお本アプリは JPEG/PNG/WebP 以外をデコード前に弾き、TIFF のエンコードや HistogramEqualization も使っていないため、6 件のうち到達し得るのは ICC プロファイル解析（medium、メモリ確保による DoS）のみと評価している。
+- 決定事項：画像処理ライブラリは `SkiaSharp`（MIT）を使う（2026-10 に `SixLabors.ImageSharp` 3.1.12 から移行。2026-09 の「3.x に留める」判断は廃止）。移行の理由：3.1.12 には 2026-10-07 公開の脆弱性が 6 件（high 4・medium 2）あり、修正版の 3.2.0 / 4.1.x はどちらもライセンスキーがないと Release ビルドが失敗する（3.2.0 で確認済み。CI は Debug ビルドのため警告止まりで気付けない）。キーは年次更新で、期限が切れるとビルドできなくなる。
+  - 処理は `ImageUploadProcessor` に集約する。寸法はヘッダだけで判定してからデコードし、途中で切れたデータも拒否する。埋め込みの色プロファイルは sRGB に変換して捨て、EXIF・XMP などのメタデータは書き出さない。アニメーション WebP/PNG は先頭フレームだけを残す。
+  - `SkiaSharp` と `SkiaSharp.NativeAssets.Linux.NoDependencies` は版が一致しないと実行時に失敗するため、Dependabot の `skiasharp` グループで同時に上げる。
 
 > 参考：ローカルの品質ゲート（build/test/format）は `CONTRIBUTING.md` に明文化済み。
 

@@ -8,8 +8,7 @@ using PetHealthManagement.Web.Models;
 using PetHealthManagement.Web.Services;
 using PetHealthManagement.Web.Tests.Infrastructure;
 using PetHealthManagement.Web.ViewModels.Visits;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
+using SkiaSharp;
 
 namespace PetHealthManagement.Web.Tests.Integration;
 
@@ -303,10 +302,10 @@ public class ImageUploadIntegrationTests
 
     private static byte[] CreatePngBytes(int width, int height)
     {
-        using var image = new Image<Rgba32>(width, height, Color.CadetBlue);
-        using var stream = new MemoryStream();
-        image.SaveAsPng(stream);
-        return stream.ToArray();
+        using var bitmap = new SKBitmap(width, height);
+        bitmap.Erase(SKColors.CadetBlue);
+        using var data = bitmap.Encode(SKEncodedImageFormat.Png, 100);
+        return data.ToArray();
     }
 
     private sealed record UploadFile(string FileName, string ContentType, byte[] Content);

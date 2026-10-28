@@ -49,12 +49,11 @@ updates:
         update-types:
           - "minor"
           - "patch"
-    ignore:
-      # ImageSharp 4 からはライセンスキーの設定を求められる（未設定だとビルドで警告）。
-      # 3.x に留める判断は todo.md（0.2）を参照。3.x で直らない脆弱性が出たら見直す。
-      - dependency-name: "SixLabors.ImageSharp"
-        update-types:
-          - "version-update:semver-major"
+      # SkiaSharp 本体と NativeAssets は版が一致しないと実行時に失敗する。
+      # 片方だけの PR が出ないよう、major も含めて必ず 1 本にまとめる（update-types で絞らない）。
+      skiasharp:
+        patterns:
+          - "SkiaSharp*"
 
   - package-ecosystem: "github-actions"
     directory: "/"
