@@ -18,6 +18,17 @@ updates:
     # 枠が埋まると更新 PR の作成が次回以降に先送りされ、しかもそれが通知されない。
     # 実際 EFCore.SqlServer 等の 10.0.10 は長期間 PR 化されていなかった。
     open-pull-requests-limit: 10
+    # 公開直後の版は 7 日寝かせてから PR にする（取り下げられる版や、乗っ取られた版を避ける）。
+    # 既定の 3 日には頼らない。SkiaSharp 4.154.0 は公開から 2.5 時間で PR になった（#180）。
+    # .NET の 10.0.x トレインだけは待たせない。毎月のセキュリティ修正であり、このリポジトリは
+    # Dependabot security updates が無効なので、脆弱性の修正もこの版更新でしか届かない。
+    cooldown:
+      default-days: 7
+      exclude:
+        - "Microsoft.AspNetCore.*"
+        - "Microsoft.EntityFrameworkCore.*"
+        - "dotnet-ef"
+        - "System.Security.Cryptography.Pkcs"
     commit-message:
       prefix: "deps"
       include: "scope"
@@ -81,6 +92,7 @@ updates:
       timezone: "Asia/Tokyo"
     target-branch: "main"
     open-pull-requests-limit: 1
+    # cooldown は付けない。SDK の更新は毎月のセキュリティ修正なので、nuget の .NET トレインと同じく待たせない。
     commit-message:
       prefix: "deps"
       include: "scope"
