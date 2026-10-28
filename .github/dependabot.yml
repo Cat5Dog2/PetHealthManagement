@@ -23,12 +23,13 @@ updates:
     groups:
       # ASP.NET Core と EF Core は同一トレイン（10.0.x）で同時にリリースされる。
       # PR が分かれると片方だけマージされてバージョンが割れるため 1 本にまとめる。
-      # dotnet-ef も同じトレインなので同居させる。
+      # dotnet-ef と、脆弱性対策で直接参照している Pkcs も同じトレインなので同居させる。
       aspnetcore-efcore:
         patterns:
           - "Microsoft.AspNetCore.*"
           - "Microsoft.EntityFrameworkCore.*"
           - "dotnet-ef"
+          - "System.Security.Cryptography.Pkcs"
         update-types:
           - "minor"
           - "patch"

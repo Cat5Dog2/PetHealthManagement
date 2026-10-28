@@ -50,7 +50,7 @@
 - [x] **CIの段階導入**：最初は「ビルド + 重要シナリオ最小テスト（認証/秘匿/画像）」を必須チェックにする
 - [x] tool manifest + `./scripts/format.sh`（Windowsは `./scripts/format.ps1`）を有効化
 - [x] 依存関係更新の運用（例：Dependabot/Renovate。必要なら）
-- 決定事項：`SixLabors.ImageSharp` は 3.x に留め、Dependabot のメジャー更新は無視する（`.github/dependabot.yml` の `ignore`。2026-09 判断）。4.x はライセンスキーの設定を求める（未設定だとビルドで警告し、取得を促す）。一方、3.1.12 には既知の脆弱性がない（GitHub Advisory・`dotnet list package --vulnerable` とも 0 件）。3.x で修正されない脆弱性が出たら、ライセンスを用意して 4.x へ移行する。移行時のコード変更は、テストの `new Image<Rgba32>(w, h, Color.X)` 5 箇所を `Color.X.ToPixel<Rgba32>()` にする程度で、その状態で全テストが通ることを確認済み。
+- 決定事項：画像処理ライブラリは `SixLabors.ImageSharp` から `SkiaSharp`（MIT）へ移行する（2026-10 判断。2026-09 の「3.x に留める」判断を改める）。3.1.12 には 2026-10-07 公開の脆弱性が 6 件（high 4・medium 2）ある。修正版の 3.2.0 / 4.1.2 はどちらもライセンスキーがないと Release ビルドが失敗する（3.2.0 で確認済み。CI は Debug ビルドのため警告止まりで気付けない）。キーは年次更新で、期限が切れるとビルドできなくなる。移行が終わるまでは 3.1.12 に留め、Dependabot の ImageSharp 更新 PR は取り込まない。なお本アプリは JPEG/PNG/WebP 以外をデコード前に弾き、TIFF のエンコードや HistogramEqualization も使っていないため、6 件のうち到達し得るのは ICC プロファイル解析（medium、メモリ確保による DoS）のみと評価している。
 
 > 参考：ローカルの品質ゲート（build/test/format）は `CONTRIBUTING.md` に明文化済み。
 
