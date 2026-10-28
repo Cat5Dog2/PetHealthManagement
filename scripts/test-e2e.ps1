@@ -61,14 +61,14 @@ function Get-RepoRoot([string]$StartDir) {
   $dir = Get-Item -LiteralPath $StartDir
   for ($i = 0; $i -lt 9; $i++) {
     $gitDir = Join-Path $dir.FullName '.git'
-    $toolManifest = Join-Path $dir.FullName 'dotnet-tools.json'
-    $legacyToolManifest = Join-Path $dir.FullName '.config/dotnet-tools.json'
+    $toolManifest = Join-Path $dir.FullName '.config/dotnet-tools.json'
+    $rootToolManifest = Join-Path $dir.FullName 'dotnet-tools.json'
     $globalJson = Join-Path $dir.FullName 'global.json'
     $hasSln = @(Get-ChildItem -Path $dir.FullName -Filter *.sln -File -ErrorAction SilentlyContinue).Count -gt 0
 
     if ((Test-Path $gitDir -PathType Container) -or
         (Test-Path $toolManifest -PathType Leaf) -or
-        (Test-Path $legacyToolManifest -PathType Leaf) -or
+        (Test-Path $rootToolManifest -PathType Leaf) -or
         (Test-Path $globalJson -PathType Leaf) -or
         $hasSln) {
       return $dir.FullName
