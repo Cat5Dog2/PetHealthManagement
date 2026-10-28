@@ -33,8 +33,8 @@
        同時に上げる役目は .github/dependabot.yml の skiasharp グループが担う。
        Linux 用（本番の App Service / CI）は SkiaSharp 本体に含まれないため明示的に参照する。 -->
   <ItemGroup Label="Application">
-    <PackageVersion Include="SkiaSharp" Version="4.153.1" />
-    <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.153.1" />
+    <PackageVersion Include="SkiaSharp" Version="4.154.0" />
+    <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.154.0" />
   </ItemGroup>
 
   <!-- 推移的依存の脆弱性を、直接参照して修正版に引き上げる。
